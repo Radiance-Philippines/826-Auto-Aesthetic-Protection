@@ -570,11 +570,6 @@ export const copy = {
         heading: 'What goes on the paint',
         caption: 'A simplified drawing, not to scale.',
     },
-    credits: {
-        title: 'Car photos',
-        note: 'The cars pictured on this site are illustrations: photos from Wikimedia Commons, not cars 826 has worked on. Credits and licences:',
-        none: 'The cars pictured on this site are illustrations, not cars 826 has worked on.',
-    },
     footer: {
         explore: 'Explore',
         branches: 'Branches',

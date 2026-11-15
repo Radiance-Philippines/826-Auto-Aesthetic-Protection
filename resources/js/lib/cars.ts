@@ -257,8 +257,6 @@ export function carAlt(car: Car, view?: string): string {
     return `${colour}${car.make} ${NAMES[car.slug] ?? car.model}, ${view ?? ANGLES[car.angle]}`;
 }
 
-/** Every car pictured, with its credit (the CC0 ones need none, but they're listed too) */
-export const creditedCars = cars;
 
 const car = (slug: string) => carBySlug(slug);
 

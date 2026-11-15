@@ -1,10 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 
-import { cars, creditedCars } from '../lib/cars';
 import { copy } from '../lib/copy';
 import { phone, site } from '../lib/site';
 import { Mark } from './Brand';
-import { ChevronDown, Facebook, Instagram, Mail, Messenger, Phone } from './Icons';
+import { Facebook, Instagram, Mail, Messenger, Phone } from './Icons';
 import { navLinks } from './Navbar';
 
 const footLink = 'press inline-flex min-h-11 items-center gap-2.5 text-text/80 hover:text-text lg:min-h-9';
@@ -103,38 +102,8 @@ export default function Footer() {
                     <p className="py-3">
                         © {new Date().getFullYear()} {site.name}
                     </p>
-                    {cars.length > 0 && <CarCredits />}
                 </div>
             </div>
         </footer>
-    );
-}
-
-/**
- * Where the car pictures come from: they're stand-ins from Wikimedia
- * Commons, credited as their licences ask, on every page.
- */
-function CarCredits() {
-    return (
-        <details className="group md:max-w-xl md:text-right">
-            <summary className="press inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-control font-medium text-text/80 hover:text-text [&::-webkit-details-marker]:hidden">
-                {copy.credits.title}
-                <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="pt-1 pb-3 text-left md:text-right">
-                <p className="leading-relaxed">{creditedCars.length > 0 ? copy.credits.note : copy.credits.none}</p>
-                {creditedCars.length > 0 && (
-                    <ul className="mt-2 space-y-1.5 leading-relaxed">
-                        {creditedCars.map((car) => (
-                            <li key={car.slug}>
-                                <a href={car.source} target="_blank" rel="noopener noreferrer" className="link">
-                                    {car.attribution}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-        </details>
     );
 }
