@@ -41,6 +41,7 @@ const FIELD_STEP: Record<string, StepKey> = {
     phone: 'details',
     email: 'details',
     message: 'details',
+    referral_code: 'details',
     consent: 'details',
 };
 
@@ -435,6 +436,7 @@ export default function Book() {
             phone: draft.phone.trim(),
             email: draft.email.trim() || null,
             message: draft.message.trim() || null,
+            referral_code: site.booking.referral.enabled ? draft.referral.trim() || null : null,
             consent: true,
             fax_number: '',
         });
@@ -770,7 +772,7 @@ export default function Book() {
     }
 
     if (step === 'details') {
-        const { fee, policy } = site.booking;
+        const { fee, policy, referral } = site.booking;
 
         body = (
             <>
@@ -818,6 +820,21 @@ export default function Book() {
                         optional
                         className="sm:col-span-2"
                     />
+                    {referral.enabled && (
+                        <TextField
+                            label={text.details.referral.label}
+                            hint={text.details.referral.hint(referral.discountLabel)}
+                            placeholder={text.details.referral.placeholder}
+                            value={draft.referral}
+                            onChange={(value) => update({ referral: value }, ['referral_code'])}
+                            error={errorFor('referral_code')}
+                            autoComplete="off"
+                            maxLength={40}
+                            name="referral_code"
+                            optional
+                            className="sm:col-span-2"
+                        />
+                    )}
                 </div>
                 {/* People never see this; bots fill it in */}
                 <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">

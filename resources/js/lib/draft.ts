@@ -76,6 +76,8 @@ export type BookDraft = {
     phone: string;
     email: string;
     message: string;
+    /** A friend's referral code (optional; only when the owner has turned referral on) */
+    referral: string;
     consent: boolean;
 };
 
@@ -92,5 +94,6 @@ export const emptyBookDraft = (): BookDraft => ({
     phone: '',
     email: '',
     message: '',
+    referral: '',
     consent: false,
 });

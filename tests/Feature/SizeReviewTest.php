@@ -145,7 +145,7 @@ class SizeReviewTest extends TestCase
 
         $this->getJson("/api/my-bookings/{$booking->id}?key={$booking->access_key}")
             ->assertOk()
-            ->assertJsonPath('booking.price', ['status' => 'set', 'total' => 2500, 'items' => [['name' => 'Exterior detailing', 'price' => 2500]]])
+            ->assertJsonPath('booking.price', ['status' => 'set', 'total' => 2500, 'subtotal' => 2500, 'discount' => null, 'items' => [['name' => 'Exterior detailing', 'price' => 2500]]])
             ->assertJsonPath('booking.vehicle.size', 'Medium');
 
         $mail = new CustomerBookingUpdate($booking->refresh(), 'priced');

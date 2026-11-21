@@ -2,14 +2,18 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Backjob;
+use App\Models\BackjobType;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\BranchBlock;
 use App\Models\Guest;
+use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\Vehicle;
 use App\Models\VehicleSize;
+use App\Support\Referrals;
 use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
@@ -35,6 +39,29 @@ class DemoData extends Command
     public const GUEST_PREFIX = 'demo-';
 
     public const BLOCK_PREFIX = 'Sample:';
+
+    /**
+     * Marks walk-in sample customers (they have no google_id to mark them by).
+     */
+    public const GUEST_NOTE = 'Sample data';
+
+    public const BACKJOB_PREFIX = 'Sample:';
+
+    /**
+     * Made-up warranty months by service (sample only; the owner sets the real ones).
+     *
+     * @var array<string, int>
+     */
+    private const SAMPLE_WARRANTY = [
+        'graphene-coating' => 12,
+        'self-healing-graphene-coating' => 24,
+        'borophene-coating' => 36,
+        'interior-leather-coating' => 12,
+        'full-body-ppf' => 60,
+        'per-panel-ppf' => 36,
+        'windshield-ppf' => 24,
+        'nano-ceramic-tint' => 36,
+    ];
 
     /**
      * Made-up starting prices by service, for the Small class; each bigger
@@ -75,6 +102,7 @@ class DemoData extends Command
 
         $branches = $this->openBranches();
         $this->fillEstimatesAndRates();
+        $this->fillWarrantyAndReferral();
         $this->bookings($branches[0]);
 
         $this->info('Sample data added: daily caps and hours on '.collect($branches)->pluck('name')->implode(', ').', day estimates and prices where blank, and bookings at '.$branches[0]->name.'.');
@@ -86,7 +114,8 @@ class DemoData extends Command
     private function clear(): void
     {
         Booking::query()->where('source', self::SOURCE)->get()->each->delete();
-        $guests = Guest::query()->where('google_id', 'like', self::GUEST_PREFIX.'%');
+        BackjobType::query()->where('name', 'like', self::BACKJOB_PREFIX.'%')->delete();
+        $guests = Guest::query()->where('google_id', 'like', self::GUEST_PREFIX.'%')->orWhere('notes', self::GUEST_NOTE);
         Vehicle::query()->whereIn('guest_id', (clone $guests)->select('id'))->delete();
         $guests->delete();
         BranchBlock::query()->where('title', 'like', self::BLOCK_PREFIX.'%')->delete();
@@ -168,6 +197,36 @@ class DemoData extends Command
         }
     }
 
+    /**
+     * Sample warranty months where blank, sample backjob types, and a
+     * sample referral discount if the owner hasn't set one.
+     */
+    private function fillWarrantyAndReferral(): void
+    {
+        foreach (Service::query()->whereNull('warranty_months')->get() as $service) {
+            if (isset(self::SAMPLE_WARRANTY[$service->slug])) {
+                $service->update(['warranty_months' => self::SAMPLE_WARRANTY[$service->slug]]);
+            }
+        }
+
+        $types = [
+            'Coating peeling' => ['graphene-coating', 'self-healing-graphene-coating', 'borophene-coating', 'interior-leather-coating'],
+            'Tint bubbling' => ['nano-ceramic-tint'],
+            'PPF lifting' => ['full-body-ppf', 'per-panel-ppf', 'windshield-ppf'],
+        ];
+
+        foreach (array_keys($types) as $order => $name) {
+            $type = BackjobType::query()->firstOrCreate(['name' => self::BACKJOB_PREFIX.' '.$name], ['sort_order' => $order]);
+            $type->services()->syncWithoutDetaching(Service::query()->whereIn('slug', $types[$name])->pluck('id'));
+        }
+
+        $referral = ReferralSetting::instance();
+
+        if (! $referral->enabled && ! $referral->hasDiscount()) {
+            $referral->update(['enabled' => true, 'discount_type' => 'fixed', 'discount_value' => 500, 'owner_points' => 100]);
+        }
+    }
+
     private function bookings(Branch $branch): void
     {
         $sizes = $this->sizes();
@@ -202,6 +261,7 @@ class DemoData extends Command
                 'name' => $name,
                 'email' => str($name)->slug().'@example.com',
                 'last_signed_in_at' => now(),
+                'branch_id' => $branch->id,
             ]);
 
             $vehicle = Vehicle::create([
@@ -258,15 +318,22 @@ class DemoData extends Command
                     'category_name' => $service->category?->name,
                     'price' => $size ? $prices->get($service->id) : null,
                     'duration_days' => (int) $service->estimate_days,
+                    'warranty_months' => $service->warranty_months,
                     'sort_order' => $index,
                 ]);
             }
+
+            if ($status === 'exited') {
+                $booking->update(['exited_at' => $day->addDay()->setTime(12, 0)]);
+            }
         }
+
+        $this->walkIn($branch, $services, $sizes);
 
         $home = $services->get('exterior-detailing');
 
         if ($home) {
-            $customer = Guest::create(['google_id' => self::GUEST_PREFIX.'sample-customer-j', 'name' => 'Sample Customer J', 'email' => 'sample-customer-j@example.com', 'last_signed_in_at' => now()]);
+            $customer = Guest::create(['google_id' => self::GUEST_PREFIX.'sample-customer-j', 'name' => 'Sample Customer J', 'email' => 'sample-customer-j@example.com', 'last_signed_in_at' => now(), 'branch_id' => $branch->id]);
             $vehicle = Vehicle::create(['guest_id' => $customer->id, 'year' => 2020, 'model' => 'Nissan Terra', 'type' => 'suv', 'plate_number' => 'SMP'.random_int(1000, 9999)]);
             $booking = Booking::create([
                 'kind' => 'home',
@@ -302,5 +369,68 @@ class DemoData extends Command
             'ends_at' => $day->addDay()->startOfDay(),
             'title' => self::BLOCK_PREFIX.' a big job that day',
         ]);
+    }
+
+    /**
+     * A sample backjob on a finished sample booking, if a sample type covers its service.
+     */
+    private function sampleBackjob(Booking $booking): void
+    {
+        $item = $booking->items()->first();
+        $type = $item?->service?->backjobTypes()->where('name', 'like', self::BACKJOB_PREFIX.'%')->first();
+
+        if ($item && $type) {
+            Backjob::create(['booking_id' => $booking->id, 'booking_item_id' => $item->id, 'backjob_type_id' => $type->id, 'branch_id' => $booking->branch_id, 'noted_on' => today(), 'note' => 'Sample backjob', 'status' => 'open']);
+        }
+    }
+
+    /**
+     * A sample walk-in customer (no Google account) with a finished job that
+     * paid with a referral code from Sample Customer A's code.
+     *
+     * @param  Collection<string, Service>  $services
+     * @param  Collection<int, VehicleSize>  $sizes
+     */
+    private function walkIn(Branch $branch, Collection $services, Collection $sizes): void
+    {
+        $service = $services->get('graphene-coating') ?? $services->first();
+        $size = $sizes->get(1) ?? $sizes->first();
+
+        if (! $service || ! $size) {
+            return;
+        }
+
+        $customer = Guest::create(['name' => 'Sample Walk-in Customer', 'phone' => '0900 000 5555', 'source' => 'walk_in', 'branch_id' => $branch->id, 'notes' => self::GUEST_NOTE]);
+        Referrals::codeFor($customer);
+        $vehicle = Vehicle::create(['guest_id' => $customer->id, 'year' => 2022, 'model' => 'Toyota Raize', 'type' => 'suv', 'plate_number' => 'SMP'.random_int(1000, 9999), 'vehicle_size_id' => $size->id, 'size_reviewed_at' => now()]);
+        $price = (int) ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $size->id)->value('price');
+        $exited = today()->toImmutable()->subDays(10)->setTime(12, 0);
+
+        $booking = Booking::create([
+            'kind' => 'onsite',
+            'source' => self::SOURCE,
+            'status' => 'exited',
+            'branch_id' => $branch->id,
+            'guest_id' => $customer->id,
+            'vehicle_id' => $vehicle->id,
+            'drop_off_on' => $exited->subDays(2),
+            'ready_on' => $exited,
+            'vehicle_year' => 2022,
+            'vehicle_model' => 'Toyota Raize',
+            'vehicle_type' => 'suv',
+            'plate_number' => $vehicle->plate_number,
+            'vehicle_size_id' => $size->id,
+            'vehicle_size_name' => $size->name,
+            'size_reviewed_at' => now(),
+            'priced_at' => now(),
+            'total_price' => $price,
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+            'total_days' => (int) $service->estimate_days,
+            'arrived_at' => $exited->subDays(2),
+            'exited_at' => $exited,
+        ]);
+        $booking->items()->create(['service_id' => $service->id, 'service_name' => $service->name, 'category_name' => $service->category?->name, 'price' => $price, 'duration_days' => (int) $service->estimate_days, 'warranty_months' => $service->warranty_months]);
+        $this->sampleBackjob($booking);
     }
 }

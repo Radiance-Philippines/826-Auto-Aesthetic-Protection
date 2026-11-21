@@ -11,13 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class BookingItem extends Model
 {
-    protected $fillable = ['booking_id', 'service_id', 'service_name', 'category_name', 'price', 'duration_days', 'sort_order'];
+    protected $fillable = ['booking_id', 'service_id', 'service_name', 'category_name', 'price', 'duration_days', 'warranty_months', 'sort_order'];
 
     protected function casts(): array
     {
         return [
             'price' => 'integer',
             'duration_days' => 'integer',
+            'warranty_months' => 'integer',
             'sort_order' => 'integer',
         ];
     }

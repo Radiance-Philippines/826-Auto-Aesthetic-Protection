@@ -7,11 +7,13 @@ use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Bookings\Pages\EditBooking;
 use App\Filament\Resources\Bookings\Pages\ListBookings;
 use App\Filament\Resources\Bookings\Pages\ViewBooking;
+use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\PaymentSetting;
 use App\Models\Service;
 use App\Models\VehicleSize;
+use App\Support\ManualTransaction;
 use App\Support\Schedule\Estimate;
 use BackedEnum;
 use Filament\Actions\BulkAction;
@@ -262,7 +264,8 @@ class BookingResource extends Resource
                         TextEntry::make('total_price')
                             ->label('Price')
                             ->formatStateUsing(fn (?int $state) => $state === null ? 'Not set: review the unit' : '₱'.number_format($state))
-                            ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null),
+                            ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null)
+                            ->helperText(fn (Booking $record) => $record->discount_amount ? 'After a ₱'.number_format($record->discount_amount).' referral discount' : null),
                         TextEntry::make('length')
                             ->label('Takes')
                             ->state(fn (Booking $record) => $record->estimate()->label() ?: '—'),
@@ -294,7 +297,8 @@ class BookingResource extends Resource
                                 : null),
                         TextEntry::make('reference')->copyable(),
                         TextEntry::make('name')
-                            ->helperText(fn (Booking $record) => $record->guest ? "Signed in as {$record->guest->email}" : null),
+                            ->url(fn (Booking $record) => $record->guest_id ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
+                            ->helperText(fn (Booking $record) => $record->guest?->email ? "Signed in as {$record->guest->email}" : ($record->guest ? 'Customer record, no Google account' : null)),
                         TextEntry::make('phone')
                             ->label('Mobile')
                             ->copyable()
@@ -322,7 +326,7 @@ class BookingResource extends Resource
                     ->columnSpan(2)
                     ->columnStart(1)
                     ->columns(2)
-                    ->visible(fn (Booking $record) => $record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null)
+                    ->visible(fn (Booking $record) => $record->source !== 'manual' && ($record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null))
                     ->components([
                         TextEntry::make('amount_due')
                             ->label('Fee')
@@ -342,6 +346,22 @@ class BookingResource extends Resource
                             ->view('filament.entries.payment-proof')
                             ->visible(fn (Booking $record) => filled($record->payment_proof))
                             ->columnSpanFull(),
+                    ]),
+                Section::make('Payment')
+                    ->columnSpan(2)
+                    ->columnStart(1)
+                    ->columns(2)
+                    ->visible(fn (Booking $record) => $record->source === 'manual')
+                    ->components([
+                        TextEntry::make('amount_paid')
+                            ->label('Paid')
+                            ->formatStateUsing(fn (?int $state) => $state === null ? 'Nothing recorded' : '₱'.number_format($state))
+                            ->helperText(fn (Booking $record) => $record->paid_at ? 'On '.$record->paid_at->format('M j, Y') : null),
+                        TextEntry::make('payment_method')
+                            ->label('Paid with')
+                            ->formatStateUsing(fn (?string $state) => ManualTransaction::METHODS[$state] ?? $state)
+                            ->helperText(fn (Booking $record) => $record->payment_note)
+                            ->placeholder('—'),
                     ]),
                 Section::make('Home service')
                     ->columnSpan(2)
@@ -385,6 +405,7 @@ class BookingResource extends Resource
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Customer')
+                    ->url(fn (Booking $record) => $record->guest_id ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
                     ->searchable(['name', 'phone', 'reference', 'plate_number'])
                     ->description(fn (Booking $record) => "{$record->reference} · {$record->phone}"),
                 TextColumn::make('services')

@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Filament\Resources\Bookings\BookingResource;
+use App\Filament\Resources\Reviews\ReviewResource;
 use App\Models\Booking;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
@@ -17,7 +18,7 @@ use Illuminate\Mail\Mailables\Envelope;
  */
 class TeamBookingAlert extends Mailable
 {
-    public const KINDS = ['reserved', 'hold', 'size_review', 'payment', 'home_request', 'cancelled', 'rescheduled'];
+    public const KINDS = ['reserved', 'hold', 'size_review', 'payment', 'home_request', 'cancelled', 'rescheduled', 'review'];
 
     public function __construct(public Booking $booking, public string $kind) {}
 
@@ -35,6 +36,7 @@ class TeamBookingAlert extends Mailable
                 'size_review' => "Size to set: {$booking->vehicleLabel()} at {$branch}, {$when} ({$booking->reference})",
                 'payment' => "Screenshot to check: {$booking->name} ({$booking->reference})",
                 'home_request' => "Home service request: {$booking->name}, {$when}",
+                'review' => "New review waiting for approval: {$booking->name} at {$branch}",
                 'cancelled' => "Cancelled by the customer: {$booking->name}, {$when} ({$booking->reference})",
                 default => "Moved by the customer: {$booking->name}, now {$when} ({$booking->reference})",
             },
@@ -44,7 +46,9 @@ class TeamBookingAlert extends Mailable
     public function content(): Content
     {
         return new Content(markdown: 'mail.team-booking-alert', with: [
-            'adminUrl' => BookingResource::getUrl('view', ['record' => $this->booking], panel: 'admin'),
+            'adminUrl' => $this->kind === 'review'
+                ? ReviewResource::getUrl('index', panel: 'admin')
+                : BookingResource::getUrl('view', ['record' => $this->booking], panel: 'admin'),
         ]);
     }
 }

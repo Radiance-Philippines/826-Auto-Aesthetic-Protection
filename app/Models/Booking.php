@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Referrals;
 use App\Support\Schedule\Estimate;
 use Carbon\CarbonImmutable;
 use Database\Factories\BookingFactory;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 /**
@@ -111,6 +114,7 @@ class Booking extends Model
         'walk_in' => 'Walk-in',
         'phone' => 'Call or message',
         'admin' => 'Added in the admin',
+        'manual' => 'Manual entry',
         'demo' => 'Sample data',
     ];
 
@@ -138,6 +142,9 @@ class Booking extends Model
         'preferred_window',
         'vehicle_size_id',
         'vehicle_size_name',
+        'referral_guest_id',
+        'discount_amount',
+        'amount_paid',
         'vehicle_year',
         'vehicle_model',
         'vehicle_type',
@@ -206,6 +213,8 @@ class Booking extends Model
             'has_power' => 'boolean',
             'has_shade' => 'boolean',
             'total_price' => 'integer',
+            'discount_amount' => 'integer',
+            'amount_paid' => 'integer',
             'total_days' => 'integer',
             'amount_due' => 'integer',
             'hold_expires_at' => 'immutable_datetime',
@@ -258,6 +267,13 @@ class Booking extends Model
                 };
             }
         });
+
+        // A referral code's points are earned when the booking exits, and lost when it falls through
+        static::saved(function (Booking $booking) {
+            if ($booking->wasChanged('status')) {
+                Referrals::syncStatus($booking);
+            }
+        });
     }
 
     public static function newReference(): string
@@ -300,6 +316,24 @@ class Booking extends Model
     }
 
     /**
+     * The customer whose referral code this booking used.
+     *
+     * @return BelongsTo<Guest, $this>
+     */
+    public function referralGuest(): BelongsTo
+    {
+        return $this->belongsTo(Guest::class, 'referral_guest_id');
+    }
+
+    /**
+     * @return HasOne<ReferralRedemption, $this>
+     */
+    public function referralRedemption(): HasOne
+    {
+        return $this->hasOne(ReferralRedemption::class);
+    }
+
+    /**
      * @return BelongsTo<VehicleSize, $this>
      */
     public function vehicleSize(): BelongsTo
@@ -316,11 +350,27 @@ class Booking extends Model
     }
 
     /**
+     * @return HasOne<Review, $this>
+     */
+    public function review(): HasOne
+    {
+        return $this->hasOne(Review::class);
+    }
+
+    /**
      * @return HasMany<BookingItem, $this>
      */
     public function items(): HasMany
     {
         return $this->hasMany(BookingItem::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<Backjob, $this>
+     */
+    public function backjobs(): HasMany
+    {
+        return $this->hasMany(Backjob::class)->latest('noted_on')->latest('id');
     }
 
     /**
@@ -564,6 +614,17 @@ class Booking extends Model
     }
 
     /**
+     * Only a finished booking's signed-in customer, once (a private link alone can't review).
+     */
+    public function canBeReviewed(): bool
+    {
+        return $this->status === 'exited'
+            && $this->guest_id !== null
+            && Auth::guard('guest')->id() === $this->guest_id
+            && $this->review === null;
+    }
+
+    /**
      * Whether the customer may move it to another date themselves: a paid
      * or confirmed onsite reservation, before the cutoff, within the limit.
      */
@@ -593,7 +654,9 @@ class Booking extends Model
      * The price as the customer sees it: "reviewing" until the admin has
      * seen the unit and its size class has a price for every service.
      *
-     * @return array{status: string, total: int|null, items: list<array{name: string, price: int|null}>}
+     * With a referral discount, the total is what is left after it.
+     *
+     * @return array{status: string, total: int|null, subtotal: int|null, discount: int|null, items: list<array{name: string, price: int|null}>}
      */
     public function priceForCustomer(): array
     {
@@ -603,6 +666,8 @@ class Booking extends Model
         return [
             'status' => $set ? 'set' : 'reviewing',
             'total' => $set ? $this->total_price : null,
+            'subtotal' => $set ? $this->total_price + (int) $this->discount_amount : null,
+            'discount' => $set && $this->discount_amount ? $this->discount_amount : null,
             'items' => $items->map(fn (BookingItem $item) => ['name' => $item->service_name, 'price' => $set ? $item->price : null])->values()->all(),
         ];
     }
@@ -676,6 +741,8 @@ class Booking extends Model
             'instructions' => $paying ? PaymentSetting::instance()->instructions : null,
             'canCancel' => $this->canBeCancelledByCustomer(),
             'canReschedule' => $this->canBeRescheduledByCustomer(),
+            'canReview' => $this->canBeReviewed(),
+            'review' => $this->review?->toCustomer(),
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

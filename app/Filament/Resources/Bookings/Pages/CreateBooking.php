@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Bookings\Pages;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\Branch;
+use App\Models\Guest;
 use App\Support\Reservations;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
@@ -37,17 +38,20 @@ class CreateBooking extends CreateRecord
             $this->failWith($e);
         }
 
+        // The same phone number is the same customer: their units and history stay together
+        $guest = Guest::findOrCreateByPhone($data['name'], $data['phone'], $branch->id, $data['email'] ?? null, in_array($data['source'] ?? null, ['walk_in', 'phone'], true) ? $data['source'] : 'admin');
+
         $details = [
             ...$data,
             'admin_note' => $data['admin_note'] ?? null,
         ];
 
         if ($home) {
-            $booking = Reservations::requestHomeService($branch, null, $quote, [
+            $booking = Reservations::requestHomeService($branch, $guest, $quote, [
                 ...$details,
                 'preferred_date' => $data['preferred_date'] ?? (filled($data['drop_off_on'] ?? null) ? CarbonImmutable::parse($data['drop_off_on'])->toDateString() : today()->toDateString()),
                 'preferred_window' => $data['preferred_window'] ?? 'any',
-            ]);
+            ], byStaff: true);
 
             $booking->update(array_filter([
                 'source' => $data['source'],
@@ -61,7 +65,7 @@ class CreateBooking extends CreateRecord
         try {
             return Reservations::reserve(
                 $branch,
-                null,
+                $guest,
                 $quote,
                 CarbonImmutable::parse($data['drop_off_on']),
                 $details,

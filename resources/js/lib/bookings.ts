@@ -1,4 +1,4 @@
-import type { CustomerBooking, PaymentMethodKey, Stage } from '../types';
+import type { CustomerBooking, MyReferral, MyReview, PaymentMethodKey, Stage } from '../types';
 import { type ApiResult, getJson, postJson, query, sortResponse } from './api';
 import { csrfToken } from './auth';
 import { apiUrl } from './site';
@@ -15,6 +15,8 @@ export const LIVE_STAGES: Stage[] = ['requested', 'awaiting_payment', 'payment_r
 export const ENDED_STAGES: Stage[] = ['exited', 'expired', 'cancelled', 'declined', 'no_show'];
 
 const withKey = (path: string, key: string | null) => `${path}${query({ key })}`;
+
+export const fetchMyReferral = () => getJson<MyReferral>('/my-referral');
 
 export const fetchBookings = () => getJson<{ bookings: CustomerBooking[] }>('/my-bookings');
 
@@ -163,5 +165,36 @@ export async function copyText(value: string): Promise<boolean> {
         field.remove();
 
         return copied;
+    }
+}
+
+export type ReviewResult = ApiResult<{ ok: boolean; demo?: boolean; review?: MyReview }>;
+
+/** The review's picture, same rules as a screenshot (redrawn smaller when big) */
+export const REVIEW_PHOTO_ACCEPT = PROOF_ACCEPT;
+
+/** Sends a review (stars, words and an optional picture) for a finished booking */
+export async function sendReview(id: number, rating: number, body: string, photo: File | null): Promise<ReviewResult> {
+    const data = new FormData();
+    data.set('rating', String(rating));
+    data.set('body', body.trim());
+
+    if (photo) {
+        const file = await shrinkForUpload(photo);
+        data.set('photo', file, file.name);
+    }
+
+    try {
+        const response = await fetch(apiUrl(`/my-bookings/${id}/review`), {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: data,
+            credentials: 'same-origin',
+        });
+        const json = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
+        return sortResponse(response.status, json);
+    } catch {
+        return { kind: 'failed' };
     }
 }

@@ -21,7 +21,8 @@ export type Settings = {
 /** The customer signed in with Google */
 export type Guest = {
     name: string;
-    email: string;
+    /** Empty for a customer the team added without a Google account */
+    email: string | null;
     avatar: string | null;
 };
 
@@ -116,10 +117,35 @@ export type BookingSettings = {
     policy: string | null;
     fee: { enabled: boolean; label: string | null; holdMinutes: number };
     windows: Record<HomeWindow, string>;
+    /** Referral codes: on only when the owner has set a discount */
+    referral: { enabled: boolean; discountLabel: string | null };
 };
 
 /** A YouTube video (a link, nothing uploaded) */
 export type VideoItem = { id: number; title: string; caption: string | null; youtubeId: string; thumbnail: string; url: string };
+
+/** An approved customer review (window.APP826.reviews) */
+export type Review = {
+    id: number;
+    /** "Maria S." */
+    name: string;
+    rating: number;
+    body: string;
+    photo: Image | null;
+    /** The first service of the booking */
+    service: string | null;
+    branch: string | null;
+    /** "2026-11-20" */
+    date: string;
+};
+
+/** What the customer sees of their own review */
+export type MyReview = {
+    rating: number;
+    body: string;
+    status: 'pending' | 'approved' | 'rejected';
+    photo: string | null;
+};
 
 export type PhotoCategory = string;
 
@@ -152,6 +178,8 @@ export type SiteData = {
     booking: BookingSettings;
     photos: Photo[];
     videos: VideoItem[];
+    /** Approved reviews only: featured first, then newest (max 24) */
+    reviews: Review[];
     photoCategories: Record<string, string>;
 };
 
@@ -239,8 +267,8 @@ export type CustomerBooking = {
     items: { name: string; category: string | null; estimateDays: number | null }[];
     /** Not in the contract; used for "Book again" when the server sends it */
     serviceIds?: number[];
-    /** "reviewing" until 826 has set the unit's size */
-    price: { status: 'reviewing' | 'set'; total: number | null; items: { name: string; price: number | null }[] };
+    /** "reviewing" until 826 has set the unit's size; with a referral discount, total is what is left after it */
+    price: { status: 'reviewing' | 'set'; total: number | null; subtotal: number | null; discount: number | null; items: { name: string; price: number | null }[] };
     address: string | null;
     area: string | null;
     /** The reservation fee */
@@ -261,6 +289,9 @@ export type CustomerBooking = {
     instructions: string | null;
     canCancel: boolean;
     canReschedule: boolean;
+    /** Exited, the signed-in customer's own, not reviewed yet */
+    canReview: boolean;
+    review: MyReview | null;
     createdAt: string | null;
 };
 
@@ -269,3 +300,14 @@ declare global {
         APP826: SiteData;
     }
 }
+
+/** GET /api/my-referral */
+export type MyReferral = {
+    enabled: boolean;
+    code: string | null;
+    /** "₱500 off" or "10% off" */
+    discountLabel: string | null;
+    usedCount: number;
+    pointsEarned: number;
+    pointsPending: number;
+};

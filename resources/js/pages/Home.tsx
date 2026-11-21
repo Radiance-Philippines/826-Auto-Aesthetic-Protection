@@ -7,6 +7,7 @@ import DriveIn from '../components/DriveIn';
 import { SectionTitle } from '../components/Heading';
 import { ArrowRight, Facebook, Messenger, Phone } from '../components/Icons';
 import Picture from '../components/Picture';
+import ReviewList from '../components/ReviewList';
 import { CarCrop, Ceiling, ParkedCar } from '../components/Studio';
 import { cast, driveSpots, heroCar, shotFor } from '../lib/cars';
 import { copy } from '../lib/copy';
@@ -198,6 +199,33 @@ function BranchesSection() {
     );
 }
 
+const HOME_REVIEWS = 6;
+
+/** What customers say: only approved reviews, so only once there are some */
+function ReviewsSection() {
+    if (site.reviews.length === 0) {
+        return null;
+    }
+
+    return (
+        <section aria-labelledby="reviews-title" className={`${container} pb-16 sm:pb-24`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <SectionTitle id="reviews-title" eyebrow={copy.reviews.eyebrow}>
+                    {copy.reviews.title}
+                </SectionTitle>
+                {site.reviews.length > HOME_REVIEWS && (
+                    <Link to="/gallery#reviews" className="press inline-flex min-h-11 items-center gap-2 font-semibold text-link hover:underline hover:underline-offset-4">
+                        {copy.reviews.all} <ArrowRight className="size-4" />
+                    </Link>
+                )}
+            </div>
+            <div className="mt-8">
+                <ReviewList reviews={site.reviews.slice(0, HOME_REVIEWS)} />
+            </div>
+        </section>
+    );
+}
+
 function GalleryStrip() {
     if (featuredPhotos.length === 0) {
         return null;
@@ -268,6 +296,7 @@ export default function Home() {
             <ServicesSection />
             <StepsSection />
             <BranchesSection />
+            <ReviewsSection />
             <GalleryStrip />
             <TalkBand />
         </>

@@ -5,6 +5,7 @@ import { PageHeader } from '../components/Heading';
 import { Facebook } from '../components/Icons';
 import Lightbox from '../components/Lightbox';
 import Picture from '../components/Picture';
+import ReviewList from '../components/ReviewList';
 import VideoCard from '../components/VideoCard';
 import { copy } from '../lib/copy';
 import { photoAlt, photoCategories, site } from '../lib/site';
@@ -24,7 +25,7 @@ export default function Gallery() {
                 <p>{text.intro}</p>
             </PageHeader>
             <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14 xl:px-12">
-                {site.photos.length === 0 && site.videos.length === 0 ? (
+                {site.photos.length === 0 && site.videos.length === 0 && site.reviews.length === 0 ? (
                     <div className="max-w-xl panel p-6">
                         <p className="leading-relaxed">{text.empty}</p>
                         {site.settings.facebook && (
@@ -64,16 +65,26 @@ export default function Gallery() {
                                 ))}
                             </div>
                         )}
-                        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                            {photos.map((photo, index) => (
-                                <li key={photo.id}>
-                                    <button type="button" onClick={() => setOpen(index)} aria-label={text.open(photoAlt(photo))} aria-haspopup="dialog" className="press block w-full overflow-hidden rounded-card bg-surface-3">
-                                        <Picture image={photo} alt="" sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw" className="aspect-square w-full object-cover" />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
+                        {site.photos.length > 0 && (
+                            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                                {photos.map((photo, index) => (
+                                    <li key={photo.id}>
+                                        <button type="button" onClick={() => setOpen(index)} aria-label={text.open(photoAlt(photo))} aria-haspopup="dialog" className="press block w-full overflow-hidden rounded-card bg-surface-3">
+                                            <Picture image={photo} alt="" sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw" className="aspect-square w-full object-cover" />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </>
+                )}
+                {site.reviews.length > 0 && (
+                    <section id="reviews" aria-labelledby="reviews-title" className={`scroll-mt-24 ${site.photos.length > 0 ? 'mt-14' : ''}`}>
+                        <h2 id="reviews-title" className="font-display mb-5 text-2xl">
+                            {copy.reviews.title}
+                        </h2>
+                        <ReviewList reviews={site.reviews} wrap />
+                    </section>
                 )}
             </div>
             {open !== null && <Lightbox photos={photos} index={open} onClose={() => setOpen(null)} onChange={setOpen} />}

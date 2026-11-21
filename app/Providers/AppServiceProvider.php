@@ -63,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('bookings', fn (Request $request) => Limit::perMinute(5)->by($by('bookings')($request)));
         RateLimiter::for('my-bookings', fn (Request $request) => Limit::perMinute(60)->by($by('my-bookings')($request)));
         RateLimiter::for('payments', fn (Request $request) => Limit::perMinute(6)->by($by('payments')($request)));
+        RateLimiter::for('reviews', fn (Request $request) => Limit::perMinute(5)->by($by('reviews')($request)));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }

@@ -49,7 +49,7 @@ class MyBookingsController extends Controller
         abort_unless($guest, 401);
 
         $bookings = $guest->bookings()
-            ->with(['items', 'branch'])
+            ->with(['items', 'branch', 'review'])
             ->orderByRaw('coalesce(drop_off_on, preferred_date) desc')
             ->latest('id')
             ->get();

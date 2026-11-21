@@ -160,11 +160,13 @@ final class Reservations
                 throw ValidationException::withMessages(['date' => self::dateMessage($result, $byStaff)]);
             }
 
+            $owner = ! $byStaff && filled($details['referral_code'] ?? null) ? Referrals::ownerFor($guest, (string) $details['referral_code']) : null;
+
             // Bookings the team takes are settled at the counter
             $payments = PaymentSetting::instance();
             $fee = ! $byStaff && $payments->feeEnabled() ? $payments->feeAmount() : 0;
 
-            return DB::transaction(function () use ($branch, $guest, $quote, $date, $details, $source, $fee, $payments) {
+            return DB::transaction(function () use ($branch, $guest, $quote, $date, $details, $source, $fee, $payments, $owner) {
                 $vehicle = self::vehicleFor($guest, $details);
 
                 $booking = Booking::create([
@@ -184,6 +186,10 @@ final class Reservations
                     'read_at' => $source === 'site' ? null : now(),
                 ]);
 
+                if ($owner) {
+                    Referrals::redeem($booking, $owner);
+                }
+
                 self::saveItems($booking, $quote['services']);
                 self::priceIfReviewed($booking, $vehicle);
 
@@ -199,9 +205,9 @@ final class Reservations
      * @param  array{services: Collection<int, Service>, estimate: Estimate}  $quote
      * @param  array<string, mixed>  $details
      */
-    public static function requestHomeService(Branch $branch, ?Guest $guest, array $quote, array $details): Booking
+    public static function requestHomeService(Branch $branch, ?Guest $guest, array $quote, array $details, bool $byStaff = false): Booking
     {
-        if ($guest) {
+        if ($guest && ! $byStaff) {
             self::checkGuestLimits($guest);
         }
 
@@ -337,16 +343,41 @@ final class Reservations
                 }
             }
 
+            $subtotal = $missing === [] ? (int) $items->sum(fn ($item) => $item->price) : null;
+            $discount = Referrals::discountFor($booking, $subtotal);
+
             $booking->update([
                 'vehicle_size_id' => $size->id,
                 'vehicle_size_name' => $size->name,
                 'size_reviewed_at' => now(),
-                'total_price' => $missing === [] ? (int) $items->sum(fn ($item) => $item->price) : null,
+                'total_price' => $subtotal === null ? null : $subtotal - (int) $discount,
+                'discount_amount' => $discount,
                 'priced_at' => $missing === [] ? now() : null,
             ]);
 
             return $missing;
         });
+    }
+
+    /**
+     * A saved unit's size class, set from the customer's page: the unit is
+     * reviewed, and its open bookings that were waiting for a price get one.
+     * Returns the bookings that are now priced.
+     *
+     * @return list<Booking>
+     */
+    public static function setVehicleSize(Vehicle $vehicle, VehicleSize $size): array
+    {
+        $vehicle->update(['vehicle_size_id' => $size->id, 'size_reviewed_at' => now()]);
+        $priced = [];
+
+        $vehicle->bookings()->open()->whereNull('priced_at')->get()->each(function (Booking $booking) use ($size, &$priced) {
+            if (self::applySize($booking, $size, updateVehicle: false) === []) {
+                $priced[] = $booking;
+            }
+        });
+
+        return $priced;
     }
 
     /**
@@ -441,6 +472,7 @@ final class Reservations
                 'service_name' => $service->name,
                 'category_name' => $service->category?->name,
                 'duration_days' => (int) $service->estimate_days,
+                'warranty_months' => $service->warranty_months,
                 'sort_order' => $index,
             ]);
         }

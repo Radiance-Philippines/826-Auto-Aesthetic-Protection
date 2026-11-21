@@ -1,4 +1,4 @@
-import { type ChangeEvent, type InputHTMLAttributes, type ReactNode, useId } from 'react';
+import { type ChangeEvent, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 import { copy } from '../lib/copy';
 import { Check, ChevronDown, Warning } from './Icons';
@@ -80,37 +80,103 @@ type SelectProps = {
 };
 
 /**
- * A labelled drop-down for a long list (the model year): the browser's own
- * list, which is the easiest to scroll on a phone, drawn like the text boxes.
+ * A labelled drop-down for a long list (the model year): our own list, never
+ * the browser's native one, drawn like the text boxes. Arrow keys, Home/End,
+ * Enter and Escape work; a tap outside closes it.
  */
-export function SelectField({ label, value, onChange, options, placeholder, error, className = '', name, autoComplete }: SelectProps) {
+export function SelectField({ label, value, onChange, options, placeholder, error, className = '', name }: SelectProps) {
     const fieldId = useId();
     const errorId = `${fieldId}-error`;
+    const listId = `${fieldId}-list`;
+    const [open, setOpen] = useState(false);
+    const [active, setActive] = useState(0);
+    const root = useRef<HTMLDivElement>(null);
+    const list = useRef<HTMLUListElement>(null);
+    const selected = options.find((option) => option.value === value);
+
+    useEffect(() => {
+        if (!open) return;
+        const close = (event: PointerEvent) => !root.current?.contains(event.target as Node) && setOpen(false);
+        document.addEventListener('pointerdown', close);
+        return () => document.removeEventListener('pointerdown', close);
+    }, [open]);
+
+    useEffect(() => {
+        if (open) list.current?.children[active]?.scrollIntoView({ block: 'nearest' });
+    }, [open, active]);
+
+    const show = () => {
+        setActive(Math.max(0, options.findIndex((option) => option.value === value)));
+        setOpen(true);
+    };
+    const pick = (index: number) => {
+        onChange(options[index].value);
+        setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+        if (!open) {
+            if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
+                event.preventDefault();
+                show();
+            }
+            return;
+        }
+        const move = (to: number) => {
+            event.preventDefault();
+            setActive(Math.min(options.length - 1, Math.max(0, to)));
+        };
+        if (event.key === 'ArrowDown') move(active + 1);
+        else if (event.key === 'ArrowUp') move(active - 1);
+        else if (event.key === 'Home') move(0);
+        else if (event.key === 'End') move(options.length - 1);
+        else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            pick(active);
+        } else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false);
+    };
 
     return (
-        <div className={className}>
-            <label htmlFor={fieldId} className="block font-semibold">
+        <div className={className} ref={root}>
+            <label id={`${fieldId}-label`} htmlFor={fieldId} className="block font-semibold">
                 {label}
             </label>
             <div className="relative mt-2">
-                <select
+                {name && <input type="hidden" name={name} value={value} />}
+                <button
                     id={fieldId}
-                    name={name}
-                    autoComplete={autoComplete}
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
+                    type="button"
+                    role="combobox"
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    aria-controls={listId}
+                    aria-labelledby={`${fieldId}-label`}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? errorId : undefined}
-                    className={`${control} min-h-12 cursor-pointer appearance-none pr-11 ${error ? 'border-danger' : 'border-field'} ${value ? '' : 'text-muted'}`}
+                    onClick={() => (open ? setOpen(false) : show())}
+                    onKeyDown={onKeyDown}
+                    className={`${control} min-h-12 cursor-pointer pr-11 text-left ${error ? 'border-danger' : 'border-field'} ${selected ? '' : 'text-muted'}`}
                 >
-                    <option value="">{placeholder}</option>
-                    {options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-5 -translate-y-1/2 text-muted" />
+                    {selected ? selected.label : placeholder}
+                </button>
+                <ChevronDown className={`pointer-events-none absolute top-1/2 right-3.5 size-5 -translate-y-1/2 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+                {open && (
+                    <ul ref={list} id={listId} role="listbox" aria-labelledby={`${fieldId}-label`} className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-control border border-field bg-surface-2 py-1 shadow-xl">
+                        {options.map((option, index) => (
+                            <li
+                                key={option.value}
+                                role="option"
+                                aria-selected={option.value === value}
+                                onPointerDown={(event) => event.preventDefault()}
+                                onClick={() => pick(index)}
+                                onPointerMove={() => setActive(index)}
+                                className={`flex min-h-11 cursor-pointer items-center justify-between px-3.5 ${index === active ? 'bg-accent/15' : ''} ${option.value === value ? 'font-semibold text-accent' : ''}`}
+                            >
+                                {option.label}
+                                {option.value === value && <Check className="size-4" />}
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
             {error && <ErrorText id={errorId}>{error}</ErrorText>}
         </div>

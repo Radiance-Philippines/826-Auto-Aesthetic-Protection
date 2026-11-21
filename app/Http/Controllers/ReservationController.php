@@ -39,6 +39,7 @@ class ReservationController extends Controller
             'services' => ['required', 'array', 'min:1', 'max:12'],
             'services.*' => ['integer'],
             'date' => ['required', 'string'],
+            'referral_code' => ['nullable', 'string', 'max:40'],
             ...$this->vehicleRules(),
             ...$this->contactRules(),
         ], [

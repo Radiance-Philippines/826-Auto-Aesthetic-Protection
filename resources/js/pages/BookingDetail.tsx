@@ -10,6 +10,7 @@ import { Notice, TextField } from '../components/Form';
 import { ArrowLeft, ArrowRight, Calendar, Check, Clock, Close, House, MapPin, Warning } from '../components/Icons';
 import Modal from '../components/Modal';
 import PaymentPanel from '../components/PaymentPanel';
+import ReviewSection from '../components/ReviewForm';
 import SignInBlock from '../components/SignInBlock';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { guest } from '../lib/auth';
@@ -292,6 +293,18 @@ function Details({ booking }: { booking: CustomerBooking }) {
             <div aria-hidden="true" className="ticket-tear" />
             <div className="px-5 sm:px-6">
                 <p className="eyebrow text-[0.68rem] text-muted">{text.price}</p>
+                {priced && booking.price.discount !== null && booking.price.subtotal !== null && (
+                    <dl className="mt-2 space-y-1 text-[0.95rem]">
+                        <div className="flex justify-between gap-4">
+                            <dt className="text-muted">{text.priceSubtotal}</dt>
+                            <dd className="price">{peso(booking.price.subtotal)}</dd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                            <dt className="text-muted">{text.priceDiscount}</dt>
+                            <dd className="price">−{peso(booking.price.discount)}</dd>
+                        </div>
+                    </dl>
+                )}
                 {priced ? (
                     <div className="mt-2 flex items-end justify-between gap-4">
                         <p>
@@ -513,6 +526,8 @@ export default function BookingDetail() {
                     )}
 
                     <Details booking={booking} />
+
+                    <ReviewSection booking={booking} onSent={(review) => replace({ ...booking, canReview: false, review }, copy.reviews.form.thanks)} onMessage={(message) => replace(booking, message)} />
 
                     {(booking.canReschedule || booking.canCancel) && (
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

@@ -1,0 +1,252 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Filament\Resources\Bookings\Pages\CreateBooking;
+use App\Filament\Resources\Customers\Pages\CreateCustomer;
+use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Resources\Customers\Pages\ViewCustomer;
+use App\Filament\Resources\Customers\RelationManagers\UnitsRelationManager;
+use App\Models\Booking;
+use App\Models\Branch;
+use App\Models\Guest;
+use App\Models\SiteSetting;
+use App\Models\User;
+use App\Models\Vehicle;
+use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as GoogleUser;
+use Livewire\Livewire;
+use Mockery;
+use Tests\Support\BuildsShop;
+use Tests\TestCase;
+
+/**
+ * Customers (the CRM): walk-ins without Google, scoping by branch, the
+ * units' size, and deleting.
+ */
+class CustomerTest extends TestCase
+{
+    use BuildsShop, RefreshDatabase;
+
+    private Branch $sanMateo;
+
+    private User $staff;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+        // Monday, Nov 16, 2026
+        $this->travelTo(CarbonImmutable::parse('2026-11-16 07:00', 'Asia/Manila'));
+        $this->buildShop();
+        $this->sanMateo = Branch::factory()->create(['name' => 'San Mateo']);
+        $this->staff = User::factory()->create();
+        $this->staff->branches()->attach($this->branch);
+    }
+
+    public function test_the_same_phone_number_is_the_same_customer(): void
+    {
+        $first = Guest::findOrCreateByPhone('Pedro Reyes', '0917 123 4567', $this->branch->id);
+        $again = Guest::findOrCreateByPhone('Pedro R.', '+63 917-123-4567', $this->sanMateo->id, 'pedro@example.com');
+
+        $this->assertTrue($first->is($again));
+        $this->assertSame(1, Guest::count());
+        $this->assertSame(['Pedro Reyes', $this->branch->id, 'pedro@example.com', 'walk_in', null], [$again->name, $again->branch_id, $again->email, $again->source, $again->google_id]);
+        $this->assertSame('9171234567', $again->phone_key);
+
+        // A number that is too short can't be matched, so it never merges two people
+        Guest::findOrCreateByPhone('A', '12345');
+        Guest::findOrCreateByPhone('B', '12345');
+        $this->assertSame(3, Guest::count());
+    }
+
+    public function test_a_booking_the_team_adds_goes_to_the_customer_with_that_phone(): void
+    {
+        $existing = Guest::factory()->create(['phone' => '0917 123 4567', 'email' => 'maria@example.com']);
+
+        $this->actingAs($this->staff);
+
+        Livewire::test(CreateBooking::class)
+            ->fillForm([
+                'kind' => 'onsite',
+                'source' => 'phone',
+                'branch_id' => $this->branch->id,
+                'services' => [$this->detail->id],
+                'drop_off_on' => '2026-11-17',
+                'name' => 'Maria S.',
+                'phone' => '+63 917 123 4567',
+                'vehicle_year' => 2021,
+                'vehicle_model' => 'Toyota Vios',
+                'vehicle_type' => 'sedan',
+                'plate_number' => 'ABC 1234',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $booking = Booking::sole();
+        $this->assertSame($existing->id, $booking->guest_id);
+        $this->assertSame(1, Guest::count());
+        $this->assertSame('ABC1234', Vehicle::sole()->plate_number);
+        $this->assertSame($existing->id, Vehicle::sole()->guest_id);
+
+        // A new phone number makes a walk-in customer, with the branch as their home
+        Livewire::test(CreateBooking::class)
+            ->fillForm([
+                'kind' => 'onsite', 'source' => 'walk_in', 'branch_id' => $this->branch->id, 'services' => [$this->detail->id], 'drop_off_on' => '2026-11-18',
+                'name' => 'Pedro Reyes', 'phone' => '0922 555 0000', 'vehicle_year' => 2019, 'vehicle_model' => 'Honda City', 'vehicle_type' => 'sedan', 'plate_number' => 'XYZ 9999',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $walkIn = Guest::where('name', 'Pedro Reyes')->sole();
+        $this->assertSame([null, null, 'walk_in', $this->branch->id], [$walkIn->google_id, $walkIn->email, $walkIn->source, $walkIn->branch_id]);
+        $this->assertSame($walkIn->id, Booking::latest('id')->first()->guest_id);
+    }
+
+    public function test_a_customer_without_google_works_with_the_guest_guard_and_the_site(): void
+    {
+        $walkIn = Guest::factory()->walkIn()->create(['name' => 'Pedro Reyes']);
+        $booking = Booking::factory()->create(['guest_id' => $walkIn->id, 'branch_id' => $this->branch->id]);
+
+        $this->actingAs($walkIn, 'guest')->getJson('/api/my-bookings')->assertOk()->assertJsonPath('bookings.0.id', $booking->id);
+        $this->assertSame(['name' => 'Pedro Reyes', 'email' => null, 'avatar' => null], $this->get('/')->viewData('app')['auth']['guest']);
+        $this->assertTrue($booking->isOpenedBy($walkIn, null));
+    }
+
+    public function test_signing_in_with_google_adopts_the_walk_in_customer_with_that_email(): void
+    {
+        SiteSetting::instance()->update(['google_client_id' => 'client.apps.googleusercontent.com', 'google_client_secret' => 'secret']);
+        $walkIn = Guest::factory()->walkIn()->create(['email' => 'maria@example.com']);
+        $booking = Booking::factory()->create(['guest_id' => $walkIn->id, 'branch_id' => $this->branch->id]);
+
+        $provider = Mockery::mock();
+        $provider->shouldReceive('user')->andReturn((new GoogleUser)->map(['id' => '1234567890', 'name' => 'Maria Santos', 'email' => 'maria@example.com', 'avatar' => null]));
+        Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
+
+        $this->get('/auth/google/callback')->assertRedirect();
+
+        $this->assertSame(1, Guest::count());
+        $this->assertAuthenticatedAs($walkIn, 'guest');
+        $this->assertSame('1234567890', $walkIn->fresh()->google_id);
+        $this->assertSame($walkIn->id, $booking->fresh()->guest_id);
+    }
+
+    public function test_staff_see_only_customers_of_their_branches(): void
+    {
+        $booked = Guest::factory()->create(['name' => 'Booked Here']);
+        Booking::factory()->create(['guest_id' => $booked->id, 'branch_id' => $this->branch->id]);
+        $home = Guest::factory()->walkIn()->create(['name' => 'Home Here', 'branch_id' => $this->branch->id]);
+        $elsewhere = Guest::factory()->create(['name' => 'Booked Elsewhere']);
+        Booking::factory()->create(['guest_id' => $elsewhere->id, 'branch_id' => $this->sanMateo->id]);
+        $nobody = Guest::factory()->create(['name' => 'Nobody']);
+
+        $this->actingAs($this->staff);
+
+        Livewire::test(ListCustomers::class)
+            ->assertCanSeeTableRecords([$booked, $home])
+            ->assertCanNotSeeTableRecords([$elsewhere, $nobody]);
+
+        $this->get("/admin/customers/{$booked->id}")->assertOk();
+        $this->get("/admin/customers/{$elsewhere->id}")->assertNotFound();
+        $this->get("/admin/customers/{$elsewhere->id}/edit")->assertNotFound();
+
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(ListCustomers::class)->assertCanSeeTableRecords([$booked, $home, $elsewhere, $nobody]);
+
+        $this->actingAs(User::factory()->create());
+        Livewire::test(ListCustomers::class)->assertCanNotSeeTableRecords([$booked, $home, $elsewhere]);
+    }
+
+    public function test_the_list_searches_by_name_phone_email_and_plate_and_filters_by_branch(): void
+    {
+        $maria = Guest::factory()->create(['name' => 'Maria Santos', 'phone' => '0917 111 2222', 'email' => 'maria@example.com', 'branch_id' => $this->branch->id]);
+        Vehicle::factory()->create(['guest_id' => $maria->id, 'plate_number' => 'ABC1234']);
+        $pedro = Guest::factory()->walkIn()->create(['name' => 'Pedro Reyes', 'phone' => '0922 333 4444', 'branch_id' => $this->sanMateo->id]);
+
+        $this->actingAs(User::factory()->owner()->create());
+
+        Livewire::test(ListCustomers::class)
+            ->searchTable('abc 1234')->assertCanSeeTableRecords([$maria])->assertCanNotSeeTableRecords([$pedro])
+            ->searchTable('0922')->assertCanSeeTableRecords([$pedro])->assertCanNotSeeTableRecords([$maria])
+            ->searchTable('maria@example')->assertCanSeeTableRecords([$maria])
+            ->searchTable('')
+            ->filterTable('branch_id', $this->sanMateo->id)->assertCanSeeTableRecords([$pedro])->assertCanNotSeeTableRecords([$maria]);
+    }
+
+    public function test_the_team_adds_a_walk_in_customer(): void
+    {
+        $this->actingAs($this->staff);
+
+        Livewire::test(CreateCustomer::class)
+            ->fillForm(['name' => 'Pedro Reyes', 'phone' => '0922 333 4444', 'branch_id' => $this->branch->id, 'sales_rep_id' => $this->staff->id, 'notes' => 'Repeat client'])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $guest = Guest::sole();
+        $this->assertSame([null, null, 'walk_in', $this->staff->id, '9223334444'], [$guest->google_id, $guest->email, $guest->source, $guest->sales_rep_id, $guest->phone_key]);
+    }
+
+    public function test_setting_a_unit_s_size_prices_its_waiting_bookings(): void
+    {
+        $guest = Guest::factory()->create();
+        $vehicle = Vehicle::factory()->create(['guest_id' => $guest->id]);
+        $waiting = Booking::factory()->create(['guest_id' => $guest->id, 'vehicle_id' => $vehicle->id, 'branch_id' => $this->branch->id]);
+        $waiting->items()->create(['service_id' => $this->detail->id, 'service_name' => 'Exterior detailing']);
+        $done = Booking::factory()->priced(999)->status('exited')->create(['guest_id' => $guest->id, 'vehicle_id' => $vehicle->id, 'branch_id' => $this->branch->id]);
+
+        $this->actingAs($this->staff);
+
+        Livewire::test(UnitsRelationManager::class, ['ownerRecord' => $guest, 'pageClass' => ViewCustomer::class])
+            ->assertCanSeeTableRecords([$vehicle])
+            ->callTableAction('setSize', $vehicle, ['vehicle_size_id' => $this->medium->id])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertTrue($vehicle->fresh()->isReviewed());
+        $this->assertSame([2500, 'Medium'], [$waiting->fresh()->total_price, $waiting->fresh()->vehicle_size_name]);
+        $this->assertNotNull($waiting->fresh()->priced_at);
+        $this->assertSame(999, $done->fresh()->total_price);
+    }
+
+    public function test_the_booking_page_links_to_the_customer(): void
+    {
+        $guest = Guest::factory()->create();
+        $booking = Booking::factory()->create(['guest_id' => $guest->id, 'branch_id' => $this->branch->id]);
+
+        $this->actingAs($this->staff)->get("/admin/bookings/{$booking->id}")->assertOk()->assertSee("/admin/customers/{$guest->id}", escape: false);
+    }
+
+    public function test_only_owners_delete_and_never_a_customer_with_bookings(): void
+    {
+        $withBookings = Guest::factory()->create();
+        Booking::factory()->create(['guest_id' => $withBookings->id, 'branch_id' => $this->branch->id]);
+        $empty = Guest::factory()->walkIn()->create(['branch_id' => $this->branch->id]);
+
+        $this->actingAs($this->staff);
+        Livewire::test(ViewCustomer::class, ['record' => $empty->id])->assertActionHidden('delete');
+
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(ViewCustomer::class, ['record' => $withBookings->id])->callAction('delete');
+        $this->assertModelExists($withBookings);
+
+        Livewire::test(ViewCustomer::class, ['record' => $empty->id])->callAction('delete');
+        $this->assertModelMissing($empty);
+    }
+
+    public function test_the_new_pages_open_for_staff_and_the_customer_page_shows_its_sections(): void
+    {
+        $guest = Guest::factory()->create(['name' => 'Maria Santos', 'branch_id' => $this->branch->id, 'referral_code' => 'MARIA-7K3Q']);
+        Vehicle::factory()->create(['guest_id' => $guest->id, 'plate_number' => 'ABC1234']);
+        Booking::factory()->create(['guest_id' => $guest->id, 'branch_id' => $this->branch->id]);
+
+        $this->actingAs($this->staff);
+
+        foreach (['/admin/customers', '/admin/customers/create', "/admin/customers/{$guest->id}/edit", '/admin/warranty', '/admin/manual-transaction'] as $url) {
+            $this->get($url)->assertOk();
+        }
+
+        $this->get("/admin/customers/{$guest->id}")->assertOk()->assertSee('MARIA-7K3Q')->assertSee('services are covered now');
+    }
+}

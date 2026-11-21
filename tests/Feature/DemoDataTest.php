@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Backjob;
+use App\Models\BackjobType;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\BranchBlock;
 use App\Models\Guest;
+use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\Vehicle;
@@ -52,7 +55,7 @@ class DemoDataTest extends TestCase
 
         // One booking in every working status, one waiting for its size review
         $demo = Booking::where('source', 'demo')->get();
-        $this->assertSame(10, $demo->count());
+        $this->assertSame(11, $demo->count());
         $this->assertEqualsCanonicalizing(
             ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready', 'exited', 'payment_review', 'awaiting_payment', 'requested'],
             $demo->pluck('status')->unique()->values()->all(),
@@ -64,10 +67,20 @@ class DemoDataTest extends TestCase
         $this->assertGreaterThanOrEqual(3, Vehicle::count());
         $this->assertSame(1, BranchBlock::where('kind', 'full')->count());
 
+        // Sample customers without Google, warranty months, backjob types and a referral discount, all marked sample
+        $this->assertSame(1, Guest::whereNull('google_id')->where('notes', 'Sample data')->count());
+        $this->assertGreaterThan(0, Service::whereNotNull('warranty_months')->count());
+        $this->assertSame(3, BackjobType::where('name', 'like', 'Sample:%')->count());
+        $this->assertSame(1, Backjob::count());
+        $this->assertSame('₱500 off', ReferralSetting::current()->label());
+
         $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
 
         $this->assertSame([$real->id], Booking::pluck('id')->all());
         $this->assertSame(0, Guest::where('google_id', 'like', 'demo-%')->count());
+        $this->assertSame(0, Guest::count());
+        $this->assertSame(0, BackjobType::count());
+        $this->assertSame(0, Backjob::count());
         $this->assertSame(0, Vehicle::count());
         $this->assertSame(0, BranchBlock::count());
     }

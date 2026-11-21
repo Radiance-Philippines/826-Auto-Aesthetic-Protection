@@ -35,6 +35,7 @@ class Service extends Model
         'is_active',
         'home_service_ok',
         'estimate_days',
+        'warranty_months',
     ];
 
     protected function casts(): array
@@ -45,6 +46,7 @@ class Service extends Model
             'is_active' => 'boolean',
             'home_service_ok' => 'boolean',
             'estimate_days' => 'integer',
+            'warranty_months' => 'integer',
         ];
     }
 
@@ -99,6 +101,16 @@ class Service extends Model
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class);
+    }
+
+    /**
+     * The backjob types this service's warranty covers.
+     *
+     * @return BelongsToMany<BackjobType, $this>
+     */
+    public function backjobTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(BackjobType::class, 'service_backjob_type', 'service_id', 'backjob_type_id');
     }
 
     /**

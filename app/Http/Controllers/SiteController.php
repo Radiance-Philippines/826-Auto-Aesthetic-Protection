@@ -8,6 +8,8 @@ use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\PaymentSetting;
 use App\Models\Photo;
+use App\Models\ReferralSetting;
+use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\SiteSetting;
@@ -234,9 +236,11 @@ class SiteController extends Controller
                         'holdMinutes' => $payments->holdMinutes(),
                     ],
                     'windows' => Booking::WINDOWS,
+                    'referral' => ReferralSetting::current()->toSite(),
                 ],
                 'photos' => Photo::ordered()->get()->map->toSite()->values(),
                 'videos' => Video::published()->ordered()->get()->map->toSite()->values(),
+                'reviews' => Review::forSite(),
                 'photoCategories' => Photo::CATEGORIES,
             ],
         ], $status);

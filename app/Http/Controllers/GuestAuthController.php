@@ -62,6 +62,12 @@ class GuestAuthController extends Controller
             return redirect(url($return).(str_contains($return, '?') ? '&' : '?').'signin=failed');
         }
 
+        // A customer the team added earlier (same email, no Google account yet) keeps their history
+        if (! Guest::query()->where('google_id', (string) $profile->getId())->exists()) {
+            Guest::query()->whereNull('google_id')->where('email', $profile->getEmail())->oldest('id')->first()
+                ?->update(['google_id' => (string) $profile->getId()]);
+        }
+
         $guest = Guest::updateOrCreate(
             ['google_id' => (string) $profile->getId()],
             [

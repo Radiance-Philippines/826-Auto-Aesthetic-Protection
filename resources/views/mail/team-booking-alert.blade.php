@@ -15,6 +15,9 @@
 @case ('home_request')
 # Home service request
 @break
+@case ('review')
+# New review waiting for approval
+@break
 @case ('cancelled')
 # Cancelled by the customer
 @break
@@ -45,7 +48,13 @@
 - **Water / power / shade:** {{ collect(['has_water', 'has_power', 'has_shade'])->map(fn ($field) => $booking->{$field} === null ? '?' : ($booking->{$field} ? 'yes' : 'no'))->implode(' / ') }}
 @endif
 
-@if ($booking->message)
+@if ($kind === 'review' && $booking->review)
+<x-mail::panel>
+{{ str_repeat('★', $booking->review->rating) }}{{ str_repeat('☆', 5 - $booking->review->rating) }}
+
+{!! nl2br(e($booking->review->body)) !!}
+</x-mail::panel>
+@elseif ($booking->message)
 <x-mail::panel>
 {!! nl2br(e($booking->message)) !!}
 </x-mail::panel>
@@ -55,6 +64,8 @@
 Look at the unit, then set its size in the admin: that prices the booking and emails the customer.
 @elseif ($kind === 'payment')
 Check the screenshot against your GCash or Maya, then mark it paid in the admin.
+@elseif ($kind === 'review')
+Read it, then approve it to show it on the site, or reject it.
 @elseif ($kind === 'home_request')
 Call or text {{ $booking->name }} to agree on a time, then schedule it in the admin.
 @endif

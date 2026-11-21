@@ -56,7 +56,7 @@ class OnsiteBookingTest extends TestCase
             ->assertJsonPath('booking.readyOn', '2026-11-17')
             ->assertJsonPath('booking.estimate', ['days' => 1, 'label' => '1 day'])
             ->assertJsonPath('booking.when', 'Tue, Nov 17 · ready around Tue, Nov 17')
-            ->assertJsonPath('booking.price', ['status' => 'reviewing', 'total' => null, 'items' => [['name' => 'Exterior detailing', 'price' => null]]])
+            ->assertJsonPath('booking.price', ['status' => 'reviewing', 'total' => null, 'subtotal' => null, 'discount' => null, 'items' => [['name' => 'Exterior detailing', 'price' => null]]])
             ->assertJsonPath('booking.items.0', ['name' => 'Exterior detailing', 'category' => 'Detailing', 'estimateDays' => 1])
             ->assertJsonPath('booking.vehicle.year', 2021)
             ->assertJsonPath('booking.vehicle.typeLabel', 'Sedan')

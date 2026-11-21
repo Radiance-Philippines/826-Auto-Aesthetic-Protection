@@ -5,7 +5,9 @@ use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
 use App\Http\Controllers\MyBookingsController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +44,9 @@ Route::post('/api/home-requests', [HomeRequestController::class, 'store'])->midd
 // The signed-in customer's saved units, for repeat bookings
 Route::get('/api/my-vehicles', [MyBookingsController::class, 'vehicles'])->middleware('throttle:my-bookings')->name('my-vehicles.index');
 
+// The signed-in customer's referral code and what it has earned
+Route::get('/api/my-referral', [ReferralController::class, 'show'])->middleware('throttle:my-bookings')->name('my-referral.show');
+
 // My bookings: paying the reservation fee, cancelling, moving
 Route::prefix('api/my-bookings')->controller(MyBookingsController::class)->group(function () {
     Route::get('/', 'index')->middleware('throttle:my-bookings')->name('my-bookings.index');
@@ -50,6 +55,7 @@ Route::prefix('api/my-bookings')->controller(MyBookingsController::class)->group
     Route::post('/{booking}/payment', 'payment')->whereNumber('booking')->middleware('throttle:payments')->name('my-bookings.payment');
     Route::post('/{booking}/cancel', 'cancel')->whereNumber('booking')->middleware('throttle:bookings')->name('my-bookings.cancel');
     Route::post('/{booking}/reschedule', 'reschedule')->whereNumber('booking')->middleware('throttle:bookings')->name('my-bookings.reschedule');
+    Route::post('/{booking}/review', [ReviewController::class, 'store'])->whereNumber('booking')->middleware('throttle:reviews')->name('my-bookings.review');
 });
 
 // The team's view of a payment screenshot (signed in to /admin)

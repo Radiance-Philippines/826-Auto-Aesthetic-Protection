@@ -91,6 +91,19 @@ class ServiceResource extends Resource
                         ->maxValue(self::MAX_DAYS)
                         ->suffix('days')
                         ->helperText('Open days, counting the drop-off day. Leave blank until you know it: a service without it can’t be booked.'),
+                    TextInput::make('warranty_months')
+                        ->label('Warranty (months)')
+                        ->integer()
+                        ->minValue(1)
+                        ->maxValue(240)
+                        ->suffix('months')
+                        ->helperText('Counted from the day the unit exits. Leave blank if the service has no warranty. Bookings already made keep what they were booked with.'),
+                    Select::make('backjobTypes')
+                        ->label('Covers backjobs for')
+                        ->multiple()
+                        ->relationship('backjobTypes', 'name', fn ($query) => $query->ordered())
+                        ->preload()
+                        ->helperText('Define the kinds of backjob in Shop → Backjob types.'),
                     Textarea::make('description')
                         ->rows(4)
                         ->maxLength(3000)

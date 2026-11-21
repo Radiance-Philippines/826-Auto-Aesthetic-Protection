@@ -4,16 +4,16 @@ import { Link } from 'react-router-dom';
 import { StageBadge } from '../components/BookingStatus';
 import Button from '../components/Button';
 import { PageHeader } from '../components/Heading';
-import { ArrowRight, House, Warning } from '../components/Icons';
+import { ArrowRight, Check, Copy, House, Warning } from '../components/Icons';
 import SignInBlock from '../components/SignInBlock';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { guest } from '../lib/auth';
-import { fetchBookings, LIVE_STAGES } from '../lib/bookings';
+import { copyText, fetchBookings, fetchMyReferral, LIVE_STAGES } from '../lib/bookings';
 import { copy } from '../lib/copy';
-import { peso } from '../lib/site';
+import { peso, site } from '../lib/site';
 import { unitName } from '../lib/vehicles';
 import usePageTitle from '../lib/usePageTitle';
-import type { CustomerBooking } from '../types';
+import type { CustomerBooking, MyReferral } from '../types';
 
 const text = copy.bookings;
 
@@ -45,6 +45,62 @@ function BookingCard({ booking }: { booking: CustomerBooking }) {
                 {booking.price.status === 'set' && booking.price.total !== null ? <p className="price shrink-0 text-lg">{peso(booking.price.total)}</p> : <p className="shrink-0 text-sm text-muted">{text.priceReviewing}</p>}
             </div>
         </article>
+    );
+}
+
+/** The customer's own code to share, with what it has earned (only while referral is on) */
+function ReferralCard() {
+    const [referral, setReferral] = useState<MyReferral | null>(null);
+    const [copied, setCopied] = useState(false);
+    const card = text.referral;
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchMyReferral().then((result) => {
+            if (!cancelled && result.kind === 'ok' && result.data.enabled && result.data.code) {
+                setReferral(result.data);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    if (!referral?.code) {
+        return null;
+    }
+
+    const code = referral.code;
+
+    return (
+        <section aria-labelledby="referral-title" className="panel mb-10 p-5 sm:p-6">
+            <h2 id="referral-title" className="eyebrow text-muted">
+                {card.title}
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="price text-2xl tracking-wide tabular">{code}</p>
+                <button
+                    type="button"
+                    onClick={async () => {
+                        if (await copyText(code)) {
+                            setCopied(true);
+                            window.setTimeout(() => setCopied(false), 2000);
+                        }
+                    }}
+                    className="press inline-flex min-h-11 items-center gap-2 rounded-control border border-field px-4 font-semibold hover:border-text hover:bg-text/5"
+                >
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    <span role="status">{copied ? card.copied : card.copy}</span>
+                </button>
+            </div>
+            <p className="mt-3 text-[0.95rem] text-muted">{card.body(referral.discountLabel)}</p>
+            <p className="mt-1 text-[0.95rem] text-muted">
+                {card.used(referral.usedCount)}
+                {referral.pointsEarned > 0 || referral.pointsPending > 0 ? ` · ${card.points(referral.pointsEarned, referral.pointsPending)}` : ''}
+            </p>
+        </section>
     );
 }
 
@@ -90,6 +146,7 @@ export default function Bookings() {
             </PageHeader>
             <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14 xl:px-12">
                 <div className="max-w-3xl">
+                {state === 'ok' && site.booking.referral.enabled && <ReferralCard />}
                 {state === 'signedOut' && <SignInBlock id="bookings-signin" title={text.signIn.title} body={text.signIn.body} returnPath="/bookings" />}
 
                 {state === 'loading' && (
