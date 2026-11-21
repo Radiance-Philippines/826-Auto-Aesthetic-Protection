@@ -6,7 +6,7 @@ use App\Models\BranchBlock;
 use App\Models\User;
 
 /**
- * Staff close or block bays at their own branches; closures for every
+ * Staff close days or mark them fully booked at their own branches; closures for every
  * branch are the owner's.
  */
 class BranchBlockPolicy

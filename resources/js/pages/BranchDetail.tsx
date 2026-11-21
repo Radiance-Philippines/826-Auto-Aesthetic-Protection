@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Clock, House, Info, MapPin } from '../components
 import { ParkedCar } from '../components/Studio';
 import { pageCars } from '../lib/cars';
 import { copy } from '../lib/copy';
-import { branchBySlug, categories, clock, fromPrice, peso } from '../lib/site';
+import { branchBySlug, categories, daysLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import NotFound from './NotFound';
 
@@ -120,6 +120,7 @@ export default function BranchDetail() {
                                 {text.servicesTitle}
                             </h2>
                             <p className="mt-1 text-sm text-muted">{text.servicesBody}</p>
+                            <p className="mt-1 text-sm text-muted">{copy.price.depends}</p>
                             <div className="mt-4 space-y-5">
                                 {offered.map(({ category, services }) => (
                                     <div key={category.id}>
@@ -127,18 +128,14 @@ export default function BranchDetail() {
                                             <CategoryIcon slug={category.slug} className="size-4 text-accent" /> {category.name}
                                         </p>
                                         <ul className="mt-1.5">
-                                            {services.map((service) => {
-                                                const from = fromPrice(service);
-
-                                                return (
-                                                    <li key={service.id}>
-                                                        <Link to={`/services/${service.slug}`} className="press -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2 hover:bg-text/5">
-                                                            <span>{service.name}</span>
-                                                            {from !== null && <span className="shrink-0 text-sm text-muted tabular">{copy.price.from(peso(from))}</span>}
-                                                        </Link>
-                                                    </li>
-                                                );
-                                            })}
+                                            {services.map((service) => (
+                                                <li key={service.id}>
+                                                    <Link to={`/services/${service.slug}`} className="press -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2 hover:bg-text/5">
+                                                        <span>{service.name}</span>
+                                                        {service.estimateDays ? <span className="shrink-0 text-sm text-muted tabular">{daysLabel(service.estimateDays)}</span> : null}
+                                                    </Link>
+                                                </li>
+                                            ))}
                                         </ul>
                                     </div>
                                 ))}
@@ -156,7 +153,6 @@ export default function BranchDetail() {
                             <div className="mt-3">
                                 <HoursTable branch={branch} />
                             </div>
-                            {branch.multidayDropoffBy && <p className="mt-4 border-t border-line pt-4 text-sm leading-relaxed text-muted">{text.multiday(clock(branch.multidayDropoffBy))}</p>}
                         </section>
                     )}
 

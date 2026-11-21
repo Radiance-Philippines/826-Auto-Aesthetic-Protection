@@ -27,7 +27,13 @@ class ServiceFactory extends Factory
             'sort_order' => 0,
             'is_active' => true,
             'home_service_ok' => false,
+            'estimate_days' => 1,
         ];
+    }
+
+    public function takes(int $days): static
+    {
+        return $this->state(fn () => ['estimate_days' => $days]);
     }
 
     public function homeServiceOk(): static

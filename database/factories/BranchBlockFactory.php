@@ -31,8 +31,8 @@ class BranchBlockFactory extends Factory
         return $this->state(fn () => ['starts_at' => CarbonImmutable::parse($from), 'ends_at' => CarbonImmutable::parse($to)]);
     }
 
-    public function bays(?int $bays = null): static
+    public function full(): static
     {
-        return $this->state(fn () => ['kind' => 'bays', 'bays' => $bays]);
+        return $this->state(fn () => ['kind' => 'full', 'title' => 'Fully booked']);
     }
 }

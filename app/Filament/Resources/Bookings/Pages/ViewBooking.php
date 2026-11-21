@@ -47,7 +47,7 @@ class ViewBooking extends ViewRecord
             BookingActions::text(),
             ActionGroup::make([
                 BookingActions::reschedule(),
-                BookingActions::extend(),
+                BookingActions::changeReadyDate(),
                 BookingActions::noShow(),
                 BookingActions::link(),
                 BookingActions::email(),

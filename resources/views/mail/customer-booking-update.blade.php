@@ -6,11 +6,11 @@
 Hi {{ $booking->name }}, your drop-off at **826 {{ $booking->branch?->name }}** is set.
 @break
 @case ('hold')
-# Pay to keep your slot
+# Pay to keep your day
 
-Hi {{ $booking->name }}, we’re holding **{{ $booking->whenLabel() }}** for you until **{{ $booking->hold_expires_at?->format('g:i A') }}**.
+Hi {{ $booking->name }}, we’re holding **{{ $booking->drop_off_on?->format('D, M j') }}** for you until **{{ $booking->hold_expires_at?->format('g:i A') }}**.
 
-Pay the reservation fee of **₱{{ number_format((int) $booking->amount_due) }}** by GCash or Maya, then upload a screenshot on your booking page. If no screenshot comes in by then, the slot opens up for others.
+Pay the reservation fee of **₱{{ number_format((int) $booking->amount_due) }}** by GCash or Maya, then upload a screenshot on your booking page. If no screenshot comes in by then, the day opens up for others.
 @break
 @case ('paid')
 # Payment received
@@ -28,12 +28,29 @@ Hi {{ $booking->name }}, we couldn’t match the screenshot you sent.
 </x-mail::panel>
 @endif
 
-Upload another one on your booking page before **{{ $booking->hold_expires_at?->format('g:i A') }}** to keep the slot.
+Upload another one on your booking page before **{{ $booking->hold_expires_at?->format('g:i A') }}** to keep the day.
 @break
 @case ('expired')
 # Your hold ran out
 
-Hi {{ $booking->name }}, no payment came in for **{{ $booking->whenLabel() }}**, so the slot is open again. You can book another time on the site.
+Hi {{ $booking->name }}, no payment came in for **{{ $booking->whenLabel() }}**, so the day is open again. You can book another date on the site.
+@break
+@case ('arrived')
+# We have your car
+
+Hi {{ $booking->name }}, your {{ $booking->vehicle_model ?: 'car' }} is at **826 {{ $booking->branch?->name }}**. We’ll let you know when it’s ready.
+@break
+@case ('priced')
+# We reviewed your car
+
+Hi {{ $booking->name }}, we’ve seen your {{ $booking->vehicle_model ?: 'car' }} and set your price.
+
+<x-mail::panel>
+**Total: ₱{{ number_format((int) $booking->total_price) }}**@if ($booking->ready_on)
+
+Ready around {{ $booking->ready_on->format('D, M j') }}.
+@endif
+</x-mail::panel>
 @break
 @case ('ready')
 # Your car is ready
@@ -76,12 +93,12 @@ Hi {{ $booking->name }}, we can’t take this home service request. Call or mess
 @endswitch
 
 - **Reference:** {{ $booking->reference }}
-@if ($booking->starts_at)
+@if ($booking->drop_off_on)
 - **When:** {{ $booking->whenLabel() }}
 @endif
 - **Services:** {{ $booking->servicesLabel() }}
-@if ($booking->total_price !== null)
-- **Estimate:** ₱{{ number_format($booking->total_price) }}
+@if ($kind === 'priced' && $booking->total_price !== null)
+- **Price:** ₱{{ number_format($booking->total_price) }}
 @endif
 
 <x-mail::button :url="$bookingUrl">

@@ -75,7 +75,7 @@ class AdminScopingTest extends TestCase
             $this->get($url)->assertForbidden();
         }
 
-        foreach (['/admin', '/admin/timeline', '/admin/bookings', '/admin/bookings/create', '/admin/branch-blocks'] as $url) {
+        foreach (['/admin', '/admin/queue', '/admin/bookings', '/admin/bookings/create', '/admin/branch-blocks'] as $url) {
             $this->get($url)->assertOk();
         }
     }
@@ -106,12 +106,12 @@ class AdminScopingTest extends TestCase
         $this->actingAs($this->staff)->get("/admin-files/bookings/{$theirs->id}/proof")->assertForbidden();
     }
 
-    public function test_the_timeline_refuses_another_branch(): void
+    public function test_the_queue_refuses_another_branch(): void
     {
         $this->actingAs($this->staff);
 
-        $this->get('/admin/timeline?branch='.$this->sanMateo->id)->assertForbidden();
-        $this->get('/admin/timeline')->assertOk()->assertSee('Cainta');
+        $this->get('/admin/queue?branch='.$this->sanMateo->id)->assertForbidden();
+        $this->get('/admin/queue')->assertOk()->assertSee('Cainta');
     }
 
     public function test_staff_without_a_branch_see_nothing(): void
@@ -122,7 +122,7 @@ class AdminScopingTest extends TestCase
         $this->actingAs($nobody);
 
         Livewire::test(ListBookings::class, ['activeTab' => 'all'])->assertCountTableRecords(0);
-        $this->get('/admin/timeline')->assertOk()->assertSee('not assigned to a branch');
+        $this->get('/admin/queue')->assertOk()->assertSee('not assigned to a branch');
     }
 
     public function test_owners_see_every_branch(): void

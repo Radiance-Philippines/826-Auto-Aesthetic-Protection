@@ -9,8 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A size the price list is split by (Motorcycle, Sedan, SUV…), edited in
- * /admin → Vehicle sizes.
+ * A size class the price list is split by (Small, Medium, Large, XL),
+ * edited in /admin → Vehicle sizes. Customers never pick one: the admin
+ * assigns it to a unit after seeing it.
  */
 class VehicleSize extends Model
 {
@@ -43,17 +44,5 @@ class VehicleSize extends Model
     public function rates(): HasMany
     {
         return $this->hasMany(ServiceRate::class);
-    }
-
-    /**
-     * @return array{id: int, name: string, examples: string|null}
-     */
-    public function toSite(): array
-    {
-        return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'examples' => $this->examples,
-        ];
     }
 }

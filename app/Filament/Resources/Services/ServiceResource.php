@@ -20,9 +20,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -34,8 +32,9 @@ use Illuminate\Support\Str;
 use UnitEnum;
 
 /**
- * What customers can book (owners only), with a price and duration for
- * each vehicle size. A size left blank isn't offered for that service.
+ * What customers can book (owners only): one estimate in days, and a price
+ * for each size class. Customers never see the prices: they are used when
+ * the team assigns a unit its size class.
  */
 class ServiceResource extends Resource
 {
@@ -48,8 +47,6 @@ class ServiceResource extends Resource
     protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'name';
-
-    public const UNITS = ['hours' => 'Hours', 'days' => 'Days'];
 
     /**
      * The longest job, in open days.
@@ -87,6 +84,13 @@ class ServiceResource extends Resource
                     TextInput::make('summary')
                         ->label('One-line summary')
                         ->maxLength(160),
+                    TextInput::make('estimate_days')
+                        ->label('Takes (days)')
+                        ->integer()
+                        ->minValue(1)
+                        ->maxValue(self::MAX_DAYS)
+                        ->suffix('days')
+                        ->helperText('Open days, counting the drop-off day. Leave blank until you know it: a service without it can’t be booked.'),
                     Textarea::make('description')
                         ->rows(4)
                         ->maxLength(3000)
@@ -107,35 +111,16 @@ class ServiceResource extends Resource
                     ImageUpload::make('image', 'services')->label('Picture'),
                     TextInput::make('sort_order')->label('Order')->integer()->default(0),
                 ]),
-            Section::make('Prices and durations')
-                ->description('One row per vehicle size. Leave the price blank if this service isn’t offered for that size. Hours: the job is done the same day if it fits before closing. Days: ready at closing on the last day, counting the drop-off day.')
+            Section::make('Prices by size class')
+                ->description('One price per size class, never shown to customers: it prices a booking once the team has seen the unit and picked its class. Leave a class blank if the service isn’t offered for it.')
                 ->columnSpanFull()
-                ->columns(['lg' => 2])
-                ->components(fn () => VehicleSize::query()->ordered()->get()->map(fn (VehicleSize $size) => Fieldset::make($size->name.($size->is_active ? '' : ' (hidden)'))
-                    ->columns(3)
-                    ->components([
-                        TextInput::make("rates.{$size->id}.price")
-                            ->label('Price')
-                            ->prefix('₱')
-                            ->integer()
-                            ->minValue(0)
-                            ->maxValue(10_000_000)
-                            ->live(onBlur: true),
-                        Select::make("rates.{$size->id}.unit")
-                            ->label('Takes')
-                            ->options(self::UNITS)
-                            ->default('hours')
-                            ->selectablePlaceholder(false)
-                            ->live()
-                            ->required(fn (Get $get) => filled($get("rates.{$size->id}.price"))),
-                        TextInput::make("rates.{$size->id}.amount")
-                            ->label(fn (Get $get) => $get("rates.{$size->id}.unit") === 'days' ? 'Days' : 'Hours')
-                            ->numeric()
-                            ->minValue(fn (Get $get) => $get("rates.{$size->id}.unit") === 'days' ? 1 : 0.25)
-                            ->maxValue(fn (Get $get) => $get("rates.{$size->id}.unit") === 'days' ? self::MAX_DAYS : 200)
-                            ->step(fn (Get $get) => $get("rates.{$size->id}.unit") === 'days' ? 1 : 0.25)
-                            ->required(fn (Get $get) => filled($get("rates.{$size->id}.price"))),
-                    ]))->values()->all()),
+                ->columns(['md' => 2, 'xl' => 4])
+                ->components(fn () => VehicleSize::query()->ordered()->get()->map(fn (VehicleSize $size) => TextInput::make("rates.{$size->id}.price")
+                    ->label($size->name.($size->is_active ? '' : ' (hidden)'))
+                    ->prefix('₱')
+                    ->integer()
+                    ->minValue(0)
+                    ->maxValue(10_000_000))->values()->all()),
             Section::make('Branches')
                 ->columnSpanFull()
                 ->components([
@@ -152,54 +137,39 @@ class ServiceResource extends Resource
     /**
      * The service's rates as the form edits them.
      *
-     * @return array<int, array{price: int|null, unit: string, amount: float|int|null}>
+     * @return array<int, array{price: int|null}>
      */
     public static function ratesForForm(?Service $service): array
     {
         $rates = [];
 
         foreach (VehicleSize::query()->ordered()->get() as $size) {
-            $rate = $service?->rates->firstWhere('vehicle_size_id', $size->id);
-            $days = (int) $rate?->duration_days;
-
-            $rates[$size->id] = [
-                'price' => $rate?->price,
-                'unit' => $days > 0 ? 'days' : 'hours',
-                'amount' => $days > 0 ? $days : ($rate?->duration_minutes ? round($rate->duration_minutes / 60, 2) : null),
-            ];
+            $rates[$size->id] = ['price' => $service?->rates->firstWhere('vehicle_size_id', $size->id)?->price];
         }
 
         return $rates;
     }
 
     /**
-     * Saves the grid: a price and duration for each size that has a price,
-     * and no rate for the sizes left blank.
+     * Saves the grid: a price for each size class that has one, and no
+     * rate for the classes left blank.
      *
      * @param  array<int|string, array<string, mixed>>  $rates
      */
     public static function saveRates(Service $service, array $rates): void
     {
         foreach (VehicleSize::query()->pluck('id') as $sizeId) {
-            $row = $rates[$sizeId] ?? $rates[(string) $sizeId] ?? [];
-            $price = $row['price'] ?? null;
-            $amount = is_numeric($row['amount'] ?? null) ? (float) $row['amount'] : null;
+            $price = ($rates[$sizeId] ?? $rates[(string) $sizeId] ?? [])['price'] ?? null;
 
-            if (blank($price) || $amount === null || $amount <= 0) {
+            if (blank($price)) {
                 ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $sizeId)->delete();
 
                 continue;
             }
 
-            $days = ($row['unit'] ?? 'hours') === 'days';
-
             ServiceRate::updateOrCreate(
                 ['service_id' => $service->id, 'vehicle_size_id' => $sizeId],
-                [
-                    'price' => (int) $price,
-                    'duration_days' => $days ? max(1, min(self::MAX_DAYS, (int) round($amount))) : null,
-                    'duration_minutes' => $days ? null : max(15, (int) round($amount * 60)),
-                ],
+                ['price' => (int) $price],
             );
         }
     }
@@ -214,15 +184,19 @@ class ServiceResource extends Resource
                 TextColumn::make('name')
                     ->searchable()
                     ->description(fn (Service $record) => $record->category?->name),
+                TextColumn::make('estimate_days')
+                    ->label('Takes')
+                    ->formatStateUsing(fn (?int $state) => $state > 0 ? ($state === 1 ? '1 day' : "{$state} days") : 'Not set')
+                    ->color(fn (Service $record) => $record->estimate_days > 0 ? null : 'warning'),
                 TextColumn::make('prices')
                     ->label('Prices')
                     ->state(function (Service $record) {
-                        $prices = $record->rates->filter->isBookable()->pluck('price');
+                        $prices = $record->rates->filter->hasPrice()->pluck('price');
 
                         return $prices->isEmpty() ? 'Not set' : '₱'.number_format($prices->min()).($prices->min() !== $prices->max() ? ' – ₱'.number_format($prices->max()) : '');
                     })
-                    ->description(fn (Service $record) => $record->rates->filter->isBookable()->count().' of '.VehicleSize::query()->active()->count().' sizes')
-                    ->color(fn (Service $record) => $record->rates->filter->isBookable()->isEmpty() ? 'warning' : null),
+                    ->description(fn (Service $record) => $record->rates->filter->hasPrice()->count().' of '.VehicleSize::query()->active()->count().' size classes')
+                    ->color(fn (Service $record) => $record->rates->filter->hasPrice()->isEmpty() ? 'warning' : null),
                 TextColumn::make('branches_count')
                     ->label('Branches')
                     ->alignCenter(),

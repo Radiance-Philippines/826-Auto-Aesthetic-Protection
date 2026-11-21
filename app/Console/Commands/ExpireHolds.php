@@ -10,7 +10,7 @@ use Illuminate\Console\Command;
 
 /**
  * Unpaid holds past their deadline become "expired" and the customer is
- * told. The bay was already free (availability checks the deadline itself);
+ * told. The day was already free (availability checks the deadline itself);
  * this keeps the lists tidy and sends the email. Runs every minute.
  */
 #[Signature('bookings:expire-holds')]

@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Time a branch can't take cars. "closed" shuts the shop (a holiday, a half
- * day): no drop-offs, and jobs in progress pause, so their ready-by moves
- * later. "bays" takes some bays (or all) out of service without closing.
- * A block without a branch covers every branch.
+ * Whole days a branch is off the calendar. "closed" shuts the shop (a
+ * holiday, a brownout): no drop-offs, and the day doesn't count toward a
+ * job's estimate. "full" marks the day fully booked: the shop still works,
+ * but online bookings stop for it. A block without a branch covers every
+ * branch. Stored as midnight to midnight (the end is the day after the last).
  *
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
@@ -25,10 +26,10 @@ class BranchBlock extends Model
 
     public const KINDS = [
         'closed' => 'Closed (no drop-offs, work pauses)',
-        'bays' => 'Bays out of service',
+        'full' => 'Fully booked (no new bookings)',
     ];
 
-    protected $fillable = ['branch_id', 'kind', 'bays', 'starts_at', 'ends_at', 'title', 'note', 'created_by'];
+    protected $fillable = ['branch_id', 'kind', 'starts_at', 'ends_at', 'title', 'note', 'created_by'];
 
     protected $attributes = [
         'kind' => 'closed',
@@ -37,7 +38,6 @@ class BranchBlock extends Model
     protected function casts(): array
     {
         return [
-            'bays' => 'integer',
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
         ];
@@ -56,9 +56,9 @@ class BranchBlock extends Model
         $query->where('kind', 'closed');
     }
 
-    public function scopeBayBlocks(Builder $query): void
+    public function scopeFullDays(Builder $query): void
     {
-        $query->where('kind', 'bays');
+        $query->where('kind', 'full');
     }
 
     /**
@@ -81,24 +81,34 @@ class BranchBlock extends Model
         return $this->branch_id === null;
     }
 
+    public function coversDate(CarbonImmutable $date): bool
+    {
+        $day = $date->startOfDay();
+
+        return $this->starts_at < $day->addDay() && $this->ends_at > $day;
+    }
+
     /**
-     * "Mon, Nov 30 (all day)", "Dec 24, 12:00 PM – Dec 26, 8:00 AM".
+     * The first and the last day it covers.
+     */
+    public function firstDay(): CarbonImmutable
+    {
+        return $this->starts_at->startOfDay();
+    }
+
+    public function lastDay(): CarbonImmutable
+    {
+        return $this->ends_at->subSecond()->startOfDay()->max($this->firstDay());
+    }
+
+    /**
+     * "Mon, Nov 30", "Dec 24 – Dec 26".
      */
     public function dateLabel(): string
     {
-        $start = $this->starts_at;
-        $end = $this->ends_at;
+        $first = $this->firstDay();
+        $last = $this->lastDay();
 
-        if ($start->isStartOfDay() && $end->isStartOfDay()) {
-            $last = $end->subDay();
-
-            return $last->isSameDay($start)
-                ? $start->format('D, M j').' (all day)'
-                : $start->format('M j').' – '.$last->format('M j').' (all day)';
-        }
-
-        return $start->isSameDay($end)
-            ? $start->format('D, M j, g:i A').' – '.$end->format('g:i A')
-            : $start->format('M j, g:i A').' – '.$end->format('M j, g:i A');
+        return $last->isSameDay($first) ? $first->format('D, M j') : $first->format('M j').' – '.$last->format('M j');
     }
 }

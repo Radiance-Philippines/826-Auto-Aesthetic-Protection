@@ -7,18 +7,16 @@ import CategoryIcon from '../components/CategoryIcon';
 import { PageHeader } from '../components/Heading';
 import { ArrowRight, Check, House } from '../components/Icons';
 import LayerDiagram, { layersFor } from '../components/LayerDiagram';
-import PriceTable from '../components/PriceTable';
 import { CarCrop, ParkedCar } from '../components/Studio';
 import { pageCars, shotFor } from '../lib/cars';
 import { copy } from '../lib/copy';
-import { branchesOffering, categories, fromPrice, peso, site } from '../lib/site';
+import { branchesOffering, categories, daysLabel, site } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import type { Service } from '../types';
 
 const text = copy.services;
 
 export function ServiceCard({ service }: { service: Service }) {
-    const from = fromPrice(service);
     const bookable = branchesOffering(service).length > 0;
 
     return (
@@ -29,7 +27,7 @@ export function ServiceCard({ service }: { service: Service }) {
                         {service.name}
                     </Link>
                 </h3>
-                {from !== null && <p className="price pt-0.5 text-[1.05rem]">{copy.price.from(peso(from))}</p>}
+                {service.estimateDays ? <p className="pt-0.5 text-[1.05rem] font-semibold">{daysLabel(service.estimateDays)}</p> : null}
             </div>
             {service.summary && <p className="mt-2 leading-relaxed text-muted">{service.summary}</p>}
             {service.homeServiceOk && (
@@ -46,9 +44,7 @@ export function ServiceCard({ service }: { service: Service }) {
                     ))}
                 </ul>
             )}
-            <div className="mt-5">
-                <PriceTable service={service} compact />
-            </div>
+            <p className="mt-5 text-sm leading-relaxed text-muted">{copy.price.depends}</p>
             <div className="mt-auto flex flex-wrap gap-2 pt-6">
                 {bookable && (
                     <Button to={`/book?service=${service.slug}`} className="min-h-11! px-5!">

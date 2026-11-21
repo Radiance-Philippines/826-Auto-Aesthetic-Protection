@@ -13,7 +13,7 @@ use Tests\Support\BuildsShop;
 use Tests\TestCase;
 
 /**
- * Home service: a request the branch schedules by hand, never a bay.
+ * Home service: a request the branch schedules by hand, never counted toward the daily cap.
  */
 class HomeServiceTest extends TestCase
 {
@@ -54,10 +54,19 @@ class HomeServiceTest extends TestCase
 
         $booking = Booking::sole();
         $this->assertSame(['home', 'requested', 'Cainta', true, false, null], [$booking->kind, $booking->status, $booking->area, $booking->has_water, $booking->has_power, $booking->has_shade]);
-        $this->assertNull($booking->starts_at);
+        $this->assertNull($booking->drop_off_on);
+        $this->assertNull($booking->total_price);
+        $this->assertSame(['reviewing', 2021, 'sedan'], [$booking->priceForCustomer()['status'], $booking->vehicle_year, $booking->vehicle_type]);
         $this->assertSame('2026-11-18', $booking->preferred_date->toDateString());
-        $this->assertFalse($booking->holdsABay());
+        $this->assertFalse($booking->countsTowardCap());
         Mail::assertSent(TeamBookingAlert::class, fn (TeamBookingAlert $mail) => $mail->kind === 'home_request');
+    }
+
+    public function test_the_unit_is_required_like_a_reservation(): void
+    {
+        $this->request(['vehicle_year' => '', 'vehicle_model' => '', 'vehicle_type' => '', 'plate_number' => ''])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number']);
     }
 
     public function test_only_services_that_can_be_done_at_home(): void

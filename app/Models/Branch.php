@@ -15,10 +15,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * One of 826's shops. Customers reserve a drop-off time here once the
- * branch is open and filled in (see missing()). Its bays are how many cars
- * it works on at once; its weekly hours say when cars can be dropped off
- * and when work runs.
+ * One of 826's shops. Customers reserve a drop-off date here once the
+ * branch is open and filled in (see missing()). It works one queue: the
+ * daily cap is how many units it takes per day, and its weekly hours say
+ * which days it is open (the times are only shown on the site).
  */
 class Branch extends Model
 {
@@ -41,9 +41,9 @@ class Branch extends Model
         7 => 'Sunday',
     ];
 
-    public const STEPS = [15 => 'Every 15 minutes', 30 => 'Every 30 minutes', 60 => 'Every hour', 120 => 'Every 2 hours'];
+    public const MAX_DAILY_CAP = 50;
 
-    public const MAX_BAYS = 50;
+    public const MAX_LEAD_DAYS = 60;
 
     protected $fillable = [
         'name',
@@ -59,12 +59,10 @@ class Branch extends Model
         'messenger_url',
         'facebook_url',
         'alert_email',
-        'bays',
         'weekly_hours',
-        'step_minutes',
-        'lead_hours',
+        'daily_cap',
+        'lead_days',
         'months_ahead',
-        'multiday_dropoff_by',
         'offers_home_service',
         'home_service_areas',
         'gcash_enabled',
@@ -79,9 +77,8 @@ class Branch extends Model
 
     protected $attributes = [
         'status' => 'draft',
-        'bays' => 0,
-        'step_minutes' => 60,
-        'lead_hours' => 2,
+        'daily_cap' => 0,
+        'lead_days' => 1,
         'months_ahead' => 3,
     ];
 
@@ -91,10 +88,9 @@ class Branch extends Model
             'sort_order' => 'integer',
             'map_lat' => 'float',
             'map_lng' => 'float',
-            'bays' => 'integer',
             'weekly_hours' => 'array',
-            'step_minutes' => 'integer',
-            'lead_hours' => 'integer',
+            'daily_cap' => 'integer',
+            'lead_days' => 'integer',
             'months_ahead' => 'integer',
             'offers_home_service' => 'boolean',
             'home_service_areas' => 'array',
@@ -159,10 +155,10 @@ class Branch extends Model
     }
 
     /**
-     * Each weekday's hours, checked: null when closed. Times are "HH:MM";
-     * the last drop-off is never before opening or after closing.
+     * Each weekday's hours, checked: null when closed. Times are "HH:MM"
+     * and only shown on the site; a weekday without hours is a closed day.
      *
-     * @return array<int, array{open: string, close: string, last_dropoff: string}|null>
+     * @return array<int, array{open: string, close: string}|null>
      */
     public function weeklyHours(): array
     {
@@ -174,44 +170,20 @@ class Branch extends Model
             $open = self::clock($row['open'] ?? null);
             $close = self::clock($row['close'] ?? null);
 
-            if (! is_array($row) || ($row['closed'] ?? false) || ! $open || ! $close || $open >= $close) {
-                $hours[$day] = null;
-
-                continue;
-            }
-
-            $last = self::clock($row['last_dropoff'] ?? null) ?? $close;
-
-            $hours[$day] = [
-                'open' => $open,
-                'close' => $close,
-                'last_dropoff' => max($open, min($last, $close)),
-            ];
+            $hours[$day] = ! is_array($row) || ($row['closed'] ?? false) || ! $open || ! $close || $open >= $close
+                ? null
+                : ['open' => $open, 'close' => $close];
         }
 
         return $hours;
     }
 
     /**
-     * The hours on a date, as times on that date.
-     *
-     * @return array{open: CarbonImmutable, close: CarbonImmutable, lastDropoff: CarbonImmutable}|null
+     * Whether the branch works on this weekday (closure blocks aside).
      */
-    public function hoursOn(CarbonImmutable $date): ?array
+    public function opensOn(CarbonImmutable $date): bool
     {
-        $hours = $this->weeklyHours()[$date->isoWeekday()] ?? null;
-
-        if ($hours === null) {
-            return null;
-        }
-
-        $day = $date->startOfDay();
-
-        return [
-            'open' => $day->setTimeFromTimeString($hours['open']),
-            'close' => $day->setTimeFromTimeString($hours['close']),
-            'lastDropoff' => $day->setTimeFromTimeString($hours['last_dropoff']),
-        ];
+        return $this->weeklyHours()[$date->isoWeekday()] !== null;
     }
 
     public function hasHours(): bool
@@ -233,19 +205,14 @@ class Branch extends Model
         return $hour < 24 && $minute < 60 ? sprintf('%02d:%02d', $hour, $minute) : null;
     }
 
-    public function multidayDropoffBy(): ?string
+    public function dailyCap(): int
     {
-        return self::clock($this->multiday_dropoff_by);
+        return max(0, min(255, (int) $this->daily_cap));
     }
 
-    public function stepMinutes(): int
+    public function leadDays(): int
     {
-        return array_key_exists((int) $this->step_minutes, self::STEPS) ? (int) $this->step_minutes : 60;
-    }
-
-    public function leadHours(): int
-    {
-        return max(0, min(24 * 14, (int) $this->lead_hours));
+        return max(0, min(self::MAX_LEAD_DAYS, (int) $this->lead_days));
     }
 
     public function monthsAhead(): int
@@ -254,19 +221,13 @@ class Branch extends Model
     }
 
     /**
-     * The services on offer here that can be booked for at least one size.
+     * The services on offer here that can be booked: active, with a day estimate.
      *
      * @return Collection<int, Service>
      */
     public function bookableServices(): Collection
     {
-        return $this->services()
-            ->active()
-            ->whereHas('rates', fn (Builder $rates) => $rates
-                ->whereNotNull('price')
-                ->where(fn (Builder $duration) => $duration->where('duration_days', '>', 0)->orWhere('duration_minutes', '>', 0))
-                ->whereHas('vehicleSize', fn (Builder $size) => $size->where('is_active', true)))
-            ->get();
+        return $this->services()->bookable()->get();
     }
 
     /**
@@ -279,8 +240,8 @@ class Branch extends Model
     {
         $missing = [];
 
-        if ((int) $this->bays <= 0) {
-            $missing[] = 'Set how many cars the branch works on at once (bays).';
+        if ($this->dailyCap() <= 0) {
+            $missing[] = 'Set how many units the branch takes per day (daily cap).';
         }
 
         if (! $this->hasHours()) {
@@ -288,10 +249,16 @@ class Branch extends Model
         }
 
         if ($this->bookableServices()->isEmpty()) {
-            $missing[] = 'Offer at least one service with a price and a duration.';
+            $missing[] = 'Offer at least one service that has a day estimate (Takes).';
         }
 
-        if (PaymentSetting::instance()->feeEnabled() && $this->paymentMethods() === []) {
+        $payments = PaymentSetting::instance();
+
+        if ($payments->feeEnabled() && $payments->feeAmount() <= 0) {
+            $missing[] = 'The reservation fee is on: set its amount in Payments.';
+        }
+
+        if ($payments->feeEnabled() && $this->paymentMethods() === []) {
             $missing[] = 'The reservation fee is on: add a GCash or Maya account here or in Payments.';
         }
 
@@ -402,9 +369,7 @@ class Branch extends Model
                 'label' => $label,
                 'open' => $hours[$day]['open'] ?? null,
                 'close' => $hours[$day]['close'] ?? null,
-                'lastDropoff' => $hours[$day]['last_dropoff'] ?? null,
             ])->values()->all(),
-            'multidayDropoffBy' => $this->multidayDropoffBy(),
             // The last day it takes bookings and home-service requests for
             'lastDay' => Availability::lastDay($this)->toDateString(),
             'bookable' => $this->isOnsiteBookable(),

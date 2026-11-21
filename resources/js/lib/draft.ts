@@ -1,5 +1,3 @@
-import type { TimeSlot } from '../types';
-
 /**
  * What a customer has filled in, kept in this tab (sessionStorage) so a
  * reload or the trip to Google's sign-in and back doesn't lose it.
@@ -66,12 +64,14 @@ export const BOOK_DRAFT = 'app826-book-draft';
 
 export type BookDraft = {
     branchId: number | null;
-    sizeId: number | null;
+    /** A saved unit's id; null for a new unit typed in below */
+    vehicleId: number | null;
+    year: string;
     model: string;
+    type: string;
     plate: string;
     serviceIds: number[];
     date: string | null;
-    slot: TimeSlot | null;
     name: string;
     phone: string;
     email: string;
@@ -81,12 +81,13 @@ export type BookDraft = {
 
 export const emptyBookDraft = (): BookDraft => ({
     branchId: null,
-    sizeId: null,
+    vehicleId: null,
+    year: '',
     model: '',
+    type: '',
     plate: '',
     serviceIds: [],
     date: null,
-    slot: null,
     name: '',
     phone: '',
     email: '',

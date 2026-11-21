@@ -14,7 +14,7 @@ class ManageBranchBlocks extends ManageRecords
     {
         return [
             CreateAction::make()
-                ->label('Close or block bays')
+                ->label('Add a closure')
                 ->mutateDataUsing(fn (array $data, CreateAction $action) => [
                     ...BranchBlockResource::prepare($data, $action->getRawData()),
                     'created_by' => auth()->id(),

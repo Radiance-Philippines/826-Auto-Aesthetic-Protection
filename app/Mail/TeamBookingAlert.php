@@ -11,20 +11,20 @@ use Illuminate\Mail\Mailables\Envelope;
 
 /**
  * Tells a branch's team that something happened to a booking: a new
- * reservation or hold, a payment screenshot to check, a home-service
+ * reservation or hold, a unit that needs its size, a payment screenshot to check, a home-service
  * request, or a customer cancelling or moving one. Replying answers the
  * customer when they left an email.
  */
 class TeamBookingAlert extends Mailable
 {
-    public const KINDS = ['reserved', 'hold', 'payment', 'home_request', 'cancelled', 'rescheduled'];
+    public const KINDS = ['reserved', 'hold', 'size_review', 'payment', 'home_request', 'cancelled', 'rescheduled'];
 
     public function __construct(public Booking $booking, public string $kind) {}
 
     public function envelope(): Envelope
     {
         $booking = $this->booking;
-        $when = $booking->starts_at?->format('D, M j, g:i A') ?? $booking->preferred_date?->format('D, M j');
+        $when = $booking->drop_off_on?->format('D, M j') ?? $booking->preferred_date?->format('D, M j');
         $branch = $booking->branch?->name;
 
         return new Envelope(
@@ -32,6 +32,7 @@ class TeamBookingAlert extends Mailable
             subject: match ($this->kind) {
                 'reserved' => "New reservation at {$branch}: {$booking->name}, {$when} ({$booking->reference})",
                 'hold' => "New hold at {$branch}, waiting for the fee: {$booking->name}, {$when}",
+                'size_review' => "Size to set: {$booking->vehicleLabel()} at {$branch}, {$when} ({$booking->reference})",
                 'payment' => "Screenshot to check: {$booking->name} ({$booking->reference})",
                 'home_request' => "Home service request: {$booking->name}, {$when}",
                 'cancelled' => "Cancelled by the customer: {$booking->name}, {$when} ({$booking->reference})",

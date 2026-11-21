@@ -39,17 +39,17 @@ class EditBranch extends EditRecord
         }
 
         $outside = $branch->bookings()
-            ->holdingABay()
-            ->where('ends_at', '>', now())
+            ->countingTowardCap()
+            ->where('drop_off_on', '>=', today()->toDateString())
             ->get()
-            ->filter(fn ($booking) => $branch->hoursOn($booking->starts_at) === null)
+            ->filter(fn ($booking) => ! $branch->opensOn($booking->drop_off_on))
             ->count();
 
         if ($outside > 0) {
             Notification::make()
                 ->warning()
                 ->title("{$outside} upcoming ".($outside === 1 ? 'booking drops' : 'bookings drop').' off on a day that’s now closed')
-                ->body('They keep their times. Check the timeline and move them if needed.')
+                ->body('They keep their times. Check the queue and move them if needed.')
                 ->persistent()
                 ->send();
         }

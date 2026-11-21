@@ -13,35 +13,49 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class BookingFactory extends Factory
 {
     /**
-     * A confirmed onsite reservation: 3 hours, a week from now at 9 AM.
+     * A confirmed onsite reservation for a day a week from now, a one-day
+     * job, with a unit the admin hasn't priced yet.
      *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
-        $start = CarbonImmutable::today()->addDays(7)->setTime(9, 0);
+        $day = CarbonImmutable::today()->addDays(7);
 
         return [
             'kind' => 'onsite',
             'source' => 'site',
             'status' => 'confirmed',
             'branch_id' => Branch::factory(),
-            'starts_at' => $start,
-            'ends_at' => $start->addHours(3),
-            'vehicle_size_name' => 'Sedan',
+            'drop_off_on' => $day,
+            'ready_on' => $day,
+            'vehicle_year' => 2021,
+            'vehicle_type' => 'sedan',
             'vehicle_model' => fake()->randomElement(['Toyota Vios', 'Honda City', 'Mitsubishi Mirage']),
             'plate_number' => strtoupper(fake()->bothify('???####')),
             'name' => fake()->name(),
             'phone' => '0917'.fake()->numerify('#######'),
             'email' => fake()->safeEmail(),
-            'total_price' => 5000,
-            'total_minutes' => 180,
+            'total_days' => 1,
         ];
     }
 
-    public function at(string $start, string $end): static
+    public function on(string $dropOff, ?string $readyOn = null): static
     {
-        return $this->state(fn () => ['starts_at' => CarbonImmutable::parse($start), 'ends_at' => CarbonImmutable::parse($end)]);
+        return $this->state(fn () => ['drop_off_on' => CarbonImmutable::parse($dropOff), 'ready_on' => CarbonImmutable::parse($readyOn ?? $dropOff)]);
+    }
+
+    /**
+     * The admin has seen the unit and priced the booking.
+     */
+    public function priced(int $total = 5000, string $size = 'Medium'): static
+    {
+        return $this->state(fn () => [
+            'vehicle_size_name' => $size,
+            'size_reviewed_at' => now(),
+            'priced_at' => now(),
+            'total_price' => $total,
+        ]);
     }
 
     public function hold(int $minutesLeft = 30): static
@@ -59,8 +73,8 @@ class BookingFactory extends Factory
         return $this->state(fn () => [
             'kind' => 'home',
             'status' => 'requested',
-            'starts_at' => null,
-            'ends_at' => null,
+            'drop_off_on' => null,
+            'ready_on' => null,
             'preferred_date' => CarbonImmutable::today()->addDays(5),
             'preferred_window' => 'morning',
             'address' => fake()->streetAddress(),

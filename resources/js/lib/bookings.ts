@@ -9,10 +9,10 @@ export const PROOF_ACCEPT = PROOF_TYPES.join(',');
 export const PROOF_MAX_BYTES = 8 * 1024 * 1024;
 
 /** Still waiting on the branch or the customer: worth a fresh look when the tab comes back */
-export const LIVE_STAGES: Stage[] = ['requested', 'awaiting_payment', 'payment_review', 'confirmed', 'checked_in', 'ready'];
+export const LIVE_STAGES: Stage[] = ['requested', 'awaiting_payment', 'payment_review', 'confirmed', 'arrived', 'in_progress', 'quality_check', 'ready'];
 
 /** Finished, cancelled or lapsed */
-export const ENDED_STAGES: Stage[] = ['completed', 'expired', 'cancelled', 'declined', 'no_show'];
+export const ENDED_STAGES: Stage[] = ['exited', 'expired', 'cancelled', 'declined', 'no_show'];
 
 const withKey = (path: string, key: string | null) => `${path}${query({ key })}`;
 
@@ -24,8 +24,8 @@ export const fetchBooking = (id: string | number, key: string | null) => getJson
 export const cancelBooking = (id: number, key: string | null, reason: string) =>
     postJson<{ booking: CustomerBooking }>(withKey(`/my-bookings/${id}/cancel`, key), reason.trim() ? { reason: reason.trim() } : {});
 
-export const rescheduleBooking = (id: number, key: string | null, date: string, time: string) =>
-    postJson<{ booking: CustomerBooking; demo?: boolean }>(withKey(`/my-bookings/${id}/reschedule`, key), { date, time });
+export const rescheduleBooking = (id: number, key: string | null, date: string) =>
+    postJson<{ booking: CustomerBooking; demo?: boolean }>(withKey(`/my-bookings/${id}/reschedule`, key), { date });
 
 export type UploadResult = ApiResult<{ booking: CustomerBooking; demo?: boolean }> | { kind: 'aborted' };
 

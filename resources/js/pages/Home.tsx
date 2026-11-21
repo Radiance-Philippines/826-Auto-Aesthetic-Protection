@@ -10,7 +10,7 @@ import Picture from '../components/Picture';
 import { CarCrop, Ceiling, ParkedCar } from '../components/Studio';
 import { cast, driveSpots, heroCar, shotFor } from '../lib/cars';
 import { copy } from '../lib/copy';
-import { categories, categoryFromPrice, featuredPhotos, fromPrice, messageUrl, peso, phone, photoAlt, site } from '../lib/site';
+import { categories, categoryDays, daysLabel, featuredPhotos, messageUrl, phone, photoAlt, site } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 
 const text = copy.home;
@@ -52,20 +52,20 @@ function Hero() {
     );
 }
 
-/** The four kinds of work and where they start, in one line under the hero */
+/** The kinds of work and about how long each takes, in one line under the hero */
 function SpecStrip() {
     return (
-        <section aria-label={text.hero.prices} className="border-y border-line bg-surface-2">
+        <section aria-label={text.hero.kinds} className="border-y border-line bg-surface-2">
             <ul className={`${container} grid grid-cols-2 lg:grid-cols-4`}>
                 {categories.map((category, index) => {
-                    const from = categoryFromPrice(category);
+                    const days = categoryDays(category);
 
                     return (
                         <li key={category.id} className={`border-line ${index % 2 ? 'border-l' : ''} ${index > 1 ? 'border-t lg:border-t-0' : ''} ${index > 0 ? 'lg:border-l' : ''}`}>
                             <Link to={`/services#${category.slug}`} className="press group flex h-full min-h-24 flex-col justify-center gap-1.5 px-4 py-5 hover:bg-text/4 sm:px-6 lg:px-7">
                                 <span className="eyebrow text-[0.7rem] text-muted group-hover:text-text">{category.name}</span>
                                 <span className="flex items-center justify-between gap-3">
-                                    <span className="price text-[1.05rem] sm:text-lg">{from !== null ? copy.price.from(peso(from)) : copy.price.onRequest}</span>
+                                    <span className="text-[1.05rem] font-semibold sm:text-lg">{days ?? text.services.count(category.services.length)}</span>
                                     <ArrowRight className="size-4 shrink-0 text-accent opacity-70 group-hover:opacity-100" />
                                 </span>
                             </Link>
@@ -113,18 +113,14 @@ function ServicesSection() {
                                 {text.services.lines[category.slug] && <p className="mt-3 leading-relaxed text-muted">{text.services.lines[category.slug]}</p>}
                                 {category.description && <p className="mt-2 text-[0.95rem] leading-relaxed">{category.description}</p>}
                                 <ul className="mt-5 border-t border-line pt-1.5">
-                                    {category.services.map((service) => {
-                                        const price = fromPrice(service);
-
-                                        return (
-                                            <li key={service.id}>
-                                                <Link to={`/services/${service.slug}`} className="press -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2 text-[0.95rem] hover:bg-text/5">
-                                                    <span>{service.name}</span>
-                                                    <span className="shrink-0 text-sm text-muted tabular">{price !== null ? copy.price.from(peso(price)) : copy.price.onRequest}</span>
-                                                </Link>
-                                            </li>
-                                        );
-                                    })}
+                                    {category.services.map((service) => (
+                                        <li key={service.id}>
+                                            <Link to={`/services/${service.slug}`} className="press -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2 text-[0.95rem] hover:bg-text/5">
+                                                <span>{service.name}</span>
+                                                {service.estimateDays ? <span className="shrink-0 text-sm text-muted tabular">{daysLabel(service.estimateDays)}</span> : null}
+                                            </Link>
+                                        </li>
+                                    ))}
                                 </ul>
                             </div>
                         </li>
@@ -141,7 +137,7 @@ function StepsSection() {
         text.steps.branch,
         text.steps.vehicle,
         text.steps.services,
-        text.steps.time,
+        text.steps.date,
         ...(fee.enabled ? [text.steps.fee(fee.label, fee.holdMinutes), text.steps.confirmedPaid] : [text.steps.confirmedFree]),
     ];
 

@@ -4,12 +4,16 @@ namespace App\Filament\Resources\Bookings;
 
 use App\Models\Booking;
 use App\Models\PaymentSetting;
+use App\Models\VehicleSize;
 use App\Support\Notifier;
 use App\Support\PaymentProof;
 use App\Support\Reservations;
+use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
+use Closure;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -19,8 +23,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * What the team does with a booking, from the booking page and the
- * timeline: check the fee, check the car in and out, move or cancel it,
- * schedule a home visit, and reach the customer.
+ * queue: check the fee, review the unit's size, move it along the queue
+ * (arrived to exited), move or cancel it, schedule a home visit, and
+ * reach the customer.
  */
 final class BookingActions
 {
@@ -94,43 +99,89 @@ final class BookingActions
             });
     }
 
-    public static function checkIn(): Action
+    /**
+     * The unit is at the branch: recorded with the time it arrived.
+     */
+    public static function markArrived(): Action
     {
-        return Action::make('checkIn')
-            ->label('Check in')
-            ->icon(Heroicon::OutlinedArrowRightEndOnRectangle)
-            ->color('info')
-            ->visible(fn (Booking $record) => $record->status === 'confirmed')
-            ->requiresConfirmation()
-            ->modalDescription(fn (Booking $record) => $record->isHome() ? 'The team is at the customer’s place and has started.' : 'The car is at the branch and the job has started.')
-            ->action(fn (Booking $record) => $record->update(['status' => 'checked_in', 'read_at' => $record->read_at ?? now()]));
+        return self::step('markArrived', 'Arrived', Heroicon::OutlinedArrowRightEndOnRectangle, 'info', 'arrived', 'The unit is at the branch. Its arrival time is recorded and the customer gets an email.');
+    }
+
+    public static function startWork(): Action
+    {
+        return self::step('startWork', 'In progress', Heroicon::OutlinedWrenchScrewdriver, 'info', 'in_progress', fn (Booking $record) => $record->isHome() ? 'The team is at the customer’s place and has started.' : 'The job has started.');
+    }
+
+    public static function qualityCheck(): Action
+    {
+        return self::step('qualityCheck', 'Quality check', Heroicon::OutlinedMagnifyingGlass, 'warning', 'quality_check', 'The work is done and is being checked.');
     }
 
     public static function markReady(): Action
     {
-        return Action::make('markReady')
-            ->label('Ready for pickup')
-            ->icon(Heroicon::OutlinedCheckBadge)
-            ->color('success')
-            ->visible(fn (Booking $record) => $record->status === 'checked_in' && $record->isOnsite())
-            ->requiresConfirmation()
-            ->modalDescription('The customer gets an email that their car is ready.')
-            ->action(function (Booking $record) {
-                $record->update(['status' => 'ready']);
-                Notifier::customer($record, 'ready');
-            });
+        return self::step('markReady', 'Ready', Heroicon::OutlinedCheckBadge, 'success', 'ready', 'The customer gets an email that their car is ready.');
     }
 
-    public static function complete(): Action
+    public static function markExited(): Action
     {
-        return Action::make('complete')
-            ->label(fn (Booking $record) => $record->isHome() ? 'Done' : 'Picked up')
-            ->icon(Heroicon::OutlinedCheckCircle)
-            ->color('success')
-            ->visible(fn (Booking $record) => in_array($record->status, ['ready', 'checked_in'], true) && ($record->status === 'ready' || $record->isHome()))
+        return self::step('markExited', 'Exited', Heroicon::OutlinedCheckCircle, 'success', 'exited', 'The unit has left the branch. Its exit time is recorded.')
+            ->label(fn (Booking $record) => $record->isHome() ? 'Done' : 'Exited');
+    }
+
+    /**
+     * One step along the queue, offered while the booking's next status is $next.
+     */
+    private static function step(string $name, string $label, Heroicon $icon, string $color, string $next, string|Closure $description): Action
+    {
+        return Action::make($name)
+            ->label($label)
+            ->icon($icon)
+            ->color($color)
+            ->visible(fn (Booking $record) => $record->nextStatus() === $next)
             ->requiresConfirmation()
-            ->modalDescription('The bay is free again from now.')
-            ->action(fn (Booking $record) => $record->update(['status' => 'completed']));
+            ->modalDescription($description)
+            ->action(fn (Booking $record) => Reservations::advance($record));
+    }
+
+    /**
+     * The admin has seen the unit: assigns its size class, which prices the
+     * booking (and the customer's saved unit) from the services' rates.
+     */
+    public static function setSize(): Action
+    {
+        return Action::make('setSize')
+            ->label(fn (Booking $record) => $record->size_reviewed_at ? 'Change size' : 'Review unit')
+            ->icon(Heroicon::OutlinedScale)
+            ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : 'gray')
+            ->visible(fn (Booking $record) => $record->isOpen())
+            ->modalHeading(fn (Booking $record) => 'Review '.($record->vehicleLabel() ?: 'the unit'))
+            ->modalDescription('Pick the size class once you have seen the unit. It sets the price from each service’s rates, and the customer gets an email with it. Their saved unit keeps the size, so next time it’s priced at once.')
+            ->fillForm(fn (Booking $record) => ['vehicle_size_id' => $record->vehicle_size_id])
+            ->schema([
+                Select::make('vehicle_size_id')
+                    ->label('Size class')
+                    ->options(fn () => VehicleSize::query()->active()->ordered()->pluck('name', 'id')->all())
+                    ->required(),
+            ])
+            ->modalSubmitActionLabel('Set size')
+            ->action(function (Booking $record, array $data) {
+                $size = VehicleSize::query()->findOrFail($data['vehicle_size_id']);
+                $missing = Reservations::applySize($record, $size);
+
+                if ($missing !== []) {
+                    Notification::make()
+                        ->warning()
+                        ->title("No price for {$size->name} yet")
+                        ->body('Set '.implode(', ', $missing).' for '.$size->name.' in Shop → Services. The booking stays in Needs you until it has a price.')
+                        ->persistent()
+                        ->send();
+
+                    return;
+                }
+
+                Notifier::customer($record, 'priced');
+                Notification::make()->success()->title("Size set: {$size->name}")->body('Price: ₱'.number_format((int) $record->total_price))->send();
+            });
     }
 
     public static function noShow(): Action
@@ -139,9 +190,9 @@ final class BookingActions
             ->label('No-show')
             ->icon(Heroicon::OutlinedUserMinus)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->status === 'confirmed' && $record->starts_at?->isPast())
+            ->visible(fn (Booking $record) => $record->status === 'confirmed' && $record->drop_off_on?->isBefore(today()))
             ->requiresConfirmation()
-            ->modalDescription('The customer didn’t come. The bay opens up for others.')
+            ->modalDescription('The customer didn’t come. The day no longer counts toward the cap.')
             ->action(fn (Booking $record) => $record->update(['status' => 'no_show']));
     }
 
@@ -153,8 +204,8 @@ final class BookingActions
             ->color('danger')
             ->visible(fn (Booking $record) => $record->isOpen())
             ->modalDescription(fn (Booking $record) => $record->paid_at
-                ? 'The bay opens up again. Sort out the reservation fee with the customer yourself.'
-                : 'The bay opens up again. The customer gets an email.')
+                ? 'The day opens up again. Sort out the reservation fee with the customer yourself.'
+                : 'The day opens up again. The customer gets an email.')
             ->schema([
                 TextInput::make('reason')
                     ->label('Reason (the customer sees this)')
@@ -175,8 +226,8 @@ final class BookingActions
     }
 
     /**
-     * Moves an onsite booking (or sets a home visit's time) to another
-     * drop-off, keeping its services and payment.
+     * Moves an onsite booking to another drop-off date, keeping its
+     * services and payment.
      */
     public static function reschedule(): Action
     {
@@ -185,22 +236,20 @@ final class BookingActions
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('gray')
             ->visible(fn (Booking $record) => $record->isOnsite() && in_array($record->status, ['awaiting_payment', 'payment_review', 'confirmed'], true) && $record->stage() !== 'expired')
-            ->fillForm(fn (Booking $record) => ['starts_at' => $record->starts_at?->format('Y-m-d H:i:s')])
+            ->fillForm(fn (Booking $record) => ['drop_off_on' => $record->drop_off_on?->toDateString()])
             ->schema([
-                DateTimePicker::make('starts_at')
-                    ->label('New drop-off')
-                    ->seconds(false)
-                    ->minutesStep(15)
-                    ->displayFormat('D, M j, Y g:i A')
+                DatePicker::make('drop_off_on')
+                    ->label('New drop-off date')
+                    ->displayFormat('D, M j, Y')
                     ->required()
-                    ->helperText(fn (Booking $record) => 'Takes '.$record->length()->label().'. Ready-by moves with it.'),
+                    ->helperText(fn (Booking $record) => 'Takes '.$record->estimate()->label().'. The ready date moves with it.'),
                 Toggle::make('force')
-                    ->label('Book even if it’s full or outside hours'),
+                    ->label('Book even if it’s full'),
             ])
             ->modalSubmitActionLabel('Move')
             ->action(function (Booking $record, array $data, Action $action) {
                 try {
-                    Reservations::reschedule($record, CarbonImmutable::parse($data['starts_at'])->startOfMinute(), byCustomer: false, force: (bool) ($data['force'] ?? false));
+                    Reservations::reschedule($record, CarbonImmutable::parse($data['drop_off_on']), byCustomer: false, force: (bool) ($data['force'] ?? false));
                 } catch (ValidationException $e) {
                     Notification::make()->danger()->title('Not moved')->body(collect($e->errors())->flatten()->first())->send();
                     $action->halt();
@@ -215,30 +264,28 @@ final class BookingActions
     }
 
     /**
-     * For a car that isn't ready on time: a later ready-by.
+     * For a car that isn't ready on time: a later ready date.
      */
-    public static function extend(): Action
+    public static function changeReadyDate(): Action
     {
-        return Action::make('extend')
-            ->label('Change ready-by')
+        return Action::make('changeReadyDate')
+            ->label('Change ready date')
             ->icon(Heroicon::OutlinedClock)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->isOnsite() && in_array($record->status, ['confirmed', 'checked_in', 'ready'], true))
-            ->fillForm(fn (Booking $record) => ['ends_at' => $record->ends_at?->format('Y-m-d H:i:s')])
+            ->visible(fn (Booking $record) => $record->isOnsite() && in_array($record->status, ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready'], true))
+            ->fillForm(fn (Booking $record) => ['ready_on' => $record->ready_on?->toDateString()])
             ->schema([
-                DateTimePicker::make('ends_at')
-                    ->label('Ready by')
-                    ->seconds(false)
-                    ->minutesStep(15)
-                    ->displayFormat('D, M j, Y g:i A')
+                DatePicker::make('ready_on')
+                    ->label('Ready around')
+                    ->displayFormat('D, M j, Y')
                     ->required()
-                    ->after(fn (Booking $record) => $record->starts_at?->format('Y-m-d H:i:s')),
+                    ->afterOrEqual(fn (Booking $record) => $record->drop_off_on?->toDateString()),
             ])
-            ->action(fn (Booking $record, array $data) => $record->update(['ends_at' => CarbonImmutable::parse($data['ends_at'])->startOfMinute()]));
+            ->action(fn (Booking $record, array $data) => $record->update(['ready_on' => CarbonImmutable::parse($data['ready_on'])->startOfDay()]));
     }
 
     /**
-     * A home-service request gets its date and time (and the fee, when on).
+     * A home-service request gets its visit date (and the fee, when on).
      */
     public static function scheduleHome(): Action
     {
@@ -248,28 +295,32 @@ final class BookingActions
             ->color('primary')
             ->visible(fn (Booking $record) => $record->isHome() && in_array($record->status, ['requested', 'awaiting_payment', 'confirmed'], true))
             ->fillForm(fn (Booking $record) => [
-                'starts_at' => $record->starts_at?->format('Y-m-d H:i:s') ?? $record->preferred_date?->setTime(9, 0)->format('Y-m-d H:i:s'),
-                'ends_at' => $record->ends_at?->format('Y-m-d H:i:s'),
+                'drop_off_on' => $record->drop_off_on?->toDateString() ?? $record->preferred_date?->toDateString(),
+                'ready_on' => $record->ready_on?->toDateString(),
                 'ask_fee' => PaymentSetting::instance()->feeEnabled() && $record->status === 'requested',
             ])
-            ->modalDescription('Agree on the time with the customer first. They get an email with it.')
+            ->modalDescription('Agree on the day with the customer first. They get an email with it.')
             ->schema([
-                DateTimePicker::make('starts_at')->label('Team arrives')->seconds(false)->minutesStep(15)->displayFormat('D, M j, Y g:i A')->required(),
-                DateTimePicker::make('ends_at')->label('Done by')->seconds(false)->minutesStep(15)->displayFormat('D, M j, Y g:i A')->required()->after('starts_at'),
+                DatePicker::make('drop_off_on')->label('Team comes on')->displayFormat('D, M j, Y')->required(),
+                DatePicker::make('ready_on')->label('Done by')->displayFormat('D, M j, Y')->afterOrEqual('drop_off_on')->helperText('Leave blank to work it out from the services.'),
                 Toggle::make('ask_fee')
                     ->label(fn () => 'Ask for the reservation fee ('.(PaymentSetting::instance()->feeLabel() ?? 'off in Payments').')')
                     ->visible(fn (Booking $record) => PaymentSetting::instance()->feeEnabled() && $record->status === 'requested'),
             ])
             ->modalSubmitActionLabel('Schedule')
             ->action(function (Booking $record, array $data) {
-                $askFee = ($data['ask_fee'] ?? false) && $record->status === 'requested' && $record->total_price > 0;
                 $payments = PaymentSetting::instance();
+                $askFee = ($data['ask_fee'] ?? false) && $record->status === 'requested' && $payments->feeAmount() > 0;
+                $visit = CarbonImmutable::parse($data['drop_off_on'])->startOfDay();
+                $ready = filled($data['ready_on'] ?? null)
+                    ? CarbonImmutable::parse($data['ready_on'])->startOfDay()
+                    : OpenCalendar::for($record->branch, $visit, $visit)->readyOn($visit, (int) $record->total_days);
 
                 $record->update([
-                    'starts_at' => CarbonImmutable::parse($data['starts_at'])->startOfMinute(),
-                    'ends_at' => CarbonImmutable::parse($data['ends_at'])->startOfMinute(),
+                    'drop_off_on' => $visit,
+                    'ready_on' => $ready ?? $visit,
                     'status' => $record->status === 'requested' ? ($askFee ? 'awaiting_payment' : 'confirmed') : $record->status,
-                    'amount_due' => $askFee ? $payments->amountFor((int) $record->total_price) : $record->amount_due,
+                    'amount_due' => $askFee ? $payments->feeAmount() : $record->amount_due,
                     'hold_expires_at' => null,
                     'read_at' => $record->read_at ?? now(),
                 ]);
@@ -342,10 +393,13 @@ final class BookingActions
         return [
             self::markPaid(),
             self::rejectProof(),
+            self::setSize(),
             self::scheduleHome(),
-            self::checkIn(),
+            self::markArrived(),
+            self::startWork(),
+            self::qualityCheck(),
             self::markReady(),
-            self::complete(),
+            self::markExited(),
         ];
     }
 }

@@ -18,7 +18,7 @@ use Tests\Support\BuildsShop;
 use Tests\TestCase;
 
 /**
- * A customer's own bookings: paying the fee, cancelling and moving.
+ * A customer's own bookings: paying the fee, cancelling and moving to another date.
  */
 class MyBookingsTest extends TestCase
 {
@@ -70,9 +70,9 @@ class MyBookingsTest extends TestCase
         $this->assertTrue(Storage::disk('local')->exists($booking->payment_proof));
         Mail::assertSent(TeamBookingAlert::class, fn (TeamBookingAlert $mail) => $mail->kind === 'payment');
 
-        // Still holding the bay after the deadline, while the branch checks
+        // Still counting toward the day's cap after the deadline, while the branch checks
         $this->travel(30)->minutes();
-        $this->assertTrue($booking->refresh()->holdsABay());
+        $this->assertTrue($booking->refresh()->countsTowardCap());
     }
 
     public function test_a_screenshot_after_the_deadline_is_refused(): void
@@ -80,7 +80,7 @@ class MyBookingsTest extends TestCase
         $booking = $this->hold();
 
         $this->travel(31)->minutes();
-        $this->pay($booking)->assertStatus(409)->assertJson(['message' => 'Your hold ran out, so the slot opened up. Book another time.']);
+        $this->pay($booking)->assertStatus(409)->assertJson(['message' => 'Your hold ran out, so the day opened up. Book another date.']);
 
         $this->assertSame('awaiting_payment', $booking->refresh()->status);
         $this->assertSame('expired', $booking->stage());
@@ -98,6 +98,19 @@ class MyBookingsTest extends TestCase
         $this->assertSame('expired', $booking->refresh()->status);
         $this->assertSame('payment_review', $paid->refresh()->status);
         Mail::assertSent(CustomerBookingUpdate::class, fn (CustomerBookingUpdate $mail) => $mail->kind === 'expired');
+    }
+
+    public function test_tomorrow_s_drop_offs_get_one_reminder(): void
+    {
+        $due = Booking::factory()->on('2026-11-17')->create(['branch_id' => $this->branch->id, 'email' => 'due@example.com']);
+        $later = Booking::factory()->on('2026-11-18')->create(['branch_id' => $this->branch->id, 'email' => 'later@example.com']);
+
+        $this->artisan('bookings:remind')->expectsOutput('1 reminder sent.')->assertSuccessful();
+        $this->artisan('bookings:remind')->expectsOutput('0 reminders sent.')->assertSuccessful();
+
+        Mail::assertSent(CustomerBookingUpdate::class, fn (CustomerBookingUpdate $mail) => $mail->kind === 'reminder' && $mail->hasTo('due@example.com'));
+        $this->assertNull($later->refresh()->reminded_at);
+        $this->assertNotNull($due->refresh()->reminded_at);
     }
 
     public function test_a_branch_with_its_own_gcash_is_paid_there(): void
@@ -123,16 +136,17 @@ class MyBookingsTest extends TestCase
         $this->actingAs($this->guest, 'guest')->getJson('/api/my-bookings')->assertOk()->assertJsonCount(1, 'bookings');
     }
 
-    public function test_cancelling_before_the_cutoff_frees_the_bay(): void
+    public function test_cancelling_before_the_cutoff_frees_the_day(): void
     {
         PaymentSetting::instance()->update(['reservation_fee_enabled' => false]);
-        BookingSetting::instance()->update(['cancel_cutoff_hours' => 24]);
+        // Hours are counted back from the start of the drop-off day
+        BookingSetting::instance()->update(['cancel_cutoff_hours' => 12]);
         $booking = $this->hold();
 
         $this->postJson("/api/my-bookings/{$booking->id}/cancel")->assertOk()->assertJsonPath('booking.stage', 'cancelled');
 
         $this->assertSame(['cancelled', 'guest'], [$booking->refresh()->status, $booking->cancelled_by]);
-        $this->assertFalse($booking->holdsABay());
+        $this->assertFalse($booking->countsTowardCap());
     }
 
     public function test_cancelling_after_the_cutoff_is_refused(): void
@@ -141,60 +155,80 @@ class MyBookingsTest extends TestCase
         BookingSetting::instance()->update(['cancel_cutoff_hours' => 24]);
         $booking = $this->hold();
 
-        // Tuesday 8 AM, an hour before drop-off
+        // Tuesday 8 AM, the drop-off day itself
         $this->travelTo(CarbonImmutable::parse('2026-11-17 08:00', 'Asia/Manila'));
         $this->postJson("/api/my-bookings/{$booking->id}/cancel")->assertStatus(409);
 
         $this->assertSame('confirmed', $booking->refresh()->status);
     }
 
-    public function test_moving_to_a_free_time_keeps_the_booking_and_counts(): void
+    public function test_moving_to_a_free_date_keeps_the_booking_and_counts(): void
     {
         PaymentSetting::instance()->update(['reservation_fee_enabled' => false]);
         BookingSetting::instance()->update(['max_reschedules' => 1, 'reschedule_cutoff_hours' => 12]);
         $booking = $this->hold();
 
-        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-18', 'time' => '13:00'])
+        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-20'])
             ->assertOk()
-            ->assertJsonPath('booking.startsAt', '2026-11-18T13:00:00+08:00');
+            ->assertJsonPath('booking.dropOffOn', '2026-11-20')
+            ->assertJsonPath('booking.readyOn', '2026-11-20')
+            ->assertJsonPath('booking.when', 'Fri, Nov 20 · ready around Fri, Nov 20');
 
         $booking->refresh();
-        $this->assertSame(['2026-11-18 13:00', '2026-11-18 16:00', 1], [$booking->starts_at->format('Y-m-d H:i'), $booking->ends_at->format('Y-m-d H:i'), $booking->reschedule_count]);
+        $this->assertSame(['2026-11-20', '2026-11-20', 1], [$booking->drop_off_on->toDateString(), $booking->ready_on->toDateString(), $booking->reschedule_count]);
         Mail::assertSent(TeamBookingAlert::class, fn (TeamBookingAlert $mail) => $mail->kind === 'rescheduled');
 
         // Only once
-        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-19', 'time' => '13:00'])->assertUnprocessable();
+        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-19'])->assertUnprocessable();
     }
 
-    public function test_moving_into_a_full_time_is_refused(): void
+    public function test_moving_a_long_job_recounts_its_ready_date(): void
     {
         PaymentSetting::instance()->update(['reservation_fee_enabled' => false]);
+        BookingSetting::instance()->update(['reschedule_cutoff_hours' => 12]);
+        $this->actingAs($this->guest, 'guest')->postJson('/api/bookings', $this->reservation(['services' => [$this->coating->id]]))->assertCreated();
+        $booking = Booking::sole();
+        $this->assertSame('2026-11-19', $booking->ready_on->toDateString());
+
+        // Fri, Sat, (Sun closed), Mon
+        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-20'])->assertOk()->assertJsonPath('booking.readyOn', '2026-11-23');
+    }
+
+    public function test_moving_into_a_full_day_is_refused(): void
+    {
+        PaymentSetting::instance()->update(['reservation_fee_enabled' => false]);
+        BookingSetting::instance()->update(['reschedule_cutoff_hours' => 12]);
         $booking = $this->hold();
-        Booking::factory()->count(2)->at('2026-11-18 12:00', '2026-11-18 15:00')->create(['branch_id' => $this->branch->id]);
+        Booking::factory()->count(2)->on('2026-11-18')->create(['branch_id' => $this->branch->id]);
 
-        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-18', 'time' => '13:00'])
+        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-18'])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('time');
+            ->assertJsonValidationErrors(['date' => 'fully booked']);
 
-        $this->assertSame('2026-11-17 09:00', $booking->refresh()->starts_at->format('Y-m-d H:i'));
+        $this->assertSame('2026-11-17', $booking->refresh()->drop_off_on->toDateString());
     }
 
     public function test_an_unpaid_hold_cant_be_moved(): void
     {
         $booking = $this->hold();
 
-        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-18', 'time' => '13:00'])->assertUnprocessable();
+        $this->postJson("/api/my-bookings/{$booking->id}/reschedule", ['date' => '2026-11-18'])->assertUnprocessable();
     }
 
-    public function test_the_day_times_for_a_move_leave_out_only_others(): void
+    public function test_the_days_for_a_move_leave_out_only_others(): void
     {
         PaymentSetting::instance()->update(['reservation_fee_enabled' => false]);
-        $this->branch->update(['bays' => 1]);
+        $this->branch->update(['daily_cap' => 1]);
         $booking = $this->hold();
 
-        $query = http_build_query(['booking' => $booking->id, 'date' => '2026-11-17']);
+        $query = http_build_query(['booking' => $booking->id, 'month' => '2026-11']);
 
-        // Its own time is still offered
-        $this->getJson("/api/availability/day?{$query}")->assertOk()->assertJsonPath('slots.1.time', '09:00');
+        // Its own day is still offered, and the estimate comes from the booking
+        $this->getJson("/api/availability?{$query}")
+            ->assertOk()
+            ->assertJsonPath('days.2026-11-17', 'open')
+            ->assertJsonPath('estimate.days', 1);
+
+        $this->getJson('/api/availability?'.http_build_query(['booking' => $booking->id + 99]))->assertNotFound();
     }
 }

@@ -1,7 +1,7 @@
 import { type ChangeEvent, type InputHTMLAttributes, type ReactNode, useId } from 'react';
 
 import { copy } from '../lib/copy';
-import { Check, Warning } from './Icons';
+import { Check, ChevronDown, Warning } from './Icons';
 
 const control =
     'block w-full rounded-control border bg-surface-2 px-3.5 text-[1rem] text-text outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:outline-none disabled:opacity-60';
@@ -61,6 +61,56 @@ export function TextField({ label, value, onChange, error, hint, optional, multi
                 ) : (
                     <input {...rest} {...shared} onChange={(event) => onChange(event.target.value)} />
                 )}
+            </div>
+            {error && <ErrorText id={errorId}>{error}</ErrorText>}
+        </div>
+    );
+}
+
+type SelectProps = {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    placeholder: string;
+    error?: string | null;
+    className?: string;
+    name?: string;
+    autoComplete?: string;
+};
+
+/**
+ * A labelled drop-down for a long list (the model year): the browser's own
+ * list, which is the easiest to scroll on a phone, drawn like the text boxes.
+ */
+export function SelectField({ label, value, onChange, options, placeholder, error, className = '', name, autoComplete }: SelectProps) {
+    const fieldId = useId();
+    const errorId = `${fieldId}-error`;
+
+    return (
+        <div className={className}>
+            <label htmlFor={fieldId} className="block font-semibold">
+                {label}
+            </label>
+            <div className="relative mt-2">
+                <select
+                    id={fieldId}
+                    name={name}
+                    autoComplete={autoComplete}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
+                    className={`${control} min-h-12 cursor-pointer appearance-none pr-11 ${error ? 'border-danger' : 'border-field'} ${value ? '' : 'text-muted'}`}
+                >
+                    <option value="">{placeholder}</option>
+                    {options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-3.5 size-5 -translate-y-1/2 text-muted" />
             </div>
             {error && <ErrorText id={errorId}>{error}</ErrorText>}
         </div>

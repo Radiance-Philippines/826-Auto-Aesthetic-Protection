@@ -14,8 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Something a customer can book (Graphene coating, Full body PPF, Nano
- * ceramic tint…), with a price and duration per vehicle size, offered at
- * the branches it's attached to.
+ * ceramic tint…): one estimate in days, and a price per vehicle size class
+ * that is used once the admin has seen the unit. Offered at the branches
+ * it's attached to.
  */
 class Service extends Model
 {
@@ -33,6 +34,7 @@ class Service extends Model
         'sort_order',
         'is_active',
         'home_service_ok',
+        'estimate_days',
     ];
 
     protected function casts(): array
@@ -42,6 +44,7 @@ class Service extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
             'home_service_ok' => 'boolean',
+            'estimate_days' => 'integer',
         ];
     }
 
@@ -58,6 +61,20 @@ class Service extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true)->whereHas('category', fn (Builder $category) => $category->where('is_active', true));
+    }
+
+    /**
+     * Active, in an active category, and with a day estimate: the owner
+     * fills the estimate in, so a service without one can't be booked yet.
+     */
+    public function scopeBookable(Builder $query): void
+    {
+        $query->active()->where('estimate_days', '>', 0);
+    }
+
+    public function isBookable(): bool
+    {
+        return $this->is_active && $this->estimate_days > 0 && $this->category?->is_active !== false;
     }
 
     /**
@@ -107,13 +124,12 @@ class Service extends Model
     }
 
     /**
-     * Shape used by the React site (window.APP826.catalog). Only rates that
-     * can be booked are listed, and only for active sizes.
+     * Shape used by the React site (window.APP826.catalog). No sizes, rates
+     * or prices: the price comes after the admin has reviewed the unit.
      *
-     * @param  list<int>  $activeSizeIds
      * @return array<string, mixed>
      */
-    public function toSite(array $activeSizeIds): array
+    public function toSite(): array
     {
         return [
             'id' => $this->id,
@@ -124,11 +140,7 @@ class Service extends Model
             'inclusions' => $this->inclusionList(),
             'image' => $this->image ? app(ImagePipeline::class)->urls($this->image) : null,
             'homeServiceOk' => $this->home_service_ok,
-            'rates' => $this->rates
-                ->filter(fn (ServiceRate $rate) => $rate->isBookable() && in_array($rate->vehicle_size_id, $activeSizeIds, true))
-                ->map->toSite()
-                ->values()
-                ->all(),
+            'estimateDays' => $this->estimate_days > 0 ? (int) $this->estimate_days : null,
         ];
     }
 }

@@ -19,12 +19,26 @@ use Throwable;
 /**
  * "My bookings": a customer's reservations and requests, paying the
  * reservation fee (a GCash or Maya screenshot for the branch to check),
- * and cancelling or moving a booking within the rules. A booking opens for
+ * and cancelling or moving a booking within the rules, plus the saved units. A booking opens for
  * its signed-in customer, or with its private key.
  */
 class MyBookingsController extends Controller
 {
     use ReadsBookingInput;
+
+    /**
+     * GET /api/my-vehicles: the signed-in customer's saved units. A demo
+     * has no signed-in customer, so it has none.
+     */
+    public function vehicles(): JsonResponse
+    {
+        $guest = $this->guest();
+        abort_unless($guest || config('app.demo'), 401);
+
+        $vehicles = $guest ? $guest->vehicles()->orderBy('model')->orderBy('id')->get() : collect();
+
+        return response()->json(['vehicles' => $vehicles->map->toCustomer()->values()])->header('Cache-Control', 'no-store');
+    }
 
     /**
      * GET /api/my-bookings: the signed-in customer's bookings, soonest first.
@@ -36,7 +50,7 @@ class MyBookingsController extends Controller
 
         $bookings = $guest->bookings()
             ->with(['items', 'branch'])
-            ->orderByRaw('coalesce(starts_at, preferred_date) desc')
+            ->orderByRaw('coalesce(drop_off_on, preferred_date) desc')
             ->latest('id')
             ->get();
 
@@ -56,7 +70,7 @@ class MyBookingsController extends Controller
     /**
      * POST /api/my-bookings/{booking}/payment?key=…: the screenshot of the
      * reservation fee. Checked under the branch's lock, so a hold that runs
-     * out can't be paid after its bay went to someone else.
+     * out can't be paid after its day went to someone else.
      */
     public function payment(Request $request, int $booking): JsonResponse
     {
@@ -88,7 +102,7 @@ class MyBookingsController extends Controller
                 $record->refresh();
 
                 if ($record->stage() === 'expired') {
-                    return response()->json(['message' => 'Your hold ran out, so the slot opened up. Book another time.'], 409);
+                    return response()->json(['message' => 'Your hold ran out, so the day opened up. Book another date.'], 409);
                 }
 
                 if (! $record->isAwaitingPayment()) {
@@ -150,19 +164,19 @@ class MyBookingsController extends Controller
     }
 
     /**
-     * POST /api/my-bookings/{booking}/reschedule?key=… with date and time.
+     * POST /api/my-bookings/{booking}/reschedule?key=… with the new date.
      */
     public function reschedule(Request $request, int $booking): JsonResponse
     {
         $record = $this->openableBooking($request, $booking);
-        $start = $this->startFrom($request->input('date'), $request->input('time'));
+        $date = $this->dateFrom($request->input('date'));
 
         if (config('app.demo')) {
             return response()->json(['booking' => $record->load(['items', 'branch'])->toCustomer($this->key($request)), 'demo' => true]);
         }
 
         try {
-            Reservations::reschedule($record, $start);
+            Reservations::reschedule($record, $date);
         } catch (LockTimeoutException) {
             return response()->json(['message' => 'Lots of people are booking right now. Try again in a moment.'], 409);
         }

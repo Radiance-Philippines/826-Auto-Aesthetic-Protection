@@ -1173,3 +1173,22 @@
         transition: none;
     }
 }
+
+/* Short screens: the closing line's second sentence goes, then the lines move up, so the button stays on screen */
+@media (max-height: 800px) {
+    .drive-end-body {
+        display: none;
+    }
+}
+
+@media (max-height: 700px) {
+    .drive .drive-copy a {
+        margin-top: 0.75rem;
+    }
+}
+
+@media (max-height: 700px) and (min-width: 1024px) {
+    .drive .drive-copy {
+        top: calc(var(--horizon) + var(--drive-lead) + 5.5rem);
+    }
+}

@@ -7,14 +7,16 @@ use App\Models\Booking;
 use App\Support\Notifier;
 use App\Support\Reservations;
 use App\Support\Schedule\Availability;
-use App\Support\Schedule\Slot;
+use App\Support\Schedule\OpenCalendar;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * POST /api/bookings: a customer reserves a drop-off time at a branch.
+ * POST /api/bookings: a customer reserves a drop-off date at a branch.
+ * Their unit is kept for next time; the price comes after the admin has
+ * reviewed it (at once, for a unit that was reviewed before).
  */
 class ReservationController extends Controller
 {
@@ -34,19 +36,16 @@ class ReservationController extends Controller
 
         $details = $request->validate([
             'branch' => ['required', 'integer'],
-            'size' => ['required', 'integer'],
             'services' => ['required', 'array', 'min:1', 'max:12'],
             'services.*' => ['integer'],
             'date' => ['required', 'string'],
-            'time' => ['required', 'string'],
+            ...$this->vehicleRules(),
             ...$this->contactRules(),
         ], [
             'branch.required' => 'Pick a branch.',
-            'size.required' => 'Pick your vehicle’s size.',
             'services.required' => 'Pick at least one service.',
             'services.min' => 'Pick at least one service.',
             'date.required' => 'Pick a date on the calendar.',
-            'time.required' => 'Pick a drop-off time.',
             ...$this->contactMessages(),
         ]);
 
@@ -56,22 +55,24 @@ class ReservationController extends Controller
             throw ValidationException::withMessages(['branch' => "{$branch->name} doesn’t take online bookings yet. Call or message the branch."]);
         }
 
-        $quote = Reservations::quote($branch, (int) $details['size'], $this->serviceIds($request));
-        $start = $this->startFrom($details['date'], $details['time']);
+        $quote = Reservations::quote($branch, $this->serviceIds($request));
+        $date = $this->dateFrom($details['date']);
 
         // A demo checks everything like the real site, then keeps nothing
         if (config('app.demo')) {
-            $slot = Availability::check($branch, $quote['length'], $start);
+            $result = Availability::check($branch, $date);
 
-            if (! $slot instanceof Slot) {
-                throw ValidationException::withMessages(['time' => 'That time isn’t open. Pick one from the list.']);
+            if ($result !== 'ok') {
+                throw ValidationException::withMessages(['date' => Reservations::dateMessage($result)]);
             }
 
-            return response()->json(['ok' => true, 'demo' => true, 'readyLabel' => $slot->readyLabel()], 201);
+            $ready = OpenCalendar::for($branch, $date, $date)->readyOn($date, $quote['estimate']->days);
+
+            return response()->json(['ok' => true, 'demo' => true, 'estimate' => $quote['estimate']->toArray(), 'readyOn' => $ready?->toDateString()], 201);
         }
 
         try {
-            $booking = Reservations::reserve($branch, $guest, $quote, $start, $details);
+            $booking = Reservations::reserve($branch, $guest, $quote, $date, $details);
         } catch (LockTimeoutException) {
             return response()->json(['message' => 'Lots of people are booking right now. Try again in a moment.'], 409);
         }
@@ -81,7 +82,7 @@ class ReservationController extends Controller
         }
 
         $kind = $booking->status === 'awaiting_payment' ? 'hold' : 'reserved';
-        Notifier::team($booking, $kind);
+        Notifier::team($booking, $booking->needsSizeReview() ? 'size_review' : $kind);
         Notifier::customer($booking, $kind);
 
         return response()->json(['ok' => true, 'booking' => $this->fresh($booking)->toCustomer()], 201);

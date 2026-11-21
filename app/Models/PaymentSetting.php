@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * /admin → Payments. One row.
  *
  * With the fee off, a reservation is confirmed the moment it's made. With
- * it on, the slot is held for hold_minutes while the customer pays in their
+ * it on (a fixed amount: no price exists at booking time), the day is held for hold_minutes while the customer pays in their
  * own app and uploads a screenshot; staff check it and mark it paid. Nothing
  * is charged on the site.
  */
@@ -21,12 +21,6 @@ class PaymentSetting extends Model
     public const METHODS = [
         'gcash' => 'GCash',
         'maya' => 'Maya',
-    ];
-
-    public const RULES = [
-        'fixed' => 'A fixed amount',
-        'percent' => 'A percent of the estimate',
-        'full' => 'The whole estimate',
     ];
 
     public const DISK = 'public';
@@ -87,37 +81,18 @@ class PaymentSetting extends Model
     }
 
     /**
-     * The reservation fee for an estimate: a fixed amount, a percent, or
-     * the whole estimate (never more than the estimate).
+     * The fixed reservation fee, 0 until the owner sets an amount.
      */
-    public function amountFor(int $price): int
+    public function feeAmount(): int
     {
-        $value = max(0, (int) $this->amount_value);
-
-        $amount = match ($this->amount_rule) {
-            'fixed' => $value > 0 ? min($value, $price) : $price,
-            'percent' => $value > 0 && $value < 100 ? (int) round($price * $value / 100) : $price,
-            default => $price,
-        };
-
-        return max(0, $amount);
+        return max(0, (int) $this->amount_value);
     }
 
     /**
-     * "₱500", "20% of the estimate", "The whole estimate": for the site.
+     * "₱500": for the site.
      */
     public function feeLabel(): ?string
     {
-        if (! $this->feeEnabled()) {
-            return null;
-        }
-
-        $value = (int) $this->amount_value;
-
-        return match ($this->amount_rule) {
-            'fixed' => $value > 0 ? '₱'.number_format($value) : 'The whole estimate',
-            'percent' => $value > 0 && $value < 100 ? "{$value}% of the estimate" : 'The whole estimate',
-            default => 'The whole estimate',
-        };
+        return $this->feeEnabled() && $this->feeAmount() > 0 ? '₱'.number_format($this->feeAmount()) : null;
     }
 }

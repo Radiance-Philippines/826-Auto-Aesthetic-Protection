@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { fetchDay, fetchMonth, type JobQuery, jobKey } from '../lib/availability';
+import { fetchMonth, type JobQuery, jobKey } from '../lib/availability';
 import { copy } from '../lib/copy';
-import { addMonths, manilaToday, shortDate } from '../lib/dates';
-import type { DayAvailability, MonthAvailability, TimeSlot } from '../types';
+import { addMonths, manilaToday } from '../lib/dates';
+import type { MonthAvailability } from '../types';
 import Calendar from './Calendar';
-import { Check, Warning } from './Icons';
+import { Warning } from './Icons';
 
 function RetryLine({ message, onRetry }: { message: string; onRetry: () => void }) {
     return (
@@ -22,15 +22,15 @@ type CalendarProps = {
     job: JobQuery;
     selected: string | null;
     onPick: (date: string) => void;
-    /** Each month that comes in: the job's length and total, for the page around it */
+    /** Each month that comes in: its days and the job's estimate, for the page around it */
     onMonth?: (month: MonthAvailability) => void;
 };
 
 /**
- * The calendar for a job: which days have a drop-off time with room for
- * it (open), have times but every one is taken (full), or have none
- * (closed), a month at a time, between the first and last bookable days.
- * Another job (other services, another booking) starts it over.
+ * The calendar for a job: which days can take a drop-off (open), are
+ * fully booked (full) or are closed, a month at a time, between the first
+ * and last bookable days. Another job (other services, another booking)
+ * starts it over.
  */
 export function AvailabilityCalendar(props: CalendarProps) {
     return <JobCalendar key={jobKey(props.job)} {...props} />;
@@ -119,97 +119,5 @@ function JobCalendar({ job, selected, onPick, onMonth }: CalendarProps) {
                 </div>
             }
         />
-    );
-}
-
-type SlotsProps = {
-    job: JobQuery;
-    date: string;
-    selected: string | null;
-    onPick: (slot: TimeSlot) => void;
-    /** Bumped to ask the server again (a time turned out to be taken) */
-    refresh?: number;
-    error?: string | null;
-};
-
-/**
- * The drop-off times with room on one day, each with when the car will be
- * ready, as a list of radio cards.
- */
-export function TimeSlots({ job, date, selected, onPick, refresh = 0, error }: SlotsProps) {
-    const id = jobKey(job);
-    const name = useId();
-    const [day, setDay] = useState<DayAvailability | null>(null);
-    const [failed, setFailed] = useState(false);
-    const [attempt, setAttempt] = useState(0);
-
-    useEffect(() => {
-        let cancelled = false;
-        setDay(null);
-        setFailed(false);
-
-        fetchDay(job, date).then((result) => {
-            if (cancelled) {
-                return;
-            }
-
-            if (result.kind === 'ok') {
-                setDay(result.data);
-            } else {
-                setFailed(true);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, date, attempt, refresh]);
-
-    const slots = day?.slots ?? [];
-
-    return (
-        <div>
-            <p className="sr-only" aria-live="polite">
-                {day ? (slots.length ? copy.times.count(slots.length, shortDate(date)) : copy.times.none) : ''}
-            </p>
-            {error && (
-                <p role="alert" className="mb-4 flex items-start gap-2 rounded-control border border-danger/60 bg-danger/8 px-4 py-3 text-[0.95rem] font-medium">
-                    <Warning className="mt-0.5 size-4 shrink-0 text-danger" /> {error}
-                </p>
-            )}
-            {failed ? (
-                <RetryLine message={copy.times.failed} onRetry={() => setAttempt((count) => count + 1)} />
-            ) : !day ? (
-                <p className="text-muted">{copy.times.checking}</p>
-            ) : slots.length === 0 ? (
-                <p className="panel px-4 py-4">{copy.times.none}</p>
-            ) : (
-                <fieldset className="@container">
-                    <legend className="sr-only">{copy.book.time.title}</legend>
-                    <div className="grid grid-cols-2 gap-2.5 @lg:grid-cols-3">
-                        {slots.map((slot) => {
-                            const checked = slot.time === selected;
-
-                            return (
-                                <label
-                                    key={slot.time}
-                                    className={`press relative flex min-h-16 cursor-pointer flex-col justify-center rounded-control border px-3.5 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-accent ${
-                                        checked ? 'border-accent bg-accent text-on-accent' : 'border-field/70 bg-surface-2 hover:border-accent'
-                                    }`}
-                                >
-                                    <input type="radio" name={name} value={slot.time} checked={checked} onChange={() => onPick(slot)} className="sr-only" />
-                                    <span className="flex items-center gap-1.5 text-[1.05rem] font-bold tabular">
-                                        {checked && <Check className="size-4" />}
-                                        {slot.label}
-                                    </span>
-                                    <span className={`text-sm ${checked ? 'text-on-accent/85' : 'text-muted'}`}>{slot.readyLabel}</span>
-                                </label>
-                            );
-                        })}
-                    </div>
-                </fieldset>
-            )}
-        </div>
     );
 }

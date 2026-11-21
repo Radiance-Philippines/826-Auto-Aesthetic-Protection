@@ -26,9 +26,8 @@ class SendReminders extends Command
             ->where('status', 'confirmed')
             ->whereNull('reminded_at')
             ->whereNotNull('email')
-            ->where('starts_at', '>=', $tomorrow)
-            ->where('starts_at', '<', $tomorrow->copy()->addDay())
-            ->orderBy('starts_at')
+            ->where('drop_off_on', $tomorrow->toDateString())
+            ->orderBy('id')
             ->each(function (Booking $booking) use (&$sent) {
                 if (Notifier::customer($booking, 'reminder')) {
                     $booking->update(['reminded_at' => now()]);

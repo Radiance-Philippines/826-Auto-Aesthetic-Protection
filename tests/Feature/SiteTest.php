@@ -3,10 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\PaymentSetting;
 use App\Models\Photo;
-use App\Models\ServiceRate;
 use App\Models\SiteSetting;
-use App\Models\VehicleSize;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -72,23 +71,32 @@ class SiteTest extends TestCase
         $this->assertSame('/demo/826', $this->app()['base']);
     }
 
-    public function test_the_catalog_lists_only_bookable_rates_for_shown_sizes(): void
+    public function test_the_catalog_has_no_sizes_rates_or_prices_and_the_vehicle_types_are_listed(): void
     {
         $this->buildShop();
-        $hidden = VehicleSize::factory()->create(['name' => 'Bus', 'is_active' => false]);
-        ServiceRate::factory()->hours(5)->create(['service_id' => $this->detail->id, 'vehicle_size_id' => $hidden->id]);
-        $suv = VehicleSize::factory()->create(['name' => 'SUV']);
-        ServiceRate::factory()->create(['service_id' => $this->detail->id, 'vehicle_size_id' => $suv->id, 'price' => null]);
+        $this->coating->update(['estimate_days' => null]);
 
-        $catalog = $this->app()['catalog'];
+        $app = $this->app();
+        $catalog = $app['catalog'];
 
-        $this->assertSame(['Sedan', 'SUV'], array_column($catalog['sizes'], 'name'));
+        $this->assertSame(['categories'], array_keys($catalog));
         $this->assertSame(['Detailing', 'Coating'], array_column($catalog['categories'], 'name'));
 
         $detail = $catalog['categories'][0]['services'][0];
         $this->assertSame('Exterior detailing', $detail['name']);
-        $this->assertSame([['sizeId' => $this->sedan->id, 'price' => 2500, 'days' => 0, 'minutes' => 180, 'duration' => '3 hours']], $detail['rates']);
+        $this->assertSame(1, $detail['estimateDays']);
         $this->assertTrue($detail['homeServiceOk']);
+        $this->assertArrayNotHasKey('rates', $detail);
+        $this->assertNull($catalog['categories'][1]['services'][0]['estimateDays']);
+
+        $this->assertSame(['sedan', 'hatchback', 'coupe', 'suv', 'pickup', 'van', 'motorcycle'], array_column($app['vehicleTypes'], 'key'));
+        $this->assertSame(['key' => 'suv', 'label' => 'SUV'], $app['vehicleTypes'][3]);
+
+        // Nothing about prices or sizes reaches the page
+        $json = json_encode($app);
+        foreach (['"rates"', '"sizes"', '"price"', 'Medium'] as $needle) {
+            $this->assertStringNotContainsString($needle, $json);
+        }
     }
 
     public function test_branches_show_what_customers_need_and_drafts_stay_hidden(): void
@@ -106,8 +114,17 @@ class SiteTest extends TestCase
         $this->assertSame('+639488042284', $branches['Cainta']['phoneHref']);
         $this->assertStringContainsString('ll=14.58%2C121.12', $branches['Cainta']['map']['waze']);
         $this->assertSame(['Cainta', 'Antipolo'], $branches['Cainta']['homeService']['areas']);
-        $this->assertSame(['day' => 7, 'label' => 'Sunday', 'open' => null, 'close' => null, 'lastDropoff' => null], $branches['Cainta']['hours'][6]);
+        $this->assertSame(['day' => 7, 'label' => 'Sunday', 'open' => null, 'close' => null], $branches['Cainta']['hours'][6]);
+        $this->assertSame(['day' => 1, 'label' => 'Monday', 'open' => '08:00', 'close' => '18:00'], $branches['Cainta']['hours'][0]);
+        $this->assertArrayNotHasKey('dailyCap', $branches['Cainta']);
         $this->assertSame([$this->detail->id, $this->coating->id], $branches['Cainta']['serviceIds']);
+    }
+
+    public function test_the_fee_label_is_a_fixed_amount(): void
+    {
+        PaymentSetting::instance()->update(['reservation_fee_enabled' => true, 'amount_value' => 500]);
+
+        $this->assertSame(['enabled' => true, 'label' => '₱500', 'holdMinutes' => 30], $this->app()['booking']['fee']);
     }
 
     public function test_blank_settings_are_left_off_the_site(): void
@@ -118,6 +135,7 @@ class SiteTest extends TestCase
         $this->assertNull($settings['phoneHref']);
         $this->assertNull($settings['hero']);
         $this->assertFalse($this->app()['booking']['fee']['enabled']);
+        $this->assertNull($this->app()['booking']['fee']['label']);
     }
 
     public function test_photos_become_webp_renditions_and_are_deleted_with_the_photo(): void

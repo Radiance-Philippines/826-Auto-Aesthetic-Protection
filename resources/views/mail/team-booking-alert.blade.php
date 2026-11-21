@@ -6,6 +6,9 @@
 @case ('hold')
 # New hold, waiting for the fee
 @break
+@case ('size_review')
+# Unit to review: set its size
+@break
 @case ('payment')
 # Payment screenshot to check
 @break
@@ -29,7 +32,7 @@
 - **Email:** {{ $booking->email }}
 @endif
 @if ($booking->total_price !== null)
-- **Estimate:** ₱{{ number_format($booking->total_price) }}
+- **Price:** ₱{{ number_format($booking->total_price) }}
 @endif
 @if ($booking->amount_due)
 - **Reservation fee:** ₱{{ number_format($booking->amount_due) }}{{ $booking->hold_expires_at && $booking->status === 'awaiting_payment' ? ', held until '.$booking->hold_expires_at->format('g:i A') : '' }}
@@ -48,7 +51,9 @@
 </x-mail::panel>
 @endif
 
-@if ($kind === 'payment')
+@if ($kind === 'size_review')
+Look at the unit, then set its size in the admin: that prices the booking and emails the customer.
+@elseif ($kind === 'payment')
 Check the screenshot against your GCash or Maya, then mark it paid in the admin.
 @elseif ($kind === 'home_request')
 Call or text {{ $booking->name }} to agree on a time, then schedule it in the admin.

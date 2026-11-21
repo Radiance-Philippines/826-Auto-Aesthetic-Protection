@@ -47,6 +47,14 @@ class Guest extends Authenticatable
     }
 
     /**
+     * @return HasMany<Vehicle, $this>
+     */
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
+
+    /**
      * Shape used by the React site (window.APP826.auth.guest).
      *
      * @return array{name: string, email: string, avatar: string|null}

@@ -11,7 +11,6 @@ use App\Models\Photo;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\SiteSetting;
-use App\Models\VehicleSize;
 use App\Support\GoogleSignIn;
 use App\Support\StructuredData;
 use Illuminate\Http\Request;
@@ -48,7 +47,7 @@ class SiteController extends Controller
     {
         return $this->render($request, [
             'title' => self::BRAND.' | PPF, Graphene Coating, Tint and Detailing',
-            'description' => '826 Auto Aesthetic & Protection: paint protection film, graphene coating, nano ceramic tint and detailing. Pick a branch and reserve your drop-off time online.',
+            'description' => '826 Auto Aesthetic & Protection: paint protection film, graphene coating, nano ceramic tint and detailing. Pick a branch and reserve your drop-off date online.',
             'schema' => StructuredData::brand(SiteSetting::current()),
         ]);
     }
@@ -56,8 +55,8 @@ class SiteController extends Controller
     public function services(Request $request): Response
     {
         return $this->render($request, [
-            'title' => 'Services and prices | '.self::BRAND,
-            'description' => 'Paint protection film, graphene coating, nano ceramic tint and detailing at 826, with prices and how long each job takes by vehicle size.',
+            'title' => 'Services | '.self::BRAND,
+            'description' => 'Paint protection film, graphene coating, nano ceramic tint and detailing at 826: what each service includes and about how many days it takes.',
         ]);
     }
 
@@ -93,7 +92,7 @@ class SiteController extends Controller
 
         return $this->render($request, [
             'title' => "826 {$branch->name} | ".self::BRAND,
-            'description' => Str::limit(collect(["826 Auto Aesthetic & Protection {$branch->name}.", $branch->address, $branch->status === 'open' ? 'Reserve your drop-off time online.' : 'Opening soon.'])->filter()->implode(' '), 155),
+            'description' => Str::limit(collect(["826 Auto Aesthetic & Protection {$branch->name}.", $branch->address, $branch->status === 'open' ? 'Reserve your drop-off date online.' : 'Opening soon.'])->filter()->implode(' '), 155),
             'schema' => StructuredData::branch($branch, SiteSetting::current()),
         ]);
     }
@@ -109,8 +108,8 @@ class SiteController extends Controller
     public function book(Request $request): Response
     {
         return $this->render($request, [
-            'title' => 'Reserve a drop-off time | '.self::BRAND,
-            'description' => 'Pick a branch, your vehicle and services, and reserve an open drop-off time at 826.',
+            'title' => 'Reserve a drop-off date | '.self::BRAND,
+            'description' => 'Pick a branch, your services and a drop-off date at 826, and tell us your car. The branch confirms your price after seeing it.',
         ]);
     }
 
@@ -150,29 +149,26 @@ class SiteController extends Controller
 
     /**
      * The catalog the site shows and books from: active categories and
-     * services, with only bookable rates for active sizes.
+     * services. No sizes, rates or prices: the price comes after the admin
+     * has reviewed the customer's unit.
      *
-     * @return array{sizes: list<array<string, mixed>>, categories: list<array<string, mixed>>}
+     * @return array{categories: list<array<string, mixed>>}
      */
     public static function catalog(): array
     {
-        $sizes = VehicleSize::query()->active()->ordered()->get();
-        $sizeIds = $sizes->modelKeys();
-
         $categories = ServiceCategory::query()
             ->active()
             ->ordered()
-            ->with(['services' => fn ($services) => $services->where('is_active', true)->ordered()->with('rates')])
+            ->with(['services' => fn ($services) => $services->where('is_active', true)->ordered()])
             ->get();
 
         return [
-            'sizes' => $sizes->map->toSite()->values()->all(),
             'categories' => $categories->map(fn (ServiceCategory $category) => [
                 'id' => $category->id,
                 'name' => $category->name,
                 'slug' => $category->slug,
                 'description' => $category->description,
-                'services' => $category->services->map(fn (Service $service) => $service->toSite(array_map('intval', $sizeIds)))->values()->all(),
+                'services' => $category->services->map->toSite()->values()->all(),
             ])->filter(fn (array $category) => $category['services'] !== [])->values()->all(),
         ];
     }
@@ -227,6 +223,7 @@ class SiteController extends Controller
                     'localSignInUrl' => app()->isLocal() && ! GoogleSignIn::enabled() ? url('/auth/local') : null,
                 ],
                 'catalog' => self::catalog(),
+                'vehicleTypes' => collect(Booking::VEHICLE_TYPES)->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])->values()->all(),
                 'branches' => Branch::query()->listed()->ordered()->get()->map->toSite()->values(),
                 'booking' => [
                     ...BookingSetting::current()->toSite(),

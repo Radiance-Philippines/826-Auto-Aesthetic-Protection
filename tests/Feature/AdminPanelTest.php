@@ -24,7 +24,9 @@ use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Models\VehicleSize;
+use App\Support\Schedule\Availability;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -67,10 +69,11 @@ class AdminPanelTest extends TestCase
 
         foreach ([
             '/admin',
-            '/admin/timeline',
-            '/admin/timeline?range=day',
+            '/admin/queue',
+            "/admin/queue?branch={$this->branch->id}&date=2026-11-17",
             '/admin/bookings',
             '/admin/bookings?activeTab=action',
+            '/admin/bookings?activeTab=size',
             '/admin/bookings/create',
             "/admin/bookings/{$booking->id}",
             "/admin/bookings/{$booking->id}/edit",
@@ -142,7 +145,7 @@ class AdminPanelTest extends TestCase
         $this->assertSame('07:40', $booking->hold_expires_at->format('H:i'));
     }
 
-    public function test_a_car_is_checked_in_marked_ready_and_picked_up(): void
+    public function test_a_unit_moves_through_the_queue_with_its_arrival_and_exit_times_recorded(): void
     {
         Mail::fake();
         MailSetting::instance()->update(['address' => 'hello@826auto.test', 'password' => 'secret']);
@@ -151,19 +154,48 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->owner);
 
         $page = Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()]);
-        $page->callAction('checkIn')->assertHasNoActionErrors();
-        $this->assertSame('checked_in', $booking->refresh()->status);
+        $this->assertNull($booking->arrived_at);
+
+        $page->callAction('markArrived')->assertHasNoActionErrors();
+        $booking->refresh();
+        $this->assertSame('arrived', $booking->status);
+        $this->assertTrue($booking->arrived_at->equalTo(now()));
+        $this->assertNull($booking->exited_at);
+        Mail::assertSent(CustomerBookingUpdate::class, fn (CustomerBookingUpdate $mail) => $mail->kind === 'arrived');
+
+        $page->callAction('startWork')->assertHasNoActionErrors();
+        $this->assertSame('in_progress', $booking->refresh()->status);
+
+        $page->callAction('qualityCheck')->assertHasNoActionErrors();
+        $this->assertSame('quality_check', $booking->refresh()->status);
 
         $page->callAction('markReady')->assertHasNoActionErrors();
         $this->assertSame('ready', $booking->refresh()->status);
         Mail::assertSent(CustomerBookingUpdate::class, fn (CustomerBookingUpdate $mail) => $mail->kind === 'ready');
 
-        $page->callAction('complete')->assertHasNoActionErrors();
-        $this->assertSame('completed', $booking->refresh()->status);
-        $this->assertFalse($booking->holdsABay());
+        $this->travel(2)->days();
+        $page->callAction('markExited')->assertHasNoActionErrors();
+        $booking->refresh();
+        $this->assertSame('exited', $booking->status);
+        $this->assertTrue($booking->exited_at->equalTo(now()));
+        $this->assertTrue($booking->arrived_at->lessThan($booking->exited_at));
+        $this->assertTrue($booking->countsTowardCap());
+        $this->assertNull($booking->nextStatus());
     }
 
-    public function test_the_team_books_a_walk_in_any_time_the_branch_is_open(): void
+    public function test_a_step_is_offered_only_at_its_own_status(): void
+    {
+        $booking = Booking::factory()->create(['branch_id' => $this->branch->id]);
+        $this->actingAs($this->owner);
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->assertActionVisible('markArrived')
+            ->assertActionHidden('startWork')
+            ->assertActionHidden('markReady')
+            ->assertActionHidden('markExited');
+    }
+
+    public function test_the_team_books_a_walk_in_for_a_date_and_can_give_the_size_up_front(): void
     {
         $this->actingAs($this->owner);
 
@@ -172,79 +204,168 @@ class AdminPanelTest extends TestCase
                 'kind' => 'onsite',
                 'source' => 'walk_in',
                 'branch_id' => $this->branch->id,
-                'vehicle_size_id' => $this->sedan->id,
                 'services' => [$this->detail->id],
-                // Off the hourly grid and inside the notice the site asks for
-                'starts_at' => '2026-11-16 08:20:00',
+                // Inside the notice the site asks for: staff aren't held to it
+                'drop_off_on' => '2026-11-16',
                 'name' => 'Walk In',
                 'phone' => '0917 222 3333',
+                'vehicle_year' => 2018,
                 'vehicle_model' => 'Honda City',
+                'vehicle_type' => 'sedan',
                 'plate_number' => 'XYZ 987',
+                'vehicle_size_id' => $this->medium->id,
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $booking = Booking::sole();
-        $this->assertSame(['confirmed', 'walk_in', '2026-11-16 08:20', '2026-11-16 11:20'], [$booking->status, $booking->source, $booking->starts_at->format('Y-m-d H:i'), $booking->ends_at->format('Y-m-d H:i')]);
+        $this->assertSame(['confirmed', 'walk_in', '2026-11-16', 2500, 'Medium'], [$booking->status, $booking->source, $booking->drop_off_on->toDateString(), $booking->total_price, $booking->vehicle_size_name]);
         $this->assertNotNull($booking->read_at);
+        $this->assertTrue($booking->vehicle->isReviewed());
     }
 
-    public function test_a_full_time_needs_book_anyway(): void
+    public function test_a_full_day_needs_book_anyway(): void
     {
-        Booking::factory()->count(2)->at('2026-11-17 09:00', '2026-11-17 12:00')->create(['branch_id' => $this->branch->id]);
+        Booking::factory()->count(2)->on('2026-11-17')->create(['branch_id' => $this->branch->id]);
         $this->actingAs($this->owner);
 
         $form = [
             'kind' => 'onsite',
             'source' => 'phone',
             'branch_id' => $this->branch->id,
-            'vehicle_size_id' => $this->sedan->id,
             'services' => [$this->detail->id],
-            'starts_at' => '2026-11-17 10:00:00',
+            'drop_off_on' => '2026-11-17',
             'name' => 'Caller',
             'phone' => '0917 222 3333',
+            'vehicle_year' => 2020,
+            'vehicle_model' => 'Toyota Vios',
+            'vehicle_type' => 'sedan',
+            'plate_number' => 'CAL 123',
         ];
 
-        Livewire::test(CreateBooking::class)->fillForm($form)->call('create')->assertHasFormErrors(['starts_at']);
+        Livewire::test(CreateBooking::class)->fillForm($form)->call('create')->assertHasFormErrors(['drop_off_on']);
         $this->assertSame(2, Booking::count());
 
         Livewire::test(CreateBooking::class)->fillForm([...$form, 'force' => true])->call('create')->assertHasNoFormErrors();
         $this->assertSame(3, Booking::count());
+        $this->assertNull(Booking::latest('id')->first()->total_price);
     }
 
-    public function test_moving_a_booking_from_the_admin_rechecks_the_bays(): void
+    public function test_moving_a_booking_from_the_admin_rechecks_the_daily_cap(): void
     {
-        $this->branch->update(['bays' => 1]);
-        $booking = Booking::factory()->at('2026-11-17 09:00', '2026-11-17 12:00')->create(['branch_id' => $this->branch->id]);
-        Booking::factory()->at('2026-11-18 09:00', '2026-11-18 12:00')->create(['branch_id' => $this->branch->id]);
+        $this->branch->update(['daily_cap' => 1]);
+        $booking = Booking::factory()->on('2026-11-17')->create(['branch_id' => $this->branch->id]);
+        Booking::factory()->on('2026-11-18')->create(['branch_id' => $this->branch->id]);
 
         $this->actingAs($this->owner);
 
         Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
-            ->callAction('reschedule', data: ['starts_at' => '2026-11-18 10:00:00'])
+            ->callAction('reschedule', data: ['drop_off_on' => '2026-11-18'])
             ->assertNotified('Not moved');
-        $this->assertSame('2026-11-17 09:00', $booking->refresh()->starts_at->format('Y-m-d H:i'));
+        $this->assertSame('2026-11-17', $booking->refresh()->drop_off_on->toDateString());
 
         Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
-            ->callAction('reschedule', data: ['starts_at' => '2026-11-18 12:00:00'])
+            ->callAction('reschedule', data: ['drop_off_on' => '2026-11-19'])
             ->assertHasNoActionErrors();
-        $this->assertSame(['2026-11-18 12:00', '2026-11-18 15:00'], [$booking->refresh()->starts_at->format('Y-m-d H:i'), $booking->ends_at->format('Y-m-d H:i')]);
+        $this->assertSame('2026-11-19', $booking->refresh()->drop_off_on->toDateString());
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->callAction('reschedule', data: ['drop_off_on' => '2026-11-18', 'force' => true])
+            ->assertHasNoActionErrors();
+        $this->assertSame('2026-11-18', $booking->refresh()->drop_off_on->toDateString());
+    }
+
+    public function test_the_ready_date_can_be_changed_for_a_car_that_runs_late(): void
+    {
+        $booking = Booking::factory()->on('2026-11-17')->create(['branch_id' => $this->branch->id, 'status' => 'in_progress']);
+        $this->actingAs($this->owner);
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->callAction('changeReadyDate', data: ['ready_on' => '2026-11-20'])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame('2026-11-20', $booking->refresh()->ready_on->toDateString());
     }
 
     public function test_a_home_request_is_scheduled_with_the_fee_when_on(): void
     {
         PaymentSetting::instance()->update(['reservation_fee_enabled' => true, 'amount_value' => 300]);
-        $booking = Booking::factory()->home()->create(['branch_id' => $this->branch->id, 'total_price' => 2500]);
+        $booking = Booking::factory()->home()->create(['branch_id' => $this->branch->id, 'total_days' => 1]);
 
         $this->actingAs($this->owner);
 
         Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
-            ->callAction('scheduleHome', data: ['starts_at' => '2026-11-20 09:00:00', 'ends_at' => '2026-11-20 12:00:00', 'ask_fee' => true])
+            ->callAction('scheduleHome', data: ['drop_off_on' => '2026-11-20', 'ask_fee' => true])
             ->assertHasNoActionErrors();
 
         $booking->refresh();
-        $this->assertSame(['awaiting_payment', 300, null], [$booking->status, $booking->amount_due, $booking->hold_expires_at]);
+        $this->assertSame(['awaiting_payment', 300, null, '2026-11-20', '2026-11-20'], [$booking->status, $booking->amount_due, $booking->hold_expires_at, $booking->drop_off_on->toDateString(), $booking->ready_on->toDateString()]);
         $this->assertSame('awaiting_payment', $booking->stage());
+    }
+
+    public function test_the_size_review_prices_the_booking_and_tells_the_customer(): void
+    {
+        Mail::fake();
+        MailSetting::instance()->update(['address' => 'hello@826auto.test', 'password' => 'secret']);
+        $vehicle = Vehicle::factory()->create();
+        $booking = Booking::factory()->create(['branch_id' => $this->branch->id, 'vehicle_id' => $vehicle->id, 'total_days' => 4]);
+        $booking->items()->createMany([
+            ['service_id' => $this->detail->id, 'service_name' => 'Exterior detailing', 'duration_days' => 1],
+            ['service_id' => $this->coating->id, 'service_name' => 'Graphene coating', 'duration_days' => 3],
+        ]);
+        $this->assertTrue($booking->needsSizeReview());
+
+        $this->actingAs($this->owner);
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->assertActionVisible('setSize')
+            ->callAction('setSize', data: ['vehicle_size_id' => $this->medium->id])
+            ->assertHasNoActionErrors();
+
+        $booking->refresh();
+        $this->assertSame([20500, 'Medium', false], [$booking->total_price, $booking->vehicle_size_name, $booking->needsSizeReview()]);
+        $this->assertNotNull($booking->size_reviewed_at);
+        $this->assertNotNull($booking->priced_at);
+        $this->assertSame([2500, 18000], $booking->items->pluck('price')->all());
+        $this->assertSame(['set', 20500], [$booking->priceForCustomer()['status'], $booking->priceForCustomer()['total']]);
+        $this->assertTrue($vehicle->refresh()->isReviewed());
+        Mail::assertSent(CustomerBookingUpdate::class, fn (CustomerBookingUpdate $mail) => $mail->kind === 'priced' && str_contains($mail->render(), '20,500'));
+    }
+
+    public function test_a_size_class_with_a_missing_rate_leaves_the_booking_unpriced_and_in_review(): void
+    {
+        Mail::fake();
+        $large = VehicleSize::factory()->create(['name' => 'Large']);
+        // Only the detail has a Large price
+        ServiceRate::factory()->create(['service_id' => $this->detail->id, 'vehicle_size_id' => $large->id, 'price' => 3000]);
+        $booking = Booking::factory()->create(['branch_id' => $this->branch->id, 'total_days' => 4]);
+        $booking->items()->createMany([
+            ['service_id' => $this->detail->id, 'service_name' => 'Exterior detailing', 'duration_days' => 1],
+            ['service_id' => $this->coating->id, 'service_name' => 'Graphene coating', 'duration_days' => 3],
+        ]);
+
+        $this->actingAs($this->owner);
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->callAction('setSize', data: ['vehicle_size_id' => $large->id])
+            ->assertNotified('No price for Large yet');
+
+        $booking->refresh();
+        $this->assertNull($booking->total_price);
+        $this->assertNull($booking->priced_at);
+        $this->assertSame('Large', $booking->vehicle_size_name);
+        $this->assertTrue($booking->needsSizeReview());
+        $this->assertSame('reviewing', $booking->priceForCustomer()['status']);
+        Mail::assertNotSent(CustomerBookingUpdate::class);
+
+        // Once the rate is there, reviewing again prices it
+        ServiceRate::factory()->create(['service_id' => $this->coating->id, 'vehicle_size_id' => $large->id, 'price' => 21000]);
+
+        Livewire::test(ViewBooking::class, ['record' => $booking->getRouteKey()])
+            ->callAction('setSize', data: ['vehicle_size_id' => $large->id])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(24000, $booking->refresh()->total_price);
     }
 
     public function test_closures_cover_whole_days(): void
@@ -252,7 +373,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->owner);
 
         Livewire::test(ManageBranchBlocks::class)
-            ->callAction('create', data: ['branch_id' => null, 'kind' => 'closed', 'title' => 'Bonifacio Day', 'whole_days' => true, 'first_day' => '2026-11-30', 'last_day' => '2026-11-30'])
+            ->callAction('create', data: ['branch_id' => null, 'kind' => 'closed', 'title' => 'Bonifacio Day', 'first_day' => '2026-11-30', 'last_day' => '2026-11-30'])
             ->assertHasNoActionErrors();
 
         $block = BranchBlock::sole();
@@ -261,12 +382,12 @@ class AdminPanelTest extends TestCase
         $this->assertSame($this->owner->id, $block->created_by);
     }
 
-    public function test_a_branch_is_added_as_a_draft_and_its_hours_saved(): void
+    public function test_a_branch_is_added_as_a_draft_and_its_days_saved(): void
     {
         $this->actingAs($this->owner);
 
         Livewire::test(CreateBranch::class)
-            ->fillForm(['name' => 'Antipolo', 'slug' => 'antipolo', 'status' => 'draft', 'bays' => 0, 'step_minutes' => 60, 'lead_hours' => 2, 'months_ahead' => 3])
+            ->fillForm(['name' => 'Antipolo', 'slug' => 'antipolo', 'status' => 'draft', 'daily_cap' => 0, 'lead_days' => 1, 'months_ahead' => 3])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -277,49 +398,49 @@ class AdminPanelTest extends TestCase
         Livewire::test(EditBranch::class, ['record' => $branch->getRouteKey()])
             ->fillForm([
                 'weekly_hours' => [
-                    1 => ['open_today' => true, 'open' => '09:00', 'close' => '17:00', 'last_dropoff' => '15:00'],
+                    1 => ['open_today' => true, 'open' => '09:00', 'close' => '17:00'],
                     7 => ['open_today' => false, 'open' => '09:00', 'close' => '17:00'],
                 ],
-                'multiday_dropoff_by' => '12:00',
-                'bays' => 3,
+                'daily_cap' => 3,
+                'lead_days' => 2,
             ])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $branch->refresh();
-        $this->assertSame(['open' => '09:00', 'close' => '17:00', 'last_dropoff' => '15:00'], $branch->weeklyHours()[1]);
+        $this->assertSame(['open' => '09:00', 'close' => '17:00'], $branch->weeklyHours()[1]);
         $this->assertNull($branch->weeklyHours()[7]);
-        $this->assertSame(['12:00', 3], [$branch->multidayDropoffBy(), $branch->bays]);
+        $this->assertSame([3, 2], [$branch->dailyCap(), $branch->leadDays()]);
     }
 
-    public function test_service_prices_and_durations_are_set_per_size(): void
+    public function test_a_service_has_one_estimate_and_a_price_per_size_class(): void
     {
-        $suv = VehicleSize::factory()->create(['name' => 'SUV']);
+        $large = VehicleSize::factory()->create(['name' => 'Large']);
         $this->actingAs($this->owner);
 
         Livewire::test(EditService::class, ['record' => $this->coating->getRouteKey()])
-            ->assertFormSet(["rates.{$this->sedan->id}.price" => 18000, "rates.{$this->sedan->id}.unit" => 'days', "rates.{$this->sedan->id}.amount" => 3])
+            ->assertFormSet(['estimate_days' => 3, "rates.{$this->medium->id}.price" => 18000])
             ->fillForm([
-                "rates.{$this->sedan->id}" => ['price' => 19000, 'unit' => 'days', 'amount' => 4],
-                "rates.{$suv->id}" => ['price' => 2500, 'unit' => 'hours', 'amount' => 2.5],
+                'estimate_days' => 4,
+                "rates.{$this->medium->id}.price" => 19000,
+                "rates.{$large->id}.price" => 25000,
             ])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $sedan = ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $this->sedan->id)->sole();
-        $this->assertSame([19000, 4, null], [$sedan->price, $sedan->duration_days, $sedan->duration_minutes]);
-        $big = ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $suv->id)->sole();
-        $this->assertSame([2500, null, 150], [$big->price, $big->duration_days, $big->duration_minutes]);
+        $this->assertSame(4, $this->coating->refresh()->estimate_days);
+        $this->assertSame(19000, ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $this->medium->id)->value('price'));
+        $this->assertSame(25000, ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $large->id)->value('price'));
 
-        // A blank price removes the size
+        // A blank price removes the class
         Livewire::test(EditService::class, ['record' => $this->coating->getRouteKey()])
-            ->fillForm(["rates.{$suv->id}" => ['price' => null, 'unit' => 'hours', 'amount' => null]])
+            ->fillForm(["rates.{$large->id}.price" => null])
             ->call('save')
             ->assertHasNoFormErrors();
-        $this->assertFalse(ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $suv->id)->exists());
+        $this->assertFalse(ServiceRate::where('service_id', $this->coating->id)->where('vehicle_size_id', $large->id)->exists());
     }
 
-    public function test_a_new_service_starts_with_its_rates(): void
+    public function test_a_new_service_starts_without_an_estimate_and_cant_be_booked_yet(): void
     {
         $this->actingAs($this->owner);
 
@@ -328,13 +449,16 @@ class AdminPanelTest extends TestCase
                 'name' => 'Headlight restoration',
                 'slug' => 'headlight-restoration',
                 'service_category_id' => $this->detail->service_category_id,
-                "rates.{$this->sedan->id}" => ['price' => 1500, 'unit' => 'hours', 'amount' => 1],
+                "rates.{$this->medium->id}.price" => 1500,
             ])
             ->call('create')
             ->assertHasNoFormErrors();
 
         $service = Service::where('slug', 'headlight-restoration')->sole();
-        $this->assertSame(60, $service->rates()->sole()->duration_minutes);
+        $this->assertNull($service->estimate_days);
+        $this->assertSame(1500, $service->rates()->sole()->price);
+        $this->assertFalse($service->isBookable());
+        $this->assertFalse(Service::bookable()->whereKey($service->id)->exists());
     }
 
     public function test_settings_pages_save(): void
@@ -356,26 +480,46 @@ class AdminPanelTest extends TestCase
         $this->assertSame([12, 5], [BookingSetting::current()->cancel_cutoff_hours, BookingSetting::current()->max_upcoming_per_guest]);
 
         Livewire::test(PaymentSettings::class)
-            ->fillForm(['reservation_fee_enabled' => true, 'amount_rule' => 'fixed', 'amount_value' => 500, 'hold_minutes' => 60])
+            ->fillForm(['reservation_fee_enabled' => true, 'amount_value' => 500, 'hold_minutes' => 60])
             ->call('save')
             ->assertHasNoFormErrors();
-        $this->assertSame([true, 500, 60], [PaymentSetting::instance()->feeEnabled(), PaymentSetting::instance()->amount_value, PaymentSetting::instance()->holdMinutes()]);
+        $this->assertSame([true, 500, 60, '₱500'], [PaymentSetting::instance()->feeEnabled(), PaymentSetting::instance()->amount_value, PaymentSetting::instance()->holdMinutes(), PaymentSetting::instance()->feeLabel()]);
     }
 
     public function test_the_branch_lists_what_stops_online_booking(): void
     {
-        $branch = Branch::factory()->bays(0)->create(['weekly_hours' => null]);
+        $branch = Branch::factory()->cap(0)->create(['weekly_hours' => null]);
         PaymentSetting::instance()->update(['reservation_fee_enabled' => true]);
 
         $missing = $branch->missing();
 
-        $this->assertCount(4, $missing);
-        $this->assertStringContainsString('bays', $missing[0]);
+        $this->assertCount(5, $missing);
+        $this->assertStringContainsString('daily cap', $missing[0]);
         $this->assertFalse($branch->isOnsiteBookable());
 
-        $this->assertSame(['The reservation fee is on: add a GCash or Maya account here or in Payments.'], $this->branch->missing());
+        $this->assertSame([
+            'The reservation fee is on: set its amount in Payments.',
+            'The reservation fee is on: add a GCash or Maya account here or in Payments.',
+        ], $this->branch->missing());
 
-        PaymentSetting::instance()->update(['gcash_enabled' => true, 'gcash_number' => '0917 000 0000']);
+        PaymentSetting::instance()->update(['amount_value' => 500, 'gcash_enabled' => true, 'gcash_number' => '0917 000 0000']);
         $this->assertTrue($this->branch->refresh()->isOnsiteBookable());
+
+        // A service without a day estimate doesn't count
+        Service::query()->update(['estimate_days' => null]);
+        $this->assertStringContainsString('day estimate', $this->branch->refresh()->missing()[0]);
+    }
+
+    public function test_closures_can_mark_a_day_fully_booked(): void
+    {
+        $this->actingAs($this->owner);
+
+        Livewire::test(ManageBranchBlocks::class)
+            ->callAction('create', data: ['branch_id' => $this->branch->id, 'kind' => 'full', 'title' => 'Big job', 'first_day' => '2026-11-24', 'last_day' => '2026-11-25'])
+            ->assertHasNoActionErrors();
+
+        $block = BranchBlock::sole();
+        $this->assertSame(['full', '2026-11-24', '2026-11-25'], [$block->kind, $block->firstDay()->toDateString(), $block->lastDay()->toDateString()]);
+        $this->assertSame('full', Availability::check($this->branch, CarbonImmutable::parse('2026-11-25')));
     }
 }

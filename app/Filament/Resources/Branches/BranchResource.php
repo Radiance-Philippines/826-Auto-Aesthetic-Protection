@@ -36,8 +36,8 @@ use Illuminate\Support\Str;
 use UnitEnum;
 
 /**
- * 826's branches (owners only): address and contacts, bays and hours,
- * which services each offers, home service, its own GCash or Maya, and
+ * 826's branches (owners only): address and contacts, daily cap and open
+ * days, which services each offers, home service, its own GCash or Maya, and
  * its staff. A branch takes online bookings once it's Open and nothing is
  * missing.
  */
@@ -105,50 +105,39 @@ class BranchResource extends Resource
                                 ->helperText('Leave blank to use the address in Email settings.'),
                             TextInput::make('sort_order')->label('Order on the site')->integer()->default(0),
                         ]),
-                    Tab::make('Hours and bays')
+                    Tab::make('Days and cap')
                         ->icon(Heroicon::OutlinedClock)
                         ->columns(2)
                         ->schema([
-                            TextInput::make('bays')
-                                ->label('Bays (cars at once)')
+                            TextInput::make('daily_cap')
+                                ->label('Units per day (daily cap)')
                                 ->integer()
                                 ->minValue(0)
-                                ->maxValue(Branch::MAX_BAYS)
+                                ->maxValue(Branch::MAX_DAILY_CAP)
                                 ->default(0)
                                 ->required()
-                                ->helperText('How many cars the team works on at the same time. 0 turns off online bookings.'),
-                            Select::make('step_minutes')
-                                ->label('Drop-off times')
-                                ->options(Branch::STEPS)
-                                ->default(60)
-                                ->required()
-                                ->selectablePlaceholder(false),
-                            TextInput::make('lead_hours')
+                                ->helperText('How many units customers can book to drop off on the same day. 0 turns off online bookings.'),
+                            TextInput::make('lead_days')
                                 ->label('Notice needed')
-                                ->suffix('hours')
+                                ->suffix('days')
                                 ->integer()
                                 ->minValue(0)
-                                ->maxValue(336)
-                                ->default(2)
+                                ->maxValue(Branch::MAX_LEAD_DAYS)
+                                ->default(1)
                                 ->required()
-                                ->helperText('The earliest a customer can book from now.'),
+                                ->helperText('The earliest drop-off date, counted from today. 1 means from tomorrow.'),
                             Select::make('months_ahead')
                                 ->label('Book up to')
                                 ->options(array_combine(range(1, 12), array_map(fn (int $months) => $months === 1 ? '1 month ahead' : "{$months} months ahead", range(1, 12))))
                                 ->default(3)
                                 ->required()
                                 ->selectablePlaceholder(false),
-                            TimePicker::make('multiday_dropoff_by')
-                                ->label('Multi-day jobs: latest drop-off')
-                                ->seconds(false)
-                                ->displayFormat('g:i A')
-                                ->helperText('Optional. A 3-day job dropped off late loses most of day 1; set a cutoff like 12:00 PM.'),
                             Section::make('Weekly hours')
-                                ->description('When cars can be dropped off and the team works. Jobs pause outside these hours and carry on the next open day.')
+                                ->description('The days the branch is open; the times are shown on the site. A day left off is closed: customers can’t drop off then and it doesn’t count toward a job’s days.')
                                 ->columnSpanFull()
                                 ->columns(['md' => 2, 'xl' => 3])
                                 ->schema(collect(Branch::WEEKDAYS)->map(fn (string $label, int $day) => Fieldset::make($label)
-                                    ->columns(3)
+                                    ->columns(2)
                                     ->schema([
                                         Toggle::make("weekly_hours.{$day}.open_today")
                                             ->label('Open')
@@ -167,11 +156,6 @@ class BranchResource extends Resource
                                             ->after("weekly_hours.{$day}.open")
                                             ->required(fn (Get $get) => (bool) $get("weekly_hours.{$day}.open_today"))
                                             ->visible(fn (Get $get) => (bool) $get("weekly_hours.{$day}.open_today")),
-                                        TimePicker::make("weekly_hours.{$day}.last_dropoff")
-                                            ->label('Last drop-off')
-                                            ->seconds(false)
-                                            ->displayFormat('g:i A')
-                                            ->visible(fn (Get $get) => (bool) $get("weekly_hours.{$day}.open_today")),
                                     ]))->values()->all()),
                         ]),
                     Tab::make('Services')
@@ -182,7 +166,7 @@ class BranchResource extends Resource
                                 ->relationship('services', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
                                 ->bulkToggleable()
                                 ->columns(['md' => 2])
-                                ->helperText('Prices and durations are set per service (Shop → Services).'),
+                                ->helperText('Day estimates and prices are set per service (Shop → Services).'),
                         ]),
                     Tab::make('Home service')
                         ->icon(Heroicon::OutlinedHome)
@@ -216,7 +200,7 @@ class BranchResource extends Resource
                                 ->relationship('staff', 'name', fn ($query) => $query->where('is_owner', false)->orderBy('name'))
                                 ->getOptionLabelFromRecordUsing(fn (User $record) => "{$record->name} ({$record->email})")
                                 ->columns(['md' => 2])
-                                ->helperText('They see this branch’s bookings, timeline and closures. Owners see every branch. Invite people in Settings → Users.'),
+                                ->helperText('They see this branch’s bookings, queue and closures. Owners see every branch. Invite people in Settings → Users.'),
                         ]),
                 ]),
         ]);
@@ -271,7 +255,6 @@ class BranchResource extends Resource
                 'open_today' => is_array($row) && filled($row['open'] ?? null),
                 'open' => $row['open'] ?? null,
                 'close' => $row['close'] ?? null,
-                'last_dropoff' => $row['last_dropoff'] ?? null,
             ];
         }
 
@@ -295,13 +278,11 @@ class BranchResource extends Resource
                 ? [
                     'open' => Branch::clock($row['open']),
                     'close' => Branch::clock($row['close']),
-                    'last_dropoff' => Branch::clock($row['last_dropoff'] ?? null),
                 ]
                 : null;
         }
 
         $data['weekly_hours'] = $hours;
-        $data['multiday_dropoff_by'] = Branch::clock($data['multiday_dropoff_by'] ?? null);
 
         return $data;
     }
@@ -332,7 +313,7 @@ class BranchResource extends Resource
                     ->state(fn (Branch $record) => $record->isOnsiteBookable() ? 'Taking bookings' : (count($record->missing()) === 0 ? 'Not open' : count($record->missing()).' to fill in'))
                     ->badge()
                     ->color(fn (Branch $record) => $record->isOnsiteBookable() ? 'success' : 'warning'),
-                TextColumn::make('bays')->alignCenter(),
+                TextColumn::make('daily_cap')->label('Daily cap')->alignCenter(),
                 TextColumn::make('staff_count')
                     ->label('Staff')
                     ->counts('staff')

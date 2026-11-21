@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import { copy } from '../lib/copy';
-import { clock, hoursRange, hoursSummary, hoursToday, manilaWeekday, messageUrl, phone, site } from '../lib/site';
+import { hoursRange, hoursSummary, hoursToday, manilaWeekday, messageUrl, phone, site } from '../lib/site';
 import type { Branch, BranchMap } from '../types';
 import Button from './Button';
 import { ArrowRight, Chat, Directions, Facebook, House, MapPin, Messenger, Phone } from './Icons';
@@ -82,8 +82,7 @@ export function BranchCard({ branch, headingLevel = 'h3' }: { branch: Branch; he
 }
 
 /**
- * Every day of the week: opening hours, and the last drop-off when it's
- * earlier than closing. Today is marked.
+ * Every day of the week: opening hours. Today is marked.
  */
 export function HoursTable({ branch }: { branch: Branch }) {
     const today = manilaWeekday();
@@ -104,7 +103,6 @@ export function HoursTable({ branch }: { branch: Branch }) {
                             </th>
                             <td className="py-3 text-right tabular">
                                 {range ?? <span className="text-muted">{copy.branch.closed}</span>}
-                                {range && day.lastDropoff && day.lastDropoff !== day.close && <span className="block text-sm font-normal text-muted">{copy.branch.lastDropoff(clock(day.lastDropoff))}</span>}
                             </td>
                         </tr>
                     );

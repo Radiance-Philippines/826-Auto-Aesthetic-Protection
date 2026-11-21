@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Support\Schedule\Length;
+use App\Support\Schedule\Estimate;
 use Carbon\CarbonImmutable;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,15 +15,19 @@ use Illuminate\Support\Str;
 /**
  * A reservation or a home-service request.
  *
- * Onsite reservations are made by customers on the site: the car takes one
- * of the branch's bays from starts_at (drop-off) until ends_at (ready by).
- * With the reservation fee on, the bay is held until hold_expires_at for the
- * customer to send a payment screenshot; staff check it and the booking is
- * confirmed. Home-service requests take no bay: staff schedule them.
+ * Onsite reservations are made by customers on the site for a drop-off date
+ * (never a time): the unit counts toward the branch's daily cap, and the
+ * shop works through one queue per branch. The price is blank until the
+ * admin has seen the unit and assigned its size class. With the reservation
+ * fee on, the day is held until hold_expires_at for the customer to send a
+ * payment screenshot; staff check it and the booking is confirmed.
+ * Home-service requests don't count toward the cap: staff schedule them.
  *
- * @property CarbonImmutable|null $starts_at
- * @property CarbonImmutable|null $ends_at
+ * @property CarbonImmutable|null $drop_off_on
+ * @property CarbonImmutable|null $ready_on
  * @property CarbonImmutable|null $hold_expires_at
+ * @property CarbonImmutable|null $size_reviewed_at
+ * @property CarbonImmutable|null $priced_at
  */
 class Booking extends Model
 {
@@ -39,26 +43,62 @@ class Booking extends Model
         'requested' => 'Home service request',
         'awaiting_payment' => 'Waiting for the reservation fee',
         'payment_review' => 'Screenshot to check',
-        'confirmed' => 'Reserved',
-        'checked_in' => 'In the shop',
-        'ready' => 'Ready for pickup',
-        'completed' => 'Done',
+        'confirmed' => 'Booked',
+        'arrived' => 'Arrived',
+        'in_progress' => 'In progress',
+        'quality_check' => 'Quality check',
+        'ready' => 'Ready',
+        'exited' => 'Exited',
         'expired' => 'Hold expired',
         'cancelled' => 'Cancelled',
         'declined' => 'Declined',
         'no_show' => 'No-show',
     ];
 
+    public const VEHICLE_TYPES = [
+        'sedan' => 'Sedan',
+        'hatchback' => 'Hatchback',
+        'coupe' => 'Coupe',
+        'suv' => 'SUV',
+        'pickup' => 'Pickup',
+        'van' => 'Van',
+        'motorcycle' => 'Motorcycle',
+    ];
+
     /**
-     * Statuses that keep a bay for an onsite booking. An unpaid hold
-     * (awaiting_payment) keeps it only until hold_expires_at.
+     * Statuses that count toward a day's cap for an onsite booking. An
+     * unpaid hold (awaiting_payment) counts only until hold_expires_at.
      */
-    public const HOLDS_BAY = ['payment_review', 'confirmed', 'checked_in', 'ready'];
+    public const COUNTS_TOWARD_CAP = ['payment_review', 'confirmed', 'arrived', 'in_progress', 'quality_check', 'ready', 'exited'];
+
+    /**
+     * The unit is in the shop: from arriving until it leaves.
+     */
+    public const IN_SHOP = ['arrived', 'in_progress', 'quality_check', 'ready'];
+
+    /**
+     * What happens next to an onsite unit, one step at a time.
+     */
+    public const NEXT_ONSITE = [
+        'confirmed' => 'arrived',
+        'arrived' => 'in_progress',
+        'in_progress' => 'quality_check',
+        'quality_check' => 'ready',
+        'ready' => 'exited',
+    ];
+
+    /**
+     * A home visit has no shop stages: booked, then in progress, then done.
+     */
+    public const NEXT_HOME = [
+        'confirmed' => 'in_progress',
+        'in_progress' => 'exited',
+    ];
 
     /**
      * Not finished, cancelled or lapsed: still on the team's list.
      */
-    public const OPEN = ['requested', 'awaiting_payment', 'payment_review', 'confirmed', 'checked_in', 'ready'];
+    public const OPEN = ['requested', 'awaiting_payment', 'payment_review', 'confirmed', 'arrived', 'in_progress', 'quality_check', 'ready'];
 
     public const WINDOWS = [
         'morning' => 'Morning',
@@ -91,13 +131,16 @@ class Booking extends Model
         'status',
         'branch_id',
         'guest_id',
-        'starts_at',
-        'ends_at',
+        'vehicle_id',
+        'drop_off_on',
+        'ready_on',
         'preferred_date',
         'preferred_window',
         'vehicle_size_id',
         'vehicle_size_name',
+        'vehicle_year',
         'vehicle_model',
+        'vehicle_type',
         'plate_number',
         'name',
         'phone',
@@ -112,7 +155,8 @@ class Booking extends Model
         'admin_note',
         'total_price',
         'total_days',
-        'total_minutes',
+        'size_reviewed_at',
+        'priced_at',
         'amount_due',
         'amount_kind',
         'hold_expires_at',
@@ -123,9 +167,9 @@ class Booking extends Model
         'payment_note',
         'paid_at',
         'confirmed_at',
-        'checked_in_at',
+        'arrived_at',
         'ready_at',
-        'completed_at',
+        'exited_at',
         'cancelled_at',
         'cancelled_by',
         'cancel_reason',
@@ -146,30 +190,31 @@ class Booking extends Model
         'kind' => 'onsite',
         'source' => 'site',
         'total_days' => 0,
-        'total_minutes' => 0,
         'reschedule_count' => 0,
     ];
 
     protected function casts(): array
     {
         return [
-            'starts_at' => 'immutable_datetime',
-            'ends_at' => 'immutable_datetime',
+            'drop_off_on' => 'immutable_date',
+            'ready_on' => 'immutable_date',
             'preferred_date' => 'immutable_date',
+            'vehicle_year' => 'integer',
+            'size_reviewed_at' => 'immutable_datetime',
+            'priced_at' => 'immutable_datetime',
             'has_water' => 'boolean',
             'has_power' => 'boolean',
             'has_shade' => 'boolean',
             'total_price' => 'integer',
             'total_days' => 'integer',
-            'total_minutes' => 'integer',
             'amount_due' => 'integer',
             'hold_expires_at' => 'immutable_datetime',
             'payment_submitted_at' => 'immutable_datetime',
             'paid_at' => 'immutable_datetime',
             'confirmed_at' => 'immutable_datetime',
-            'checked_in_at' => 'immutable_datetime',
+            'arrived_at' => 'immutable_datetime',
             'ready_at' => 'immutable_datetime',
-            'completed_at' => 'immutable_datetime',
+            'exited_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
             'reminded_at' => 'immutable_datetime',
             'read_at' => 'immutable_datetime',
@@ -185,12 +230,19 @@ class Booking extends Model
         });
 
         static::saving(function (Booking $booking) {
+            // Dates are kept as "2026-11-24", so they compare as plain strings on SQLite too
+            foreach (['drop_off_on', 'ready_on', 'preferred_date'] as $date) {
+                if (is_string($booking->attributes[$date] ?? null)) {
+                    $booking->attributes[$date] = substr($booking->attributes[$date], 0, 10);
+                }
+            }
+
             if ($booking->plate_number !== null) {
                 $booking->plate_number = self::normalizePlate($booking->plate_number);
             }
 
-            if ($booking->amount_due !== null && $booking->total_price !== null) {
-                $booking->amount_kind = $booking->amount_due < $booking->total_price ? 'fee' : 'full';
+            if ($booking->amount_due !== null) {
+                $booking->amount_kind = 'fee';
             }
 
             if ($booking->isDirty('status')) {
@@ -198,9 +250,9 @@ class Booking extends Model
 
                 match ($booking->status) {
                     'confirmed' => $booking->confirmed_at ??= $now,
-                    'checked_in' => $booking->checked_in_at ??= $now,
+                    'arrived' => $booking->arrived_at ??= $now,
                     'ready' => $booking->ready_at ??= $now,
-                    'completed' => $booking->completed_at ??= $now,
+                    'exited' => $booking->exited_at ??= $now,
                     'cancelled', 'declined', 'expired' => $booking->cancelled_at ??= $now,
                     default => null,
                 };
@@ -256,6 +308,14 @@ class Booking extends Model
     }
 
     /**
+     * @return BelongsTo<Vehicle, $this>
+     */
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
+    }
+
+    /**
      * @return HasMany<BookingItem, $this>
      */
     public function items(): HasMany
@@ -264,25 +324,20 @@ class Booking extends Model
     }
 
     /**
-     * Onsite bookings that keep a bay right now: confirmed or in progress,
-     * a screenshot waiting to be checked, or an unpaid hold that hasn't
-     * lapsed (checked against the clock, so it frees up even without cron).
+     * Onsite bookings that count toward their day's cap: booked or in the
+     * shop, a screenshot waiting to be checked, or an unpaid hold that
+     * hasn't lapsed (checked against the clock, so it frees up even
+     * without cron).
      */
-    public function scopeHoldingABay(Builder $query): void
+    public function scopeCountingTowardCap(Builder $query): void
     {
         $query->where('kind', 'onsite')
-            ->whereNotNull('starts_at')
-            ->whereNotNull('ends_at')
+            ->whereNotNull('drop_off_on')
             ->where(fn (Builder $status) => $status
-                ->whereIn('status', self::HOLDS_BAY)
+                ->whereIn('status', self::COUNTS_TOWARD_CAP)
                 ->orWhere(fn (Builder $hold) => $hold
                     ->where('status', 'awaiting_payment')
                     ->where('hold_expires_at', '>', now())));
-    }
-
-    public function scopeTouching(Builder $query, CarbonImmutable $from, CarbonImmutable $to): void
-    {
-        $query->where('starts_at', '<', $to)->where('ends_at', '>', $from);
     }
 
     public function scopeUnread(Builder $query): void
@@ -296,12 +351,28 @@ class Booking extends Model
     }
 
     /**
-     * Something for the team to do: a screenshot to check, or a home-service
-     * request to schedule.
+     * Open bookings whose unit the admin hasn't priced yet: no size class
+     * assigned, or the class has no price for one of the services.
+     */
+    public function scopeNeedsSizeReview(Builder $query): void
+    {
+        $query->whereIn('status', self::OPEN)
+            ->whereNull('priced_at')
+            ->where(fn (Builder $hold) => $hold
+                ->where('status', '!=', 'awaiting_payment')
+                ->orWhereNull('hold_expires_at')
+                ->orWhere('hold_expires_at', '>', now()));
+    }
+
+    /**
+     * Something for the team to do: a screenshot to check, a home-service
+     * request to schedule, or a unit that needs its size.
      */
     public function scopeNeedsAction(Builder $query): void
     {
-        $query->whereIn('status', ['payment_review', 'requested']);
+        $query->where(fn (Builder $action) => $action
+            ->whereIn('status', ['payment_review', 'requested'])
+            ->orWhere(fn (Builder $review) => $review->needsSizeReview()));
     }
 
     /**
@@ -362,16 +433,40 @@ class Booking extends Model
         return $this->stage() === 'awaiting_payment';
     }
 
-    public function holdsABay(): bool
+    /**
+     * Whether this booking counts toward its day's cap right now.
+     */
+    public function countsTowardCap(): bool
     {
         return $this->isOnsite()
-            && $this->starts_at !== null
-            && (in_array($this->status, self::HOLDS_BAY, true) || $this->stage() === 'awaiting_payment');
+            && $this->drop_off_on !== null
+            && (in_array($this->status, self::COUNTS_TOWARD_CAP, true) || $this->stage() === 'awaiting_payment');
     }
 
-    public function length(): Length
+    /**
+     * The admin hasn't priced this unit yet.
+     */
+    public function needsSizeReview(): bool
     {
-        return new Length((int) $this->total_days, (int) $this->total_minutes);
+        return $this->isOpen() && $this->priced_at === null;
+    }
+
+    public function isInShop(): bool
+    {
+        return in_array($this->status, self::IN_SHOP, true);
+    }
+
+    /**
+     * The status the next step moves it to, if it is on its way through the shop.
+     */
+    public function nextStatus(): ?string
+    {
+        return ($this->isHome() ? self::NEXT_HOME : self::NEXT_ONSITE)[$this->status] ?? null;
+    }
+
+    public function estimate(): Estimate
+    {
+        return new Estimate((int) $this->total_days);
     }
 
     /**
@@ -410,17 +505,14 @@ class Booking extends Model
     }
 
     /**
-     * "Mon, Nov 16, 9:00 AM → ready Wed, Nov 18, 6:00 PM", or the home
-     * request's preferred day.
+     * "Mon, Nov 24 · ready around Wed, Nov 26", or the home request's
+     * preferred day.
      */
     public function whenLabel(): string
     {
-        if ($this->starts_at && $this->ends_at) {
-            $ready = $this->ends_at->isSameDay($this->starts_at)
-                ? $this->ends_at->format('g:i A')
-                : $this->ends_at->format('D, M j, g:i A');
-
-            return $this->starts_at->format('D, M j, Y, g:i A')." → ready {$ready}";
+        if ($this->drop_off_on) {
+            return $this->drop_off_on->format('D, M j')
+                .($this->ready_on ? ' · ready around '.$this->ready_on->format('D, M j') : '');
         }
 
         if ($this->preferred_date) {
@@ -440,9 +532,17 @@ class Booking extends Model
         return $items->pluck('service_name')->implode(', ');
     }
 
+    /**
+     * "2021 Toyota Vios · Sedan · ABC1234".
+     */
     public function vehicleLabel(): string
     {
-        return collect([$this->vehicle_model, $this->vehicle_size_name ? "({$this->vehicle_size_name})" : null, $this->plate_number])
+        return collect([
+            $this->vehicle_year,
+            $this->vehicle_model,
+            $this->vehicle_type ? '('.(self::VEHICLE_TYPES[$this->vehicle_type] ?? $this->vehicle_type).')' : null,
+            $this->plate_number,
+        ])
             ->filter()
             ->implode(' ');
     }
@@ -452,19 +552,19 @@ class Booking extends Model
      */
     public function canBeCancelledByCustomer(): bool
     {
-        if (! $this->isOpen() || in_array($this->status, ['checked_in', 'ready'], true)) {
+        if (! $this->isOpen() || $this->isInShop()) {
             return false;
         }
 
-        if ($this->starts_at === null || in_array($this->stage(), ['requested', 'awaiting_payment'], true)) {
+        if ($this->drop_off_on === null || in_array($this->stage(), ['requested', 'awaiting_payment'], true)) {
             return true;
         }
 
-        return now()->lessThanOrEqualTo($this->starts_at->subHours(BookingSetting::current()->cancel_cutoff_hours));
+        return now()->lessThanOrEqualTo($this->drop_off_on->startOfDay()->subHours(BookingSetting::current()->cancel_cutoff_hours));
     }
 
     /**
-     * Whether the customer may move it to another time themselves: a paid
+     * Whether the customer may move it to another date themselves: a paid
      * or confirmed onsite reservation, before the cutoff, within the limit.
      */
     public function canBeRescheduledByCustomer(): bool
@@ -473,10 +573,10 @@ class Booking extends Model
 
         return $this->isOnsite()
             && in_array($this->status, ['confirmed', 'payment_review'], true)
-            && $this->starts_at !== null
+            && $this->drop_off_on !== null
             && $settings->reschedule_enabled
             && $this->reschedule_count < $settings->max_reschedules
-            && now()->lessThanOrEqualTo($this->starts_at->subHours($settings->reschedule_cutoff_hours));
+            && now()->lessThanOrEqualTo($this->drop_off_on->startOfDay()->subHours($settings->reschedule_cutoff_hours));
     }
 
     /**
@@ -490,6 +590,24 @@ class Booking extends Model
     }
 
     /**
+     * The price as the customer sees it: "reviewing" until the admin has
+     * seen the unit and its size class has a price for every service.
+     *
+     * @return array{status: string, total: int|null, items: list<array{name: string, price: int|null}>}
+     */
+    public function priceForCustomer(): array
+    {
+        $set = $this->total_price !== null && $this->priced_at !== null;
+        $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();
+
+        return [
+            'status' => $set ? 'set' : 'reviewing',
+            'total' => $set ? $this->total_price : null,
+            'items' => $items->map(fn (BookingItem $item) => ['name' => $item->service_name, 'price' => $set ? $item->price : null])->values()->all(),
+        ];
+    }
+
+    /**
      * Shape used by the customer's pages (/api/my-bookings).
      *
      * @return array<string, mixed>
@@ -499,6 +617,8 @@ class Booking extends Model
         $stage = $this->stage();
         $paying = in_array($stage, ['awaiting_payment', 'payment_review'], true);
         $branch = $this->branch;
+        $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();
+        $reviewed = $this->size_reviewed_at !== null && $this->vehicle_size_name !== null;
 
         return [
             'id' => $this->getKey(),
@@ -517,26 +637,32 @@ class Booking extends Model
                 'messenger' => $branch->messenger_url,
                 'map' => $branch->map(),
             ] : null,
-            'startsAt' => $this->starts_at?->toIso8601String(),
-            'readyBy' => $this->ends_at?->toIso8601String(),
+            'dropOffOn' => $this->drop_off_on?->toDateString(),
+            'readyOn' => $this->ready_on?->toDateString(),
+            'estimate' => $this->estimate()->toArray(),
             'when' => $this->whenLabel(),
             'preferredDate' => $this->preferred_date?->toDateString(),
             'preferredWindow' => $this->preferred_window,
             'vehicle' => [
-                'size' => $this->vehicle_size_name,
-                'sizeId' => $this->vehicle_size_id,
+                'id' => $this->vehicle_id,
+                'year' => $this->vehicle_year,
                 'model' => $this->vehicle_model,
+                'type' => $this->vehicle_type,
+                'typeLabel' => $this->vehicle_type ? (self::VEHICLE_TYPES[$this->vehicle_type] ?? $this->vehicle_type) : null,
                 'plate' => $this->plate_number,
+                'size' => $reviewed ? $this->vehicle_size_name : null,
+                'sizeReviewed' => $reviewed,
             ],
-            'items' => ($this->relationLoaded('items') ? $this->items : $this->items()->get())->map->toCustomer()->values()->all(),
-            'serviceIds' => ($this->relationLoaded('items') ? $this->items : $this->items()->get())->pluck('service_id')->filter()->values()->all(),
-            'length' => $this->length()->toArray(),
-            'totalPrice' => $this->total_price,
+            'items' => $items->map->toCustomer()->values()->all(),
+            'serviceIds' => $items->pluck('service_id')->filter()->values()->all(),
+            'price' => $this->priceForCustomer(),
             'address' => $this->isHome() ? $this->address : null,
             'area' => $this->isHome() ? $this->area : null,
             'amountDue' => $this->amount_due,
             'balance' => $this->balance(),
             'holdExpiresAt' => $stage === 'awaiting_payment' ? $this->hold_expires_at?->toIso8601String() : null,
+            'arrivedAt' => $this->arrived_at?->toIso8601String(),
+            'exitedAt' => $this->exited_at?->toIso8601String(),
             'payment' => [
                 'method' => $this->payment_method,
                 'submittedAt' => $this->payment_submitted_at?->toIso8601String(),

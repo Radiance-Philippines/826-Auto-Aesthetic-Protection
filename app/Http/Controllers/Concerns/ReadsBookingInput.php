@@ -9,10 +9,11 @@ use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Reading the branch, services, date and time a customer picked, shared by
+ * Reading the branch, services, date and unit a customer picked, shared by
  * the availability, reservation and home-service endpoints.
  */
 trait ReadsBookingInput
@@ -67,20 +68,6 @@ trait ReadsBookingInput
     }
 
     /**
-     * The drop-off moment from "2026-11-17" and "09:00", in Manila time.
-     */
-    protected function startFrom(mixed $date, mixed $time): CarbonImmutable
-    {
-        $day = $this->dateFrom($date);
-
-        if (! is_string($time) || ! preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)) {
-            throw ValidationException::withMessages(['time' => 'Pick a drop-off time.']);
-        }
-
-        return $day->setTimeFromTimeString($time);
-    }
-
-    /**
      * A booking the request may open (signed-in owner or private key), else 404.
      */
     protected function openableBooking(Request $request, mixed $id): Booking
@@ -108,10 +95,25 @@ trait ReadsBookingInput
                 }
             }],
             'email' => ['nullable', 'email', 'max:190'],
-            'vehicle_model' => ['required', 'string', 'max:80'],
-            'plate_number' => ['required', 'string', 'max:15', 'regex:/^[A-Za-z0-9 -]+$/'],
             'message' => ['nullable', 'string', 'max:1000'],
             'consent' => ['accepted'],
+        ];
+    }
+
+    /**
+     * The customer's unit: one of their saved ones (vehicle_id), or its
+     * year, make and model, type and plate.
+     *
+     * @return array<string, mixed>
+     */
+    protected function vehicleRules(): array
+    {
+        return [
+            'vehicle_id' => ['nullable', 'integer'],
+            'vehicle_year' => ['required_without:vehicle_id', 'nullable', 'integer', 'between:1950,'.(now()->year + 1)],
+            'vehicle_model' => ['required_without:vehicle_id', 'nullable', 'string', 'max:80'],
+            'vehicle_type' => ['required_without:vehicle_id', 'nullable', Rule::in(array_keys(Booking::VEHICLE_TYPES))],
+            'plate_number' => ['required_without:vehicle_id', 'nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9 -]+$/'],
         ];
     }
 
@@ -126,8 +128,13 @@ trait ReadsBookingInput
             'phone.required' => 'Add a mobile number so the branch can reach you.',
             'phone.regex' => 'Use numbers only, like 0917 123 4567.',
             'email.email' => 'That doesn’t look like an email address. Check it, or leave it blank.',
-            'vehicle_model.required' => 'Add your car’s make and model, like Toyota Vios.',
-            'plate_number.required' => 'Add your plate number.',
+            'vehicle_year.required_without' => 'Add your car’s year.',
+            'vehicle_year.integer' => 'Use a year, like 2021.',
+            'vehicle_year.between' => 'That year doesn’t look right. Check it.',
+            'vehicle_model.required_without' => 'Add your car’s make and model, like Toyota Vios.',
+            'vehicle_type.required_without' => 'Pick the type of your car.',
+            'vehicle_type.in' => 'Pick the type of your car from the list.',
+            'plate_number.required_without' => 'Add your plate number.',
             'plate_number.regex' => 'Use letters and numbers only for the plate.',
             'plate_number.max' => 'That plate number is too long.',
             'message.max' => 'Keep the note under 1,000 characters.',

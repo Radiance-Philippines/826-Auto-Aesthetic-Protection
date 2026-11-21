@@ -11,6 +11,7 @@ import { guest } from '../lib/auth';
 import { fetchBookings, LIVE_STAGES } from '../lib/bookings';
 import { copy } from '../lib/copy';
 import { peso } from '../lib/site';
+import { unitName } from '../lib/vehicles';
 import usePageTitle from '../lib/usePageTitle';
 import type { CustomerBooking } from '../types';
 
@@ -34,14 +35,14 @@ function BookingCard({ booking }: { booking: CustomerBooking }) {
                 </Link>
             </h3>
             <div className="mt-1 flex items-end justify-between gap-4">
-                <p className="text-muted">{[booking.branch?.name, [booking.vehicle.size, booking.vehicle.model].filter(Boolean).join(' · ')].filter(Boolean).join(' — ')}</p>
+                <p className="text-muted">{[booking.branch?.name, [unitName(booking.vehicle.year, booking.vehicle.model), booking.vehicle.plate].filter(Boolean).join(' · ')].filter(Boolean).join(' — ')}</p>
                 <span className="hidden w-24 shrink-0 text-text/40 sm:block">
-                    <VehicleSilhouette name={booking.vehicle.size} className="w-full [--silhouette-cut:var(--panel-top)]" />
+                    <VehicleSilhouette type={booking.vehicle.type} className="w-full [--silhouette-cut:var(--panel-top)]" />
                 </span>
             </div>
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-line pt-4">
                 <p className="min-w-0 text-[0.95rem]">{booking.items.map((item) => item.name).join(', ')}</p>
-                {booking.totalPrice !== null && <p className="price shrink-0 text-lg">{peso(booking.totalPrice)}</p>}
+                {booking.price.status === 'set' && booking.price.total !== null ? <p className="price shrink-0 text-lg">{peso(booking.price.total)}</p> : <p className="shrink-0 text-sm text-muted">{text.priceReviewing}</p>}
             </div>
         </article>
     );

@@ -36,21 +36,16 @@ export type AuthData = {
     localSignInUrl: string | null;
 };
 
-export type VehicleSize = {
-    id: number;
-    name: string;
-    /** "Vios, City, Mirage G4" */
-    examples: string | null;
+/** The kinds of unit a customer can pick ("sedan", "Sedan") */
+export type VehicleType = {
+    key: string;
+    label: string;
 };
 
-/** What a service costs and takes for one vehicle size */
-export type Rate = {
-    sizeId: number;
-    price: number;
+/** How long a job keeps the unit: "about 3 days" */
+export type Estimate = {
     days: number;
-    minutes: number;
-    /** "4 hours", "2 days" */
-    duration: string;
+    label: string;
 };
 
 export type Service = {
@@ -62,8 +57,8 @@ export type Service = {
     inclusions: string[];
     image: Image | null;
     homeServiceOk: boolean;
-    /** Only the bookable ones, for sizes on the site */
-    rates: Rate[];
+    /** Days at the shop; null until the owner fills it in. There is no price: it is set after 826 reviews the unit */
+    estimateDays: number | null;
 };
 
 export type Category = {
@@ -81,7 +76,6 @@ export type BranchHours = {
     /** "08:00", null when closed */
     open: string | null;
     close: string | null;
-    lastDropoff: string | null;
 };
 
 export type BranchMap = {
@@ -103,8 +97,6 @@ export type Branch = {
     facebook: string | null;
     map: BranchMap | null;
     hours: BranchHours[];
-    /** A job that runs over a day is dropped off by this time ("12:00") */
-    multidayDropoffBy: string | null;
     /** The last day it takes bookings and home-service requests for ("2027-02-28") */
     lastDay: string;
     /** Takes online reservations now */
@@ -147,23 +139,16 @@ export type SiteData = {
     logoFull: string | null;
     /** The folder the site is served from ("" at a domain's root, "/demo/826") */
     base: string;
-    /** A preview copy: sample prices, nothing is saved */
+    /** A preview copy: sample schedules, nothing is saved */
     demo: boolean;
     settings: Settings;
     auth: AuthData;
-    catalog: { sizes: VehicleSize[]; categories: Category[] };
+    catalog: { categories: Category[] };
+    vehicleTypes: VehicleType[];
     branches: Branch[];
     booking: BookingSettings;
     photos: Photo[];
     photoCategories: Record<string, string>;
-};
-
-/** How long a job keeps the car */
-export type JobLength = {
-    days: number;
-    minutes: number;
-    /** "2 days + 4 hours" */
-    label: string;
 };
 
 export type DayState = 'open' | 'full' | 'closed';
@@ -176,30 +161,34 @@ export type MonthAvailability = {
     first: string;
     last: string;
     days: Record<string, DayState>;
-    length: JobLength;
-    total: number | null;
+    estimate: Estimate | null;
 };
 
-export type TimeSlot = {
-    /** "09:00" */
-    time: string;
-    /** "9:00 AM" */
-    label: string;
-    startsAt: string;
-    readyBy: string;
-    /** "Ready 1:00 PM" */
-    readyLabel: string;
-};
+export type Stage =
+    | 'requested'
+    | 'awaiting_payment'
+    | 'payment_review'
+    | 'confirmed'
+    | 'arrived'
+    | 'in_progress'
+    | 'quality_check'
+    | 'ready'
+    | 'exited'
+    | 'expired'
+    | 'cancelled'
+    | 'declined'
+    | 'no_show';
 
-/** GET /api/availability/day */
-export type DayAvailability = {
-    date: string;
-    length: JobLength;
-    total: number | null;
-    slots: TimeSlot[];
+/** A unit the signed-in customer has booked before (GET /api/my-vehicles) */
+export type SavedVehicle = {
+    id: number;
+    year: number;
+    model: string;
+    type: string;
+    plate: string;
+    /** 826 has reviewed its size, so its price is instant */
+    sizeReviewed: boolean;
 };
-
-export type Stage = 'requested' | 'awaiting_payment' | 'payment_review' | 'confirmed' | 'checked_in' | 'ready' | 'completed' | 'expired' | 'cancelled' | 'declined' | 'no_show';
 
 export type PaymentMethodKey = 'gcash' | 'maya';
 
@@ -232,17 +221,22 @@ export type CustomerBooking = {
         messenger: string | null;
         map: BranchMap | null;
     } | null;
-    startsAt: string | null;
-    readyBy: string | null;
-    /** "Sat, Nov 14, 2026, 1:00 PM ready 5:00 PM" */
+    /** "2026-11-24" */
+    dropOffOn: string | null;
+    readyOn: string | null;
+    estimate: Estimate | null;
+    /** "Mon, Nov 24 · ready around Wed, Nov 26" */
     when: string;
+    arrivedAt: string | null;
+    exitedAt: string | null;
     preferredDate: string | null;
     preferredWindow: HomeWindow | null;
-    vehicle: { size: string | null; sizeId: number | null; model: string | null; plate: string | null };
-    items: { name: string; category: string | null; price: number | null; duration: string | null }[];
-    serviceIds: number[];
-    length: JobLength;
-    totalPrice: number | null;
+    vehicle: { id: number | null; year: number | null; model: string | null; type: string | null; typeLabel: string | null; plate: string | null; size: string | null; sizeReviewed: boolean };
+    items: { name: string; category: string | null; estimateDays: number | null }[];
+    /** Not in the contract; used for "Book again" when the server sends it */
+    serviceIds?: number[];
+    /** "reviewing" until 826 has set the unit's size */
+    price: { status: 'reviewing' | 'set'; total: number | null; items: { name: string; price: number | null }[] };
     address: string | null;
     area: string | null;
     /** The reservation fee */

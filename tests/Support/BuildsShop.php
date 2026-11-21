@@ -10,34 +10,33 @@ use App\Models\SiteSetting;
 use App\Models\VehicleSize;
 
 /**
- * A branch ready for online bookings: open 8 AM – 6 PM Monday to
- * Saturday with 2 bays, a Sedan size, and two services with a price and
- * duration for it (a 3-hour detail and a 3-day coating), with Google
- * sign-in set up.
+ * A branch ready for online bookings: open Monday to Saturday with a daily
+ * cap of 2, a Medium size class, and two services (a 1-day detail and a
+ * 3-day coating) with a price for that class, with Google sign-in set up.
  */
 trait BuildsShop
 {
     protected Branch $branch;
 
-    protected VehicleSize $sedan;
+    protected VehicleSize $medium;
 
     protected Service $detail;
 
     protected Service $coating;
 
-    protected function buildShop(int $bays = 2): void
+    protected function buildShop(int $cap = 2): void
     {
-        $this->branch = Branch::factory()->bays($bays)->create(['name' => 'Cainta', 'slug' => 'cainta']);
-        $this->sedan = VehicleSize::factory()->create(['name' => 'Sedan']);
+        $this->branch = Branch::factory()->cap($cap)->create(['name' => 'Cainta', 'slug' => 'cainta']);
+        $this->medium = VehicleSize::factory()->create(['name' => 'Medium']);
 
         $detailing = ServiceCategory::factory()->create(['name' => 'Detailing', 'sort_order' => 1]);
         $coatings = ServiceCategory::factory()->create(['name' => 'Coating', 'sort_order' => 2]);
 
-        $this->detail = Service::factory()->homeServiceOk()->create(['name' => 'Exterior detailing', 'service_category_id' => $detailing->id]);
-        $this->coating = Service::factory()->create(['name' => 'Graphene coating', 'service_category_id' => $coatings->id]);
+        $this->detail = Service::factory()->homeServiceOk()->takes(1)->create(['name' => 'Exterior detailing', 'service_category_id' => $detailing->id]);
+        $this->coating = Service::factory()->takes(3)->create(['name' => 'Graphene coating', 'service_category_id' => $coatings->id]);
 
-        ServiceRate::factory()->hours(3)->create(['service_id' => $this->detail->id, 'vehicle_size_id' => $this->sedan->id, 'price' => 2500]);
-        ServiceRate::factory()->days(3)->create(['service_id' => $this->coating->id, 'vehicle_size_id' => $this->sedan->id, 'price' => 18000]);
+        ServiceRate::factory()->create(['service_id' => $this->detail->id, 'vehicle_size_id' => $this->medium->id, 'price' => 2500]);
+        ServiceRate::factory()->create(['service_id' => $this->coating->id, 'vehicle_size_id' => $this->medium->id, 'price' => 18000]);
 
         $this->branch->services()->sync([$this->detail->id, $this->coating->id]);
 
@@ -46,7 +45,7 @@ trait BuildsShop
     }
 
     /**
-     * A reservation as the site sends it.
+     * A reservation as the site sends it (a new unit, so it waits for its size review).
      *
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
@@ -55,14 +54,14 @@ trait BuildsShop
     {
         return [
             'branch' => $this->branch->id,
-            'size' => $this->sedan->id,
             'services' => [$this->detail->id],
             'date' => '2026-11-17',
-            'time' => '09:00',
             'name' => 'Maria Santos',
             'phone' => '0917 123 4567',
             'email' => 'maria@example.com',
+            'vehicle_year' => 2021,
             'vehicle_model' => 'Toyota Vios',
+            'vehicle_type' => 'sedan',
             'plate_number' => 'abc 1234',
             'consent' => true,
             ...$overrides,

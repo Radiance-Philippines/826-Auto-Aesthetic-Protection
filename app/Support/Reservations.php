@@ -9,11 +9,11 @@ use App\Models\Guest;
 use App\Models\PaymentSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
+use App\Models\Vehicle;
 use App\Models\VehicleSize;
 use App\Support\Schedule\Availability;
-use App\Support\Schedule\Length;
+use App\Support\Schedule\Estimate;
 use App\Support\Schedule\OpenCalendar;
-use App\Support\Schedule\Slot;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Support\Collection;
@@ -22,9 +22,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Making, moving and cancelling reservations. Anything that checks a
- * branch's bays and then writes runs under that branch's lock, so two
- * customers can't take the last bay at the same moment.
+ * Making, moving, pricing and cancelling reservations. Anything that
+ * checks a branch's daily cap and then writes runs under that branch's
+ * lock, so two customers can't take the last place of a day at the same
+ * moment.
  */
 final class Reservations
 {
@@ -49,123 +50,142 @@ final class Reservations
     }
 
     /**
-     * The services for a size at a branch, checked: active, offered there,
-     * with a price and duration for the size (and doable at home, for home
-     * service). Throws a validation error naming the field to fix.
+     * The services at a branch, checked: active, offered there, with a day
+     * estimate (and doable at home, for home service). Throws a validation
+     * error naming the field to fix.
      *
      * @param  list<int>  $serviceIds
-     * @return array{size: VehicleSize, rates: Collection<int, ServiceRate>, length: Length, total: int}
+     * @return array{services: Collection<int, Service>, estimate: Estimate}
      */
-    public static function quote(Branch $branch, int $sizeId, array $serviceIds, bool $home = false): array
+    public static function quote(Branch $branch, array $serviceIds, bool $home = false): array
     {
-        $size = VehicleSize::query()->active()->find($sizeId);
-
-        if (! $size) {
-            throw ValidationException::withMessages(['size' => 'Pick your vehicle’s size from the list.']);
-        }
-
         $serviceIds = array_values(array_unique(array_map('intval', $serviceIds)));
 
         if ($serviceIds === []) {
             throw ValidationException::withMessages(['services' => 'Pick at least one service.']);
         }
 
-        $services = $branch->services()
-            ->active()
-            ->whereKey($serviceIds)
-            ->with(['rates' => fn ($rates) => $rates->where('vehicle_size_id', $size->id), 'category'])
-            ->get()
-            ->keyBy('id');
-
-        $rates = collect();
+        $found = $branch->services()->bookable()->whereKey($serviceIds)->with('category')->get()->keyBy('id');
+        $services = collect();
 
         foreach ($serviceIds as $id) {
             /** @var Service|null $service */
-            $service = $services->get($id);
-            $rate = $service?->rateFor($size->id);
+            $service = $found->get($id);
 
-            if (! $service || ! $rate?->isBookable()) {
-                throw ValidationException::withMessages(['services' => 'One of those services isn’t offered for a '.strtolower($size->name).' at '.$branch->name.'. Check your picks.']);
+            if (! $service) {
+                throw ValidationException::withMessages(['services' => 'One of those services isn’t offered at '.$branch->name.'. Check your picks.']);
             }
 
             if ($home && ! $service->home_service_ok) {
                 throw ValidationException::withMessages(['services' => "{$service->name} needs the shop, so it can’t be done at home."]);
             }
 
-            $rate->setRelation('service', $service);
-            $rates->push($rate);
+            $services->push($service);
         }
 
-        $rates = $rates->sortBy(fn (ServiceRate $rate) => [$rate->service->category?->sort_order ?? 0, $rate->service->sort_order, $rate->service->id])->values();
+        $services = $services->sortBy(fn (Service $service) => [$service->category?->sort_order ?? 0, $service->sort_order, $service->id])->values();
 
-        return [
-            'size' => $size,
-            'rates' => $rates,
-            'length' => Length::sum($rates->map->length()),
-            'total' => (int) $rates->sum('price'),
-        ];
+        return ['services' => $services, 'estimate' => new Estimate((int) $services->sum('estimate_days'))];
     }
 
     /**
-     * Reserves a drop-off time, re-checked under the lock. With the fee on,
-     * the bay is held for the customer to pay; otherwise it's confirmed.
+     * The customer's unit for a booking: one of their saved units
+     * (vehicle_id), or the one they typed (the same plate reuses the saved
+     * unit; a changed year, model or type needs a new size review). A
+     * team member may give the size class up front.
      *
-     * @param  array{size: VehicleSize, rates: Collection<int, ServiceRate>, length: Length, total: int}  $quote
-     * @param  array<string, mixed>  $details  name, phone, email, vehicle_model, plate_number, message
+     * @param  array<string, mixed>  $details
      */
-    public static function reserve(Branch $branch, ?Guest $guest, array $quote, CarbonImmutable $start, array $details, string $source = 'site', bool $force = false): Booking
+    public static function vehicleFor(?Guest $guest, array $details): Vehicle
+    {
+        if (filled($details['vehicle_id'] ?? null)) {
+            $vehicle = $guest?->vehicles()->find((int) $details['vehicle_id']);
+
+            if (! $vehicle) {
+                throw ValidationException::withMessages(['plate_number' => 'Pick one of your saved units, or add a new one.']);
+            }
+
+            return $vehicle;
+        }
+
+        $attributes = [
+            'year' => (int) $details['vehicle_year'],
+            'model' => trim((string) $details['vehicle_model']),
+            'type' => (string) $details['vehicle_type'],
+        ];
+        $plate = Booking::normalizePlate((string) $details['plate_number']);
+        $vehicle = $guest?->vehicles()->where('plate_number', $plate)->first();
+
+        if ($vehicle) {
+            $vehicle->fill($attributes);
+
+            if ($vehicle->isDirty(['year', 'model', 'type'])) {
+                $vehicle->fill(['vehicle_size_id' => null, 'size_reviewed_at' => null]);
+            }
+        } else {
+            $vehicle = new Vehicle([...$attributes, 'plate_number' => $plate, 'guest_id' => $guest?->id]);
+        }
+
+        if (filled($details['vehicle_size_id'] ?? null)) {
+            $vehicle->fill(['vehicle_size_id' => (int) $details['vehicle_size_id'], 'size_reviewed_at' => now()]);
+        }
+
+        $vehicle->save();
+
+        return $vehicle;
+    }
+
+    /**
+     * Reserves a drop-off date, re-checked under the lock. With the fee on,
+     * the day is held for the customer to pay; otherwise it's confirmed.
+     * A unit that was reviewed before is priced on the spot; any other
+     * waits for the admin's size review.
+     *
+     * @param  array{services: Collection<int, Service>, estimate: Estimate}  $quote
+     * @param  array<string, mixed>  $details  name, phone, email, message, and the unit (vehicle_id, or vehicle_year, vehicle_model, vehicle_type, plate_number)
+     */
+    public static function reserve(Branch $branch, ?Guest $guest, array $quote, CarbonImmutable $date, array $details, string $source = 'site', bool $force = false): Booking
     {
         $byStaff = $source !== 'site';
+        $date = $date->startOfDay();
 
-        return self::underLock($branch, function () use ($branch, $guest, $quote, $start, $details, $source, $byStaff, $force) {
+        return self::underLock($branch, function () use ($branch, $guest, $quote, $date, $details, $source, $byStaff, $force) {
             if ($guest && ! $byStaff) {
                 self::checkGuestLimits($guest);
             }
 
-            $slot = $byStaff
-                ? Availability::checkForStaff($branch, $quote['length'], $start)
-                : Availability::check($branch, $quote['length'], $start);
+            $result = Availability::check($branch, $date, byStaff: $byStaff);
 
-            if (! $slot instanceof Slot && $byStaff && $force) {
-                $ready = OpenCalendar::for($branch, $start, $start)->finish($start, $quote['length']) ?? $start->addMinutes(max(60, $quote['length']->minutes));
-                $slot = new Slot($start, $ready);
-            }
-
-            if (! $slot instanceof Slot) {
-                throw ValidationException::withMessages(['time' => match (true) {
-                    $slot === 'full' && $byStaff => 'Every bay is taken for part of that job. Pick another time, or turn on “Book even if it’s full”.',
-                    $slot === 'full' => 'Someone just took that time. Pick another one.',
-                    $byStaff => 'The branch is closed at that time. Pick a time within its hours, or turn on “Book even if it’s full”.',
-                    default => 'That time isn’t open for drop-off. Pick one from the list.',
-                }]);
+            if ($result !== 'ok' && ! ($byStaff && $force)) {
+                throw ValidationException::withMessages(['date' => self::dateMessage($result, $byStaff)]);
             }
 
             // Bookings the team takes are settled at the counter
             $payments = PaymentSetting::instance();
-            $fee = ! $byStaff && $payments->feeEnabled() && $quote['total'] > 0 ? $payments->amountFor($quote['total']) : 0;
+            $fee = ! $byStaff && $payments->feeEnabled() ? $payments->feeAmount() : 0;
 
-            return DB::transaction(function () use ($branch, $guest, $quote, $slot, $details, $source, $fee, $payments) {
+            return DB::transaction(function () use ($branch, $guest, $quote, $date, $details, $source, $fee, $payments) {
+                $vehicle = self::vehicleFor($guest, $details);
+
                 $booking = Booking::create([
                     ...self::onlyDetails($details),
+                    ...self::vehicleDetails($vehicle),
                     'kind' => 'onsite',
                     'source' => $source,
                     'status' => $fee > 0 ? 'awaiting_payment' : 'confirmed',
                     'branch_id' => $branch->id,
                     'guest_id' => $guest?->id,
-                    'starts_at' => $slot->start,
-                    'ends_at' => $slot->readyBy,
-                    'vehicle_size_id' => $quote['size']->id,
-                    'vehicle_size_name' => $quote['size']->name,
-                    'total_price' => $quote['total'],
-                    'total_days' => $quote['length']->days,
-                    'total_minutes' => $quote['length']->minutes,
+                    'drop_off_on' => $date,
+                    'ready_on' => OpenCalendar::for($branch, $date, $date)->readyOn($date, $quote['estimate']->days),
+                    'total_days' => $quote['estimate']->days,
                     'amount_due' => $fee > 0 ? $fee : null,
                     'hold_expires_at' => $fee > 0 ? now()->addMinutes($payments->holdMinutes()) : null,
                     'email' => filled($details['email'] ?? null) ? $details['email'] : $guest?->email,
                     'read_at' => $source === 'site' ? null : now(),
                 ]);
 
-                self::saveItems($booking, $quote['rates']);
+                self::saveItems($booking, $quote['services']);
+                self::priceIfReviewed($booking, $vehicle);
 
                 return $booking;
             });
@@ -173,10 +193,10 @@ final class Reservations
     }
 
     /**
-     * A home-service request: no bay and no time yet; the branch calls to
-     * schedule it.
+     * A home-service request: no date held and no price yet; the branch
+     * reviews the unit, then calls to schedule it.
      *
-     * @param  array{size: VehicleSize, rates: Collection<int, ServiceRate>, length: Length, total: int}  $quote
+     * @param  array{services: Collection<int, Service>, estimate: Estimate}  $quote
      * @param  array<string, mixed>  $details
      */
     public static function requestHomeService(Branch $branch, ?Guest $guest, array $quote, array $details): Booking
@@ -186,8 +206,11 @@ final class Reservations
         }
 
         return DB::transaction(function () use ($branch, $guest, $quote, $details) {
+            $vehicle = self::vehicleFor($guest, $details);
+
             $booking = Booking::create([
                 ...self::onlyDetails($details),
+                ...self::vehicleDetails($vehicle),
                 'kind' => 'home',
                 'source' => 'site',
                 'status' => 'requested',
@@ -201,57 +224,43 @@ final class Reservations
                 'has_water' => $details['has_water'] ?? null,
                 'has_power' => $details['has_power'] ?? null,
                 'has_shade' => $details['has_shade'] ?? null,
-                'vehicle_size_id' => $quote['size']->id,
-                'vehicle_size_name' => $quote['size']->name,
-                'total_price' => $quote['total'],
-                'total_days' => $quote['length']->days,
-                'total_minutes' => $quote['length']->minutes,
+                'total_days' => $quote['estimate']->days,
                 'email' => filled($details['email'] ?? null) ? $details['email'] : $guest?->email,
             ]);
 
-            self::saveItems($booking, $quote['rates']);
+            self::saveItems($booking, $quote['services']);
+            self::priceIfReviewed($booking, $vehicle);
 
             return $booking;
         });
     }
 
     /**
-     * Moves an onsite reservation to another drop-off time, keeping its
-     * services, payment and length (as booked). Staff can book over a full
-     * time on purpose with $force.
+     * Moves an onsite reservation to another drop-off date, keeping its
+     * services, payment and estimate. Staff can book over a full day on
+     * purpose with $force.
      */
-    public static function reschedule(Booking $booking, CarbonImmutable $start, bool $byCustomer = true, bool $force = false): Booking
+    public static function reschedule(Booking $booking, CarbonImmutable $date, bool $byCustomer = true, bool $force = false): Booking
     {
         $branch = $booking->branch;
+        $date = $date->startOfDay();
 
-        return self::underLock($branch, function () use ($booking, $branch, $start, $byCustomer, $force) {
+        return self::underLock($branch, function () use ($booking, $branch, $date, $byCustomer, $force) {
             $booking->refresh();
 
             if ($byCustomer && ! $booking->canBeRescheduledByCustomer()) {
-                throw ValidationException::withMessages(['time' => 'This booking can’t be moved online anymore. Call or message the branch.']);
+                throw ValidationException::withMessages(['date' => 'This booking can’t be moved online anymore. Call or message the branch.']);
             }
 
-            $slot = $byCustomer
-                ? Availability::check($branch, $booking->length(), $start, $booking->id)
-                : Availability::checkForStaff($branch, $booking->length(), $start, $booking->id);
+            $result = Availability::check($branch, $date, $booking->id, byStaff: ! $byCustomer);
 
-            if (! $slot instanceof Slot) {
-                if (! $force) {
-                    throw ValidationException::withMessages(['time' => match (true) {
-                        $slot === 'full' && ! $byCustomer => 'Every bay is taken for part of that job. Pick another time, or turn on “Book even if it’s full”.',
-                        $slot === 'full' => 'That time is full. Pick another one.',
-                        ! $byCustomer => 'The branch is closed at that time.',
-                        default => 'That time isn’t open for drop-off. Pick one from the list.',
-                    }]);
-                }
-
-                $ready = OpenCalendar::for($branch, $start, $start)->finish($start, $booking->length()) ?? $start->addMinutes(max(60, $booking->total_minutes));
-                $slot = new Slot($start, $ready);
+            if ($result !== 'ok' && ! $force) {
+                throw ValidationException::withMessages(['date' => self::dateMessage($result, ! $byCustomer)]);
             }
 
             $booking->update([
-                'starts_at' => $slot->start,
-                'ends_at' => $slot->readyBy,
+                'drop_off_on' => $date,
+                'ready_on' => OpenCalendar::for($branch, $date, $date)->readyOn($date, (int) $booking->total_days),
                 'reschedule_count' => $byCustomer ? $booking->reschedule_count + 1 : $booking->reschedule_count,
                 'reminded_at' => null,
                 'read_at' => $byCustomer ? null : $booking->read_at,
@@ -274,8 +283,75 @@ final class Reservations
     }
 
     /**
+     * Moves a unit one step along the queue (booked, arrived, in progress,
+     * quality check, ready, exited), recording the arrival and exit times,
+     * and tells the customer when it arrives and when it is ready.
+     */
+    public static function advance(Booking $booking): Booking
+    {
+        $next = $booking->nextStatus();
+
+        if ($next === null) {
+            return $booking;
+        }
+
+        $booking->update(['status' => $next, 'read_at' => $booking->read_at ?? now()]);
+
+        if ($booking->isOnsite() && in_array($next, ['arrived', 'ready'], true)) {
+            Notifier::customer($booking, $next);
+        }
+
+        return $booking;
+    }
+
+    /**
+     * The admin has seen the unit: gives it its size class and prices the
+     * booking from what each service costs for that class. A service with
+     * no price for the class leaves the booking unpriced (and still in the
+     * review list); the names of those services are returned.
+     *
+     * @return list<string>
+     */
+    public static function applySize(Booking $booking, VehicleSize $size, bool $updateVehicle = true): array
+    {
+        return DB::transaction(function () use ($booking, $size, $updateVehicle) {
+            if ($updateVehicle) {
+                $booking->vehicle?->update(['vehicle_size_id' => $size->id, 'size_reviewed_at' => now()]);
+            }
+
+            $items = $booking->items()->get();
+            $prices = ServiceRate::query()
+                ->where('vehicle_size_id', $size->id)
+                ->whereIn('service_id', $items->pluck('service_id')->filter())
+                ->whereNotNull('price')
+                ->pluck('price', 'service_id');
+
+            $missing = [];
+
+            foreach ($items as $item) {
+                $price = $item->service_id ? $prices->get($item->service_id) : null;
+                $item->update(['price' => $price]);
+
+                if ($price === null) {
+                    $missing[] = $item->service_name;
+                }
+            }
+
+            $booking->update([
+                'vehicle_size_id' => $size->id,
+                'vehicle_size_name' => $size->name,
+                'size_reviewed_at' => now(),
+                'total_price' => $missing === [] ? (int) $items->sum(fn ($item) => $item->price) : null,
+                'priced_at' => $missing === [] ? now() : null,
+            ]);
+
+            return $missing;
+        });
+    }
+
+    /**
      * One unpaid hold at a time, and only so many upcoming bookings, per
-     * customer (Booking rules), so nobody can sit on every bay.
+     * customer (Booking rules), so nobody can sit on every day.
      */
     public static function checkGuestLimits(Guest $guest): void
     {
@@ -287,18 +363,35 @@ final class Reservations
             ->count();
 
         if ($settings->max_unpaid_holds_per_guest > 0 && $holds >= $settings->max_unpaid_holds_per_guest) {
-            throw ValidationException::withMessages(['time' => 'You have a booking waiting for its reservation fee. Pay or cancel it in My bookings first.']);
+            throw ValidationException::withMessages(['date' => 'You have a booking waiting for its reservation fee. Pay or cancel it in My bookings first.']);
         }
 
         $upcoming = $guest->bookings()
             ->open()
             ->where(fn ($open) => $open->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now()))
-            ->where(fn ($future) => $future->whereNull('starts_at')->orWhere('ends_at', '>', now()))
+            ->where(fn ($future) => $future->whereNull('drop_off_on')->orWhere('ready_on', '>=', today()->toDateString())->orWhereNull('ready_on'))
             ->count();
 
         if ($settings->max_upcoming_per_guest > 0 && $upcoming >= $settings->max_upcoming_per_guest) {
-            throw ValidationException::withMessages(['time' => "You already have {$upcoming} upcoming bookings. Call or message the branch to book more."]);
+            throw ValidationException::withMessages(['date' => "You already have {$upcoming} upcoming bookings. Call or message the branch to book more."]);
         }
+    }
+
+    /**
+     * What a date check's answer means to the person who picked it.
+     */
+    public static function dateMessage(string $result, bool $byStaff = false): string
+    {
+        return match ($result) {
+            'full' => $byStaff
+                ? 'That day is full. Pick another date, or turn on “Book even if it’s full”.'
+                : 'That day is fully booked. Pick another date.',
+            'too_soon' => 'That date is too soon. Pick a later date.',
+            'too_far' => 'That date is too far ahead to book yet.',
+            default => $byStaff
+                ? 'The branch is closed that day. Pick another date, or turn on “Book even if it’s full”.'
+                : 'The branch is closed that day. Pick another date.',
+        };
     }
 
     /**
@@ -307,22 +400,47 @@ final class Reservations
      */
     private static function onlyDetails(array $details): array
     {
-        return array_intersect_key($details, array_flip(['name', 'phone', 'email', 'vehicle_model', 'plate_number', 'message', 'admin_note']));
+        return array_intersect_key($details, array_flip(['name', 'phone', 'email', 'message', 'admin_note']));
     }
 
     /**
-     * @param  Collection<int, ServiceRate>  $rates
+     * @return array<string, mixed>
      */
-    private static function saveItems(Booking $booking, Collection $rates): void
+    private static function vehicleDetails(Vehicle $vehicle): array
     {
-        foreach ($rates->values() as $index => $rate) {
+        return [
+            'vehicle_id' => $vehicle->id,
+            'vehicle_year' => $vehicle->year,
+            'vehicle_model' => $vehicle->model,
+            'vehicle_type' => $vehicle->type,
+            'plate_number' => $vehicle->plate_number,
+        ];
+    }
+
+    /**
+     * A unit that was reviewed before is priced at once; if its class has
+     * no price for a service, the booking waits for the admin like a new one.
+     */
+    private static function priceIfReviewed(Booking $booking, Vehicle $vehicle): void
+    {
+        $size = $vehicle->isReviewed() ? $vehicle->vehicleSize : null;
+
+        if ($size) {
+            self::applySize($booking, $size, updateVehicle: false);
+        }
+    }
+
+    /**
+     * @param  Collection<int, Service>  $services
+     */
+    private static function saveItems(Booking $booking, Collection $services): void
+    {
+        foreach ($services->values() as $index => $service) {
             $booking->items()->create([
-                'service_id' => $rate->service_id,
-                'service_name' => $rate->service->name,
-                'category_name' => $rate->service->category?->name,
-                'price' => $rate->price,
-                'duration_minutes' => (int) $rate->duration_minutes,
-                'duration_days' => (int) $rate->duration_days,
+                'service_id' => $service->id,
+                'service_name' => $service->name,
+                'category_name' => $service->category?->name,
+                'duration_days' => (int) $service->estimate_days,
                 'sort_order' => $index,
             ]);
         }

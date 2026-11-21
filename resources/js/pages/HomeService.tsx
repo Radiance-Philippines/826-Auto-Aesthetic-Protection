@@ -8,14 +8,16 @@ import { PageHeader } from '../components/Heading';
 import { ParkedCar } from '../components/Studio';
 import { ArrowRight, Bolt, Check, Droplet, House, Shade } from '../components/Icons';
 import SignInBlock from '../components/SignInBlock';
+import UnitFields from '../components/UnitFields';
 import { type FieldErrors, postJson } from '../lib/api';
 import { guest, signInHref, signInNeeded } from '../lib/auth';
 import { pageCars } from '../lib/cars';
 import { copy } from '../lib/copy';
 import { addDays, addMonths, daysInMonth, isoDate, longDate, manilaToday, monthStart, parseDate } from '../lib/dates';
 import { clearDraft, emailLooksWrong, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
-import { branchById, branchBySlug, homeBranches, lengthLabel, peso, rateFor, serviceById, serviceBySlug, servicesAt, site, sizeById, sizes } from '../lib/site';
+import { branchById, branchBySlug, estimateOf, homeBranches, serviceById, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
+import { unitName } from '../lib/vehicles';
 import type { CustomerBooking, HomeWindow } from '../types';
 
 const text = copy.homeService;
@@ -26,7 +28,6 @@ type Answer = '' | 'yes' | 'no' | 'unsure';
 
 type HomeDraft = {
     branchId: number | null;
-    sizeId: number | null;
     serviceIds: number[];
     date: string | null;
     window: string;
@@ -37,7 +38,9 @@ type HomeDraft = {
     water: Answer;
     power: Answer;
     shade: Answer;
+    year: string;
     model: string;
+    type: string;
     plate: string;
     name: string;
     phone: string;
@@ -48,7 +51,6 @@ type HomeDraft = {
 
 const empty = (): HomeDraft => ({
     branchId: homeBranches.length === 1 ? homeBranches[0].id : null,
-    sizeId: null,
     serviceIds: [],
     date: null,
     window: '',
@@ -59,7 +61,9 @@ const empty = (): HomeDraft => ({
     water: '',
     power: '',
     shade: '',
+    year: '',
     model: '',
+    type: '',
     plate: '',
     name: guest?.name ?? '',
     phone: '',
@@ -124,15 +128,9 @@ export default function HomeService() {
     useEffect(() => saveDraft(DRAFT, draft), [draft]);
 
     const branch = branchById(draft.branchId);
-    const size = sizeById(draft.sizeId);
-    const offered = useMemo(() => servicesAt(branch, draft.sizeId, { home: true }), [branch, draft.sizeId]);
-    const picked = draft.serviceIds.map(serviceById).filter((service): service is NonNullable<typeof service> => Boolean(service && size && rateFor(service, size.id)));
-    const rates = picked.map((service) => rateFor(service, draft.sizeId)!);
-    const total = rates.reduce((sum, rate) => sum + rate.price, 0);
-    const length = lengthLabel(
-        rates.reduce((sum, rate) => sum + rate.days, 0),
-        rates.reduce((sum, rate) => sum + rate.minutes, 0),
-    );
+    const offered = useMemo(() => servicesAt(branch, { home: true }), [branch]);
+    const picked = draft.serviceIds.map(serviceById).filter((service): service is NonNullable<typeof service> => Boolean(service && offered.some((option) => option.id === service.id)));
+    const estimate = estimateOf(picked.map((service) => service.id));
     const areas = branch?.homeService.areas ?? [];
 
     // How far ahead the branch books, from the branch itself
@@ -151,9 +149,9 @@ export default function HomeService() {
         }
     };
 
-    /** Branch or size changed: only services that still fit stay */
-    const keepFitting = (branchId: number | null, sizeId: number | null) => {
-        const fits = servicesAt(branchById(branchId), sizeId, { home: true }).map((service) => service.id);
+    /** Branch changed: only services it does at home stay */
+    const keepFitting = (branchId: number | null) => {
+        const fits = servicesAt(branchById(branchId), { home: true }).map((service) => service.id);
 
         return draft.serviceIds.filter((id) => fits.includes(id));
     };
@@ -163,14 +161,15 @@ export default function HomeService() {
         const problems: Record<string, string> = {};
 
         if (!branch) problems.branch = text.errors.branch;
-        if (!size) problems.size = e.size;
         if (picked.length === 0) problems.services = e.services;
         if (!draft.date) problems.preferred_date = text.errors.day;
         if (!draft.window) problems.preferred_window = text.errors.window;
         if (!draft.address.trim()) problems.address = text.errors.address;
         if (areas.length > 0 && !draft.area) problems.area = text.errors.area;
         if (draft.area === OTHER && !draft.areaOther.trim()) problems.area_other = text.errors.areaOther;
+        if (!draft.year) problems.vehicle_year = e.year;
         if (!draft.model.trim()) problems.vehicle_model = e.model;
+        if (!draft.type) problems.vehicle_type = e.type;
         if (!draft.plate.trim()) problems.plate_number = e.plate;
         else if (plateLooksWrong(draft.plate)) problems.plate_number = e.plateFormat;
         if (!draft.name.trim()) problems.name = e.name;
@@ -206,7 +205,6 @@ export default function HomeService() {
 
         const result = await postJson<{ ok: boolean; booking?: CustomerBooking; demo?: boolean }>('/home-requests', {
             branch: branch!.id,
-            size: size!.id,
             services: picked.map((service) => service.id),
             preferred_date: draft.date,
             preferred_window: draft.window as HomeWindow,
@@ -220,7 +218,9 @@ export default function HomeService() {
             name: draft.name.trim(),
             phone: draft.phone.trim(),
             email: draft.email.trim() || null,
+            vehicle_year: Number(draft.year),
             vehicle_model: draft.model.trim(),
+            vehicle_type: draft.type,
             plate_number: draft.plate.trim().toUpperCase(),
             message: draft.message.trim() || null,
             consent: true,
@@ -327,7 +327,7 @@ export default function HomeService() {
                                         name="branch"
                                         value={String(option.id)}
                                         checked={draft.branchId === option.id}
-                                        onChange={() => update({ branchId: option.id, serviceIds: keepFitting(option.id, draft.sizeId), area: '', areaOther: '' }, ['branch', 'area'])}
+                                        onChange={() => update({ branchId: option.id, serviceIds: keepFitting(option.id), area: '', areaOther: '' }, ['branch', 'area'])}
                                     >
                                         <span className="block font-semibold">{option.name}</span>
                                         {option.homeService.areas.length > 0 && <span className="mt-1 block text-sm text-muted">{option.homeService.areas.join(', ')}</span>}
@@ -343,58 +343,16 @@ export default function HomeService() {
                     </Section>
 
                     <Section number={2} id="home-vehicle" title={text.sections.vehicle}>
-                        <fieldset>
-                            <legend className="font-semibold">{copy.book.vehicle.size}</legend>
-                            <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                                {sizes.map((option) => (
-                                    <ChoiceCard
-                                        key={option.id}
-                                        type="radio"
-                                        name="size"
-                                        value={String(option.id)}
-                                        checked={draft.sizeId === option.id}
-                                        onChange={() => update({ sizeId: option.id, serviceIds: keepFitting(draft.branchId, option.id) }, ['size'])}
-                                    >
-                                        <span className="block font-semibold">{option.name}</span>
-                                        {option.examples && <span className="mt-0.5 block text-sm text-muted">{copy.price.examples(option.examples)}</span>}
-                                    </ChoiceCard>
-                                ))}
-                            </div>
-                            {errors.size && (
-                                <span data-error-anchor tabIndex={-1}>
-                                    <ErrorText>{errors.size}</ErrorText>
-                                </span>
-                            )}
-                        </fieldset>
-                        <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                            <TextField
-                                label={copy.book.vehicle.model.label}
-                                hint={copy.book.vehicle.model.hint}
-                                placeholder={copy.book.vehicle.model.placeholder}
-                                value={draft.model}
-                                onChange={(value) => update({ model: value }, ['vehicle_model'])}
-                                error={errors.vehicle_model}
-                                maxLength={80}
-                                autoComplete="off"
-                            />
-                            <TextField
-                                label={copy.book.vehicle.plate.label}
-                                hint={copy.book.vehicle.plate.hint}
-                                placeholder={copy.book.vehicle.plate.placeholder}
-                                value={draft.plate}
-                                onChange={(value) => update({ plate: value }, ['plate_number'])}
-                                error={errors.plate_number}
-                                maxLength={15}
-                                autoComplete="off"
-                                autoCapitalize="characters"
-                                className="[&_input]:uppercase"
-                            />
-                        </div>
+                        <UnitFields
+                            value={{ year: draft.year, model: draft.model, type: draft.type, plate: draft.plate }}
+                            onChange={(change, fields) => update(change, fields)}
+                            errorFor={(field) => errors[field] ?? null}
+                        />
                     </Section>
 
                     <Section number={3} id="home-services" title={text.sections.services}>
-                        {!branch || !size ? (
-                            <p className="text-muted">{text.pickSizeFirst}</p>
+                        {!branch ? (
+                            <p className="text-muted">{text.pickBranchFirst}</p>
                         ) : offered.length === 0 ? (
                             <Notice>{text.servicesNone}</Notice>
                         ) : (
@@ -402,7 +360,6 @@ export default function HomeService() {
                                 <p className="mb-3 text-muted">{text.servicesBody}</p>
                                 <div className="grid gap-2.5">
                                     {offered.map((service) => {
-                                        const rate = rateFor(service, size.id)!;
                                         const checked = draft.serviceIds.includes(service.id);
 
                                         return (
@@ -414,12 +371,9 @@ export default function HomeService() {
                                                 checked={checked}
                                                 onChange={() => update({ serviceIds: checked ? draft.serviceIds.filter((id) => id !== service.id) : [...draft.serviceIds, service.id] }, ['services'])}
                                             >
-                                                <span className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                                                    <span className="font-semibold">{service.name}</span>
-                                                    <span className="price">{peso(rate.price)}</span>
-                                                </span>
+                                                <span className="block font-semibold">{service.name}</span>
                                                 {service.summary && <span className="mt-1 block text-sm leading-relaxed text-muted">{service.summary}</span>}
-                                                <span className="mt-1.5 block text-sm">{rate.duration}</span>
+                                                {service.estimateDays ? <span className="mt-1.5 block text-sm">{estimateOf([service.id])?.label}</span> : null}
                                             </ChoiceCard>
                                         );
                                     })}
@@ -431,8 +385,9 @@ export default function HomeService() {
                                 <ErrorText>{errors.services}</ErrorText>
                             </span>
                         )}
-                        <p className="mt-4 font-semibold" aria-live="polite">
-                            {picked.length > 0 ? `${text.total}: ${peso(total)} · ${text.takes(length)}` : ''}
+                        <p className="mt-4 text-[0.95rem] text-muted">{text.priceNote}</p>
+                        <p className="mt-2 font-semibold" aria-live="polite">
+                            {estimate ? text.takes(estimate.label) : ''}
                         </p>
                     </Section>
 
@@ -617,10 +572,10 @@ export default function HomeService() {
                                     <dd className="mt-1 font-semibold">{branch.name}</dd>
                                 </div>
                             )}
-                            {size && (
+                            {(draft.year || draft.model.trim() || draft.type) && (
                                 <div>
                                     <dt className="eyebrow text-[0.68rem] text-muted">{copy.book.review.vehicle}</dt>
-                                    <dd className="mt-1">{[size.name, draft.model.trim()].filter(Boolean).join(' · ')}</dd>
+                                    <dd className="mt-1">{[unitName(draft.year, draft.model.trim()), vehicleTypeLabel(draft.type)].filter(Boolean).join(' · ')}</dd>
                                 </div>
                             )}
                             {picked.length > 0 && (
@@ -629,10 +584,7 @@ export default function HomeService() {
                                     <dd className="mt-1">
                                         <ul className="space-y-1">
                                             {picked.map((service) => (
-                                                <li key={service.id} className="flex justify-between gap-3">
-                                                    <span>{service.name}</span>
-                                                    <span className="price">{peso(rateFor(service, draft.sizeId)!.price)}</span>
-                                                </li>
+                                                <li key={service.id}>{service.name}</li>
                                             ))}
                                         </ul>
                                     </dd>
@@ -649,12 +601,9 @@ export default function HomeService() {
                             )}
                         </dl>
                         {picked.length > 0 ? (
-                            <div className="mt-5 flex items-end justify-between gap-3 border-t border-line pt-4">
-                                <p>
-                                    <span className="block font-semibold">{text.total}</span>
-                                    <span className="text-sm text-muted">{text.takes(length)}</span>
-                                </p>
-                                <p className="price text-xl">{peso(total)}</p>
+                            <div className="mt-5 border-t border-line pt-4">
+                                {estimate && <p className="font-semibold">{text.takes(estimate.label)}</p>}
+                                <p className="mt-1.5 text-sm leading-relaxed text-muted">{text.priceNote}</p>
                             </div>
                         ) : (
                             !branch && <p className="mt-4 text-muted">{copy.book.summary.empty}</p>

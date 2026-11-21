@@ -7,11 +7,10 @@ import CategoryIcon from '../components/CategoryIcon';
 import { ArrowLeft, ArrowRight, Check, House } from '../components/Icons';
 import LayerDiagram, { layersFor } from '../components/LayerDiagram';
 import Picture from '../components/Picture';
-import PriceTable from '../components/PriceTable';
 import { CarCrop } from '../components/Studio';
 import { shotFor } from '../lib/cars';
 import { copy } from '../lib/copy';
-import { branchesOffering, fromPrice, homeBranches, peso, serviceBySlug } from '../lib/site';
+import { branchesOffering, daysLabel, homeBranches, serviceBySlug } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import NotFound from './NotFound';
 
@@ -27,7 +26,6 @@ export default function ServiceDetail() {
         return <NotFound />;
     }
 
-    const from = fromPrice(service);
     const branches = branchesOffering(service);
     const atHome = service.homeServiceOk ? homeBranches.filter((branch) => branch.serviceIds.includes(service.id)) : [];
     const bookHref = `/book?service=${service.slug}${branches.length === 1 ? `&branch=${branches[0].slug}` : ''}`;
@@ -52,7 +50,7 @@ export default function ServiceDetail() {
                         <h1 id="service-title" className="font-display mt-5 text-[clamp(2.1rem,7vw,3.6rem)]">
                             {service.name}
                         </h1>
-                        {from !== null && <p className="price mt-5 text-xl">{copy.price.from(peso(from))}</p>}
+                        {service.estimateDays ? <p className="mt-5 text-xl font-semibold">{daysLabel(service.estimateDays)} at the shop</p> : null}
                         {service.summary && <p className="mt-4 max-w-xl text-lg leading-relaxed">{service.summary}</p>}
                         {service.category.description && <p className="mt-3 max-w-xl leading-relaxed text-muted">{service.category.description}</p>}
 
@@ -83,13 +81,12 @@ export default function ServiceDetail() {
 
             <div className="mx-auto grid max-w-7xl gap-8 px-4 pt-10 pb-20 sm:px-8 sm:pt-14 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-12 xl:px-12">
                 <div className="min-w-0 space-y-8">
-                    <section aria-labelledby="prices-title" className="panel p-5 sm:p-7">
-                        <h2 id="prices-title" className="text-lg font-bold">
-                            {text.prices}
+                    <section aria-labelledby="takes-title" className="panel p-5 sm:p-7">
+                        <h2 id="takes-title" className="text-lg font-bold">
+                            {text.takes}
                         </h2>
-                        <div className="mt-4">
-                            <PriceTable service={service} />
-                        </div>
+                        {service.estimateDays ? <p className="mt-3 text-[1.05rem] font-semibold">{daysLabel(service.estimateDays)}</p> : null}
+                        <p className="mt-2 leading-relaxed text-muted">{copy.price.depends}</p>
                     </section>
 
                     {service.description && <p className="max-w-2xl leading-relaxed whitespace-pre-line text-muted">{service.description}</p>}

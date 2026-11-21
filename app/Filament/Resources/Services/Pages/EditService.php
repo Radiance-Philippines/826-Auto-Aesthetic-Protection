@@ -8,7 +8,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 /**
- * Changing a price or duration never touches bookings already made: they
+ * Changing a price or estimate never touches bookings already made: they
  * keep what they were booked with.
  */
 class EditService extends EditRecord
@@ -47,7 +47,7 @@ class EditService extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->modalDescription('Bookings already made keep this service’s name, price and duration. Turning off “Bookable” hides it instead.'),
+                ->modalDescription('Bookings already made keep this service’s name, estimate and price. Turning off “Bookable” hides it instead.'),
         ];
     }
 }

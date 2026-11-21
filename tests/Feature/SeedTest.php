@@ -11,7 +11,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * The starting content holds only what 826 publishes, and nothing invented.
+ * The starting content holds only what 826 publishes, and nothing invented:
+ * size classes Small to XL, no day estimates and no prices.
  */
 class SeedTest extends TestCase
 {
@@ -23,12 +24,13 @@ class SeedTest extends TestCase
 
         $this->assertSame(10, Service::count());
         $this->assertSame(0, ServiceRate::count());
-        $this->assertSame(5, VehicleSize::count());
+        $this->assertSame(['Small', 'Medium', 'Large', 'XL'], VehicleSize::ordered()->pluck('name')->all());
+        $this->assertSame(0, Service::whereNotNull('estimate_days')->count());
 
         $branches = Branch::ordered()->get();
         $this->assertSame(['Cainta – Ortigas Extension', 'San Mateo', 'Quezon City'], $branches->pluck('name')->all());
         $this->assertSame(['draft'], $branches->pluck('status')->unique()->values()->all());
-        $this->assertFalse($branches->contains(fn (Branch $branch) => $branch->hasHours() || $branch->bays > 0 || filled($branch->address) || filled($branch->phone)));
+        $this->assertFalse($branches->contains(fn (Branch $branch) => $branch->hasHours() || $branch->daily_cap > 0 || filled($branch->address) || filled($branch->phone)));
         $this->assertSame(10, $branches->first()->services()->count());
 
         $this->assertSame('0948-804-2284', SiteSetting::current()->phone);

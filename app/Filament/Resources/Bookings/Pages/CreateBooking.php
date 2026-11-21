@@ -15,8 +15,9 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * A booking the team takes at the counter, over the phone or on Messenger.
- * Onsite ones are checked against the bays like the site's (any time the
- * branch is open) and confirmed straight away.
+ * Onsite ones are checked against the day's cap like the site's (a full day
+ * needs "Book even if it's full") and confirmed straight away; the unit
+ * waits for its size review unless the team already knows the size.
  */
 class CreateBooking extends CreateRecord
 {
@@ -31,7 +32,7 @@ class CreateBooking extends CreateRecord
         $home = ($data['kind'] ?? 'onsite') === 'home';
 
         try {
-            $quote = Reservations::quote($branch, (int) $data['vehicle_size_id'], array_map('intval', $data['services'] ?? []), home: $home);
+            $quote = Reservations::quote($branch, array_map('intval', $data['services'] ?? []), home: $home);
         } catch (ValidationException $e) {
             $this->failWith($e);
         }
@@ -44,7 +45,7 @@ class CreateBooking extends CreateRecord
         if ($home) {
             $booking = Reservations::requestHomeService($branch, null, $quote, [
                 ...$details,
-                'preferred_date' => $data['preferred_date'] ?? (filled($data['starts_at'] ?? null) ? CarbonImmutable::parse($data['starts_at'])->toDateString() : today()->toDateString()),
+                'preferred_date' => $data['preferred_date'] ?? (filled($data['drop_off_on'] ?? null) ? CarbonImmutable::parse($data['drop_off_on'])->toDateString() : today()->toDateString()),
                 'preferred_window' => $data['preferred_window'] ?? 'any',
             ]);
 
@@ -62,7 +63,7 @@ class CreateBooking extends CreateRecord
                 $branch,
                 null,
                 $quote,
-                CarbonImmutable::parse($data['starts_at'])->startOfMinute(),
+                CarbonImmutable::parse($data['drop_off_on']),
                 $details,
                 source: $data['source'] ?? 'admin',
                 force: (bool) ($data['force'] ?? false),
@@ -80,7 +81,7 @@ class CreateBooking extends CreateRecord
         $message = collect($e->errors())->flatten()->first();
         Notification::make()->danger()->title('Not booked')->body($message)->persistent()->send();
 
-        throw ValidationException::withMessages(['data.starts_at' => $message]);
+        throw ValidationException::withMessages(['data.drop_off_on' => $message]);
     }
 
     protected function getRedirectUrl(): string

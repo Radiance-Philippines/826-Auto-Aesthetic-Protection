@@ -16,7 +16,7 @@ class VehicleSizeFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->randomElement(['Sedan', 'SUV', 'Hatchback', 'Pickup']).' '.fake()->unique()->numberBetween(1, 9999),
+            'name' => fake()->randomElement(['Small', 'Medium', 'Large', 'XL']).' '.fake()->unique()->numberBetween(1, 9999),
             'sort_order' => 0,
             'is_active' => true,
         ];

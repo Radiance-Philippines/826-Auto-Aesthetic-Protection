@@ -1,7 +1,7 @@
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { AvailabilityCalendar, TimeSlots } from '../components/Availability';
+import { AvailabilityCalendar } from '../components/Availability';
 import { ContactButtons } from '../components/BranchParts';
 import { Mark } from '../components/Brand';
 import Button, { buttonClass } from '../components/Button';
@@ -9,31 +9,34 @@ import CategoryIcon from '../components/CategoryIcon';
 import { Checkbox, ChoiceCard, ErrorText, Notice, TextField } from '../components/Form';
 import { ArrowLeft, ArrowRight, Check, House, MapPin } from '../components/Icons';
 import SignInBlock from '../components/SignInBlock';
+import UnitFields from '../components/UnitFields';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { type FieldErrors, postJson } from '../lib/api';
 import { guest, signInHref, signInNeeded } from '../lib/auth';
-import { fetchMonth, forget, type JobQuery, jobKey } from '../lib/availability';
+import { fetchMonth, forget, type JobQuery, jobKey, readyOn } from '../lib/availability';
 import { copy } from '../lib/copy';
 import { longDate, shortDate } from '../lib/dates';
 import { BOOK_DRAFT, type BookDraft, clearDraft, emailLooksWrong, emptyBookDraft, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
-import { bookableBranches, branchById, branchBySlug, categories, clock, hoursRange, hoursToday, lengthLabel, peso, rateFor, serviceById, serviceBySlug, servicesAt, site, sizeById, sizes } from '../lib/site';
+import { bookableBranches, branchById, branchBySlug, categories, estimateOf, hoursRange, hoursToday, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
-import type { CustomerBooking, JobLength } from '../types';
+import { fetchMyVehicles, unitName } from '../lib/vehicles';
+import type { CustomerBooking, Estimate, MonthAvailability, SavedVehicle } from '../types';
 
 const text = copy.book;
 
-const STEPS = ['branch', 'vehicle', 'services', 'date', 'time', 'details', 'review'] as const;
+const STEPS = ['branch', 'vehicle', 'services', 'date', 'details', 'review'] as const;
 type StepKey = (typeof STEPS)[number];
 
 /** Which step shows a server error on each field */
 const FIELD_STEP: Record<string, StepKey> = {
     branch: 'branch',
-    size: 'vehicle',
+    vehicle_id: 'vehicle',
+    vehicle_year: 'vehicle',
     vehicle_model: 'vehicle',
+    vehicle_type: 'vehicle',
     plate_number: 'vehicle',
     services: 'services',
     date: 'date',
-    time: 'time',
     name: 'details',
     phone: 'details',
     email: 'details',
@@ -53,15 +56,16 @@ function problemsOn(step: StepKey, draft: BookDraft): Problems {
         problems.branch = errors.branch;
     }
 
-    if (step === 'vehicle') {
-        if (!sizeById(draft.sizeId)) problems.size = errors.size;
+    if (step === 'vehicle' && draft.vehicleId === null) {
+        if (!draft.year) problems.vehicle_year = errors.year;
         if (!draft.model.trim()) problems.vehicle_model = errors.model;
+        if (!draft.type) problems.vehicle_type = errors.type;
         if (!draft.plate.trim()) problems.plate_number = errors.plate;
         else if (plateLooksWrong(draft.plate)) problems.plate_number = errors.plateFormat;
     }
 
     if (step === 'services') {
-        const offered = servicesAt(branch, draft.sizeId).map((service) => service.id);
+        const offered = servicesAt(branch).map((service) => service.id);
 
         if (draft.serviceIds.length === 0 || draft.serviceIds.some((id) => !offered.includes(id))) {
             problems.services = errors.services;
@@ -70,10 +74,6 @@ function problemsOn(step: StepKey, draft: BookDraft): Problems {
 
     if (step === 'date' && !draft.date) {
         problems.date = errors.date;
-    }
-
-    if (step === 'time' && !draft.slot) {
-        problems.time = errors.time;
     }
 
     if (step === 'details') {
@@ -93,28 +93,6 @@ const firstIncomplete = (draft: BookDraft): number => {
     return index === -1 ? STEPS.length - 1 : index;
 };
 
-/** The job's length and total from the picked rates, the same sum the server makes */
-function quoteOf(draft: BookDraft) {
-    let days = 0;
-    let minutes = 0;
-    let total = 0;
-    const lines: { id: number; name: string; price: number; duration: string }[] = [];
-
-    for (const id of draft.serviceIds) {
-        const service = serviceById(id);
-        const rate = service ? rateFor(service, draft.sizeId) : undefined;
-
-        if (service && rate) {
-            days += rate.days;
-            minutes += rate.minutes;
-            total += rate.price;
-            lines.push({ id, name: service.name, price: rate.price, duration: rate.duration });
-        }
-    }
-
-    return { lines, total, days, minutes, label: lengthLabel(days, minutes) };
-}
-
 /**
  * The wizard's draft: from this tab's storage, or fresh with the link's
  * branch and service when it came with them. Name and email start from
@@ -128,9 +106,11 @@ function startingDraft(params: URLSearchParams): BookDraft {
         presetBranch || presetService
             ? {
                   ...emptyBookDraft(),
-                  // Who they are and their car stay; the job starts over
-                  sizeId: saved.sizeId,
+                  // Who they are and their unit stay; the job starts over
+                  vehicleId: saved.vehicleId,
+                  year: saved.year,
                   model: saved.model,
+                  type: saved.type,
                   plate: saved.plate,
                   name: saved.name,
                   phone: saved.phone,
@@ -162,20 +142,22 @@ function StepHeading({ id, title, children, headingRef }: { id: string; title: s
     );
 }
 
+type Unit = { year: string | number; model: string; type: string; plate: string };
+
 /**
  * The running summary, drawn as a service ticket: the right column on wide
- * screens, the review step everywhere. The chosen size's outline and the
- * car's plate up top, then the branch, the work and the drop-off, and the
- * total under a perforated line.
+ * screens, the review step everywhere. The unit's outline and plate up
+ * top, then the branch, the work and the drop-off date, and the time at
+ * the shop under a perforated line. No price: that comes after 826 has
+ * seen the unit.
  */
-function Summary({ draft, length, onEdit, compact = false }: { draft: BookDraft; length: string; onEdit?: (step: StepKey) => void; compact?: boolean }) {
+function Summary({ draft, unit, estimate, ready, onEdit, compact = false }: { draft: BookDraft; unit: Unit | null; estimate: Estimate | null; ready: string | null; onEdit?: (step: StepKey) => void; compact?: boolean }) {
     const branch = branchById(draft.branchId);
-    const size = sizeById(draft.sizeId);
-    const quote = quoteOf(draft);
+    const picked = draft.serviceIds.map((id) => servicesAt(branch).find((service) => service.id === id)).filter((service): service is NonNullable<typeof service> => Boolean(service));
     const review = text.review;
-    const nothing = !branch && !size && quote.lines.length === 0;
-    const model = draft.model.trim();
-    const plate = draft.plate.trim().toUpperCase();
+    const nothing = !branch && !unit && picked.length === 0;
+    const name = unit ? unitName(unit.year, unit.model) : '';
+    const plate = unit?.plate.trim().toUpperCase() ?? '';
 
     const edit = (label: string, step: StepKey) =>
         onEdit && (
@@ -203,17 +185,17 @@ function Summary({ draft, length, onEdit, compact = false }: { draft: BookDraft;
             </div>
             <span aria-hidden="true" className="gold-rule mx-5 mt-4 block sm:mx-6" />
 
-            {/* The car: its size drawn, the size, the model and the plate */}
+            {/* The unit: its type drawn, the year and model and the plate */}
             <div className="px-5 pt-5 sm:px-6">
-                <div className={`mx-auto max-w-[16rem] ${size ? 'text-text/80' : 'text-text/15'}`}>
-                    <VehicleSilhouette name={size?.name} className="ticket-car w-full" />
+                <div className={`mx-auto max-w-[16rem] ${unit?.type ? 'text-text/80' : 'text-text/15'}`}>
+                    <VehicleSilhouette type={unit?.type} className="ticket-car w-full" />
                 </div>
-                {size ? (
+                {name ? (
                     <div className="mt-4 flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <p className="eyebrow text-[0.68rem] text-muted">{review.vehicle}</p>
-                            <p className="mt-1.5 font-semibold">{size.name}</p>
-                            {model && <p className="text-muted">{model}</p>}
+                            <p className="mt-1.5 font-semibold">{name}</p>
+                            {unit?.type && <p className="text-muted">{vehicleTypeLabel(unit.type)}</p>}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-2">
                             {edit(review.vehicle, 'vehicle')}
@@ -230,18 +212,15 @@ function Summary({ draft, length, onEdit, compact = false }: { draft: BookDraft;
                     <div aria-hidden="true" className="ticket-tear" />
                     <dl className="px-5 sm:px-6">
                         {branch && row(review.branch, 'branch', <p className="font-semibold">{branch.name}</p>)}
-                        {quote.lines.length > 0 &&
+                        {picked.length > 0 &&
                             row(
                                 review.services,
                                 'services',
                                 <ul className="space-y-2">
-                                    {quote.lines.map((line) => (
-                                        <li key={line.id} className="flex justify-between gap-4">
-                                            <span>
-                                                {line.name}
-                                                <span className="block text-sm text-muted">{line.duration}</span>
-                                            </span>
-                                            <span className="price shrink-0">{peso(line.price)}</span>
+                                    {picked.map((service) => (
+                                        <li key={service.id}>
+                                            {service.name}
+                                            {service.estimateDays ? <span className="block text-sm text-muted">{estimateOf([service.id])?.label}</span> : null}
                                         </li>
                                     ))}
                                 </ul>,
@@ -249,14 +228,10 @@ function Summary({ draft, length, onEdit, compact = false }: { draft: BookDraft;
                         {draft.date &&
                             row(
                                 review.when,
-                                draft.slot ? 'time' : 'date',
+                                'date',
                                 <p>
                                     <span className="font-semibold">{longDate(draft.date)}</span>
-                                    {draft.slot && (
-                                        <span className="block">
-                                            {draft.slot.label} <span className="text-muted">· {draft.slot.readyLabel}</span>
-                                        </span>
-                                    )}
+                                    {ready && <span className="block text-muted">{text.date.ready(shortDate(ready))}</span>}
                                 </p>,
                             )}
                         {!compact &&
@@ -274,15 +249,17 @@ function Summary({ draft, length, onEdit, compact = false }: { draft: BookDraft;
                 </>
             )}
 
-            {quote.lines.length > 0 ? (
+            {picked.length > 0 ? (
                 <>
                     <div aria-hidden="true" className="ticket-tear" />
-                    <div className="flex items-end justify-between gap-4 px-5 pb-5 sm:px-6 sm:pb-6">
-                        <div>
-                            <p className="eyebrow text-[0.68rem] text-muted">{review.total}</p>
-                            <p className="mt-1.5 text-sm text-muted">{text.services.takes(length)}</p>
-                        </div>
-                        <p className="price text-[1.75rem] leading-none">{peso(quote.total)}</p>
+                    <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+                        {estimate && (
+                            <p className="flex items-baseline justify-between gap-4">
+                                <span className="eyebrow text-[0.68rem] text-muted">{review.takes}</span>
+                                <span className="font-semibold">{estimate.label}</span>
+                            </p>
+                        )}
+                        <p className="mt-2.5 text-sm leading-relaxed text-muted">{review.priceNote}</p>
                     </div>
                 </>
             ) : (
@@ -302,8 +279,11 @@ export default function Book() {
     const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [demoDone, setDemoDone] = useState<{ readyLabel: string | null } | null>(null);
-    const [apiLength, setApiLength] = useState<{ key: string; length: JobLength } | null>(null);
-    const [timesRefresh, setTimesRefresh] = useState(0);
+    const [apiEstimate, setApiEstimate] = useState<{ key: string; estimate: Estimate } | null>(null);
+    const [monthData, setMonthData] = useState<{ key: string; months: Record<string, MonthAvailability> }>({ key: '', months: {} });
+    // The signed-in customer's saved units (null while they load); nobody else has any
+    const [vehicles, setVehicles] = useState<SavedVehicle[] | null>(guest ? null : []);
+    const [adding, setAdding] = useState(() => draft.vehicleId === null && Boolean(draft.model || draft.plate || draft.year || draft.type));
     const [presetMissing, setPresetMissing] = useState<string | null>(null);
     const heading = useRef<HTMLHeadingElement>(null);
     const moved = useRef(false);
@@ -318,18 +298,47 @@ export default function Book() {
     const stepIndex = Math.max(0, Math.min(requested ? requested - 1 : landing, reachable));
     const step = STEPS[stepIndex];
     const branch = branchById(draft.branchId);
-    const size = sizeById(draft.sizeId);
-    const quote = quoteOf(draft);
-    const job: JobQuery | null = branch && size && draft.serviceIds.length ? { kind: 'new', branch: branch.id, size: size.id, services: draft.serviceIds } : null;
+    const job: JobQuery | null = branch && draft.serviceIds.length ? { kind: 'new', branch: branch.id, services: draft.serviceIds } : null;
     const jobId = job ? jobKey(job) : '';
-    const length = apiLength && apiLength.key === jobId ? apiLength.length.label : quote.label;
+    const estimate = (apiEstimate && apiEstimate.key === jobId ? apiEstimate.estimate : null) ?? estimateOf(draft.serviceIds);
+    const months = monthData.key === jobId ? monthData.months : {};
+    const ready = draft.date && estimate ? readyOn(draft.date, estimate.days, months, branch?.hours) : null;
+    const savedUnit = draft.vehicleId !== null ? vehicles?.find((vehicle) => vehicle.id === draft.vehicleId) : undefined;
+    const unit: Unit | null = savedUnit
+        ? { year: savedUnit.year, model: savedUnit.model, type: savedUnit.type, plate: savedUnit.plate }
+        : draft.year || draft.model || draft.type || draft.plate
+          ? { year: draft.year, model: draft.model.trim(), type: draft.type, plate: draft.plate }
+          : null;
+
+    // The signed-in customer's saved units; one that's gone from the list (an old draft) is let go
+    useEffect(() => {
+        if (!guest) {
+            return;
+        }
+
+        let cancelled = false;
+
+        fetchMyVehicles().then((result) => {
+            if (cancelled) {
+                return;
+            }
+
+            const list = result.kind === 'ok' ? (result.data.vehicles ?? []) : [];
+            setVehicles(list);
+            setDraft((current) => (current.vehicleId !== null && !list.some((vehicle) => vehicle.id === current.vehicleId) ? { ...current, vehicleId: null } : current));
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // The link's branch and service are in the draft now: off the address, onto the first step left to do
     useEffect(() => {
         if (params.has('branch') || params.has('service')) {
             const service = serviceBySlug(params.get('service'));
 
-            if (service && draft.sizeId && !rateFor(service, draft.sizeId)) {
+            if (service && !draft.serviceIds.includes(service.id)) {
                 setPresetMissing(service.name);
             }
 
@@ -366,14 +375,14 @@ export default function Book() {
         }
     }, []);
 
-    /** A new branch or size: services that don't fit go, and so does the time */
-    const reshape = (branchId: number | null, sizeId: number | null) => {
-        const offered = servicesAt(branchById(branchId), sizeId).map((service) => service.id);
+    /** A new branch: services it doesn't offer go, and so does the date */
+    const reshape = (branchId: number | null) => {
+        const offered = servicesAt(branchById(branchId)).map((service) => service.id);
         const kept = draft.serviceIds.filter((id) => offered.includes(id));
         const missing = draft.serviceIds.find((id) => !offered.includes(id));
-        setPresetMissing(missing && sizeId ? (serviceById(missing)?.name ?? null) : null);
+        setPresetMissing(missing ? (servicesAt(branchById(draft.branchId)).find((service) => service.id === missing)?.name ?? null) : null);
 
-        return { serviceIds: kept, date: null, slot: null };
+        return { serviceIds: kept, date: null };
     };
 
     const goTo = (index: number, push = true) => {
@@ -402,7 +411,7 @@ export default function Book() {
     const errorFor = (field: string): string | null => shown[field] ?? server[field]?.[0] ?? null;
 
     const reserve = async () => {
-        if (!job || !branch || !size || !draft.date || !draft.slot) {
+        if (!job || !branch || !draft.date) {
             return;
         }
 
@@ -417,15 +426,14 @@ export default function Book() {
 
         const result = await postJson<{ ok: boolean; booking?: CustomerBooking; demo?: boolean; readyLabel?: string }>('/bookings', {
             branch: branch.id,
-            size: size.id,
             services: draft.serviceIds,
             date: draft.date,
-            time: draft.slot.time,
+            ...(draft.vehicleId !== null
+                ? { vehicle_id: draft.vehicleId }
+                : { vehicle_year: Number(draft.year), vehicle_model: draft.model.trim(), vehicle_type: draft.type, plate_number: draft.plate.trim().toUpperCase() }),
             name: draft.name.trim(),
             phone: draft.phone.trim(),
             email: draft.email.trim() || null,
-            vehicle_model: draft.model.trim(),
-            plate_number: draft.plate.trim().toUpperCase(),
             message: draft.message.trim() || null,
             consent: true,
             fax_number: '',
@@ -459,16 +467,10 @@ export default function Book() {
             const errors = result.errors;
             setServer(errors);
 
-            if (errors.time) {
-                // That time went to someone else (or isn't valid anymore): pick again from fresh times
-                forget(job);
-                setTimesRefresh((count) => count + 1);
-                setDraft((current) => ({ ...current, slot: null }));
-            }
-
             if (errors.date) {
+                // That day filled up (or isn't open anymore): pick again from fresh days
                 forget(job);
-                setDraft((current) => ({ ...current, date: null, slot: null }));
+                setDraft((current) => ({ ...current, date: null }));
             }
 
             const target = STEPS.findIndex((key) => Object.keys(errors).some((field) => FIELD_STEP[field] === key));
@@ -493,9 +495,18 @@ export default function Book() {
         );
     };
 
-    const onMonth = useCallback((month: { length: JobLength }) => setApiLength({ key: jobId, length: month.length }), [jobId]);
+    const onMonth = useCallback(
+        (month: MonthAvailability) => {
+            if (month.estimate) {
+                setApiEstimate({ key: jobId, estimate: month.estimate });
+            }
 
-    // The length from the server for the picked services, as soon as they change (it also warms the calendar)
+            setMonthData((current) => ({ key: jobId, months: { ...(current.key === jobId ? current.months : {}), [month.month]: month } }));
+        },
+        [jobId],
+    );
+
+    // The estimate from the server for the picked services, as soon as they change (it also warms the calendar)
     useEffect(() => {
         if (!job || step !== 'services') {
             return;
@@ -503,8 +514,8 @@ export default function Book() {
 
         const timer = window.setTimeout(() => {
             fetchMonth(job).then((result) => {
-                if (result.kind === 'ok') {
-                    setApiLength({ key: jobId, length: result.data.length });
+                if (result.kind === 'ok' && result.data.estimate) {
+                    setApiEstimate({ key: jobId, estimate: result.data.estimate });
                 }
             });
         }, 250);
@@ -540,7 +551,6 @@ export default function Book() {
     }
 
     const titleId = `step-${step}`;
-    const multiday = quote.days > 0 && branch?.multidayDropoffBy ? text.services.multiday(clock(branch.multidayDropoffBy)) : null;
     const isReview = step === 'review';
 
     let body: ReactNode = null;
@@ -565,7 +575,7 @@ export default function Book() {
                                     value={String(option.id)}
                                     checked={draft.branchId === option.id}
                                     disabled={!option.bookable}
-                                    onChange={() => update({ branchId: option.id, ...(option.id !== draft.branchId ? reshape(option.id, draft.sizeId) : {}) }, ['branch'])}
+                                    onChange={() => update({ branchId: option.id, ...(option.id !== draft.branchId ? reshape(option.id) : {}) }, ['branch'])}
                                 >
                                     <span className="block font-semibold">{option.name}</span>
                                     {(option.address || option.city) && (
@@ -605,88 +615,92 @@ export default function Book() {
     }
 
     if (step === 'vehicle') {
+        const showForm = !vehicles || vehicles.length === 0 || adding;
+        const pickSaved = (id: number) => {
+            setAdding(false);
+            update({ vehicleId: id }, ['vehicle_id', 'vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number']);
+        };
+
         body = (
             <>
                 <StepHeading id={titleId} title={text.vehicle.title} headingRef={heading}>
                     {text.vehicle.body}
                 </StepHeading>
-                <fieldset aria-describedby={errorFor('size') ? 'size-error' : undefined}>
-                    <legend className="font-semibold">{text.vehicle.size}</legend>
-                    <div className="mt-3 grid gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
-                        {sizes.map((option) => {
-                            const checked = draft.sizeId === option.id;
+                {vehicles === null ? (
+                    <p className="text-muted" role="status">
+                        {text.vehicle.loading}
+                    </p>
+                ) : (
+                    <>
+                        {vehicles.length > 0 && (
+                            <fieldset>
+                                <legend className="font-semibold">{text.vehicle.saved}</legend>
+                                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                                    {vehicles.map((vehicle) => {
+                                        const checked = draft.vehicleId === vehicle.id && !adding;
 
-                            return (
-                                <ChoiceCard
-                                    key={option.id}
-                                    type="radio"
-                                    name="size"
-                                    value={String(option.id)}
-                                    checked={checked}
-                                    onChange={() => update({ sizeId: option.id, ...(option.id !== draft.sizeId ? reshape(draft.branchId, option.id) : {}) }, ['size'])}
-                                    className="sm:min-h-36 sm:flex-col sm:gap-3"
-                                >
-                                    <span className="flex items-center gap-4 sm:flex-col-reverse sm:items-start sm:gap-3">
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block leading-snug font-semibold">{option.name}</span>
-                                            {option.examples && <span className="mt-0.5 block text-sm text-muted">{copy.price.examples(option.examples)}</span>}
-                                        </span>
-                                        <span className={`block w-24 shrink-0 sm:w-full ${checked ? 'text-accent' : 'text-text/45'}`}>
-                                            <VehicleSilhouette name={option.name} className="w-full" />
-                                        </span>
-                                    </span>
-                                </ChoiceCard>
-                            );
-                        })}
-                    </div>
-                    {errorFor('size') && (
-                        <span data-error-anchor tabIndex={-1}>
-                            <ErrorText id="size-error">{errorFor('size')}</ErrorText>
-                        </span>
-                    )}
-                </fieldset>
-                <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                    <TextField
-                        label={text.vehicle.model.label}
-                        hint={text.vehicle.model.hint}
-                        placeholder={text.vehicle.model.placeholder}
-                        value={draft.model}
-                        onChange={(value) => update({ model: value }, ['vehicle_model'])}
-                        error={errorFor('vehicle_model')}
-                        autoComplete="off"
-                        maxLength={80}
-                        name="vehicle_model"
-                    />
-                    <TextField
-                        label={text.vehicle.plate.label}
-                        hint={text.vehicle.plate.hint}
-                        placeholder={text.vehicle.plate.placeholder}
-                        value={draft.plate}
-                        onChange={(value) => update({ plate: value }, ['plate_number'])}
-                        error={errorFor('plate_number')}
-                        autoComplete="off"
-                        autoCapitalize="characters"
-                        maxLength={15}
-                        name="plate_number"
-                        className="[&_input]:uppercase"
-                    />
-                </div>
+                                        return (
+                                            <ChoiceCard key={vehicle.id} type="radio" name="vehicle" value={String(vehicle.id)} checked={checked} onChange={() => pickSaved(vehicle.id)}>
+                                                <span className="flex items-center gap-4">
+                                                    <span className={`block w-20 shrink-0 ${checked ? 'text-accent' : 'text-text/45'}`}>
+                                                        <VehicleSilhouette type={vehicle.type} className="w-full" />
+                                                    </span>
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="block leading-snug font-semibold">{unitName(vehicle.year, vehicle.model)}</span>
+                                                        <span className="mt-0.5 block text-sm text-muted">{vehicleTypeLabel(vehicle.type)}</span>
+                                                        <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                            <span className="plate">{vehicle.plate}</span>
+                                                            <span className="text-sm text-muted">{vehicle.sizeReviewed ? text.vehicle.reviewed : text.vehicle.notReviewed}</span>
+                                                        </span>
+                                                    </span>
+                                                </span>
+                                            </ChoiceCard>
+                                        );
+                                    })}
+                                    <ChoiceCard
+                                        type="radio"
+                                        name="vehicle"
+                                        value="new"
+                                        checked={adding}
+                                        onChange={() => {
+                                            setAdding(true);
+                                            update({ vehicleId: null }, ['vehicle_id']);
+                                        }}
+                                    >
+                                        <span className="flex min-h-12 items-center font-semibold">{text.vehicle.addAnother}</span>
+                                    </ChoiceCard>
+                                </div>
+                            </fieldset>
+                        )}
+                        {showForm && (
+                            <div className={vehicles.length > 0 ? 'mt-8 border-t border-line pt-8' : ''}>
+                                {vehicles.length > 0 && <h3 className="mb-5 text-lg font-bold">{text.vehicle.newUnit}</h3>}
+                                <UnitFields
+                                    value={{ year: draft.year, model: draft.model, type: draft.type, plate: draft.plate }}
+                                    onChange={(change, fields) => update({ ...change, vehicleId: null }, fields)}
+                                    errorFor={errorFor}
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+                {errorFor('vehicle_id') && <ErrorText>{errorFor('vehicle_id')}</ErrorText>}
             </>
         );
     }
 
-    if (step === 'services' && branch && size) {
-        const offered = servicesAt(branch, size.id);
+    if (step === 'services' && branch) {
+        const offered = servicesAt(branch);
         const groups = categories.map((category) => ({ category, services: offered.filter((service) => service.category.id === category.id) })).filter((group) => group.services.length);
 
         body = (
             <>
                 <StepHeading id={titleId} title={text.services.title} headingRef={heading}>
-                    {text.services.body(size.name, branch.name)}
+                    {text.services.body(branch.name)}
                 </StepHeading>
-                {presetMissing && <Notice className="mb-5">{text.services.notOffered(presetMissing, size.name)}</Notice>}
+                {presetMissing && <Notice className="mb-5">{text.services.notOffered(presetMissing)}</Notice>}
                 {offered.length === 0 ? (
-                    <Notice>{text.services.none(size.name, branch.name)}</Notice>
+                    <Notice>{text.services.none(branch.name)}</Notice>
                 ) : (
                     <div className="space-y-8">
                         {groups.map(({ category, services }) => (
@@ -696,7 +710,6 @@ export default function Book() {
                                 </legend>
                                 <div className="mt-3 grid gap-2.5">
                                     {services.map((service) => {
-                                        const rate = rateFor(service, size.id)!;
                                         const checked = draft.serviceIds.includes(service.id);
 
                                         return (
@@ -706,19 +719,11 @@ export default function Book() {
                                                 name="services"
                                                 value={String(service.id)}
                                                 checked={checked}
-                                                onChange={() =>
-                                                    update(
-                                                        { serviceIds: checked ? draft.serviceIds.filter((id) => id !== service.id) : [...draft.serviceIds, service.id], date: null, slot: null },
-                                                        ['services'],
-                                                    )
-                                                }
+                                                onChange={() => update({ serviceIds: checked ? draft.serviceIds.filter((id) => id !== service.id) : [...draft.serviceIds, service.id], date: null }, ['services'])}
                                             >
-                                                <span className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                                                    <span className="font-semibold">{service.name}</span>
-                                                    <span className="price">{peso(rate.price)}</span>
-                                                </span>
+                                                <span className="block font-semibold">{service.name}</span>
                                                 {service.summary && <span className="mt-1 block text-sm leading-relaxed text-muted">{service.summary}</span>}
-                                                <span className="mt-1.5 block text-sm">{rate.duration}</span>
+                                                {service.estimateDays ? <span className="mt-1.5 block text-sm">{estimateOf([service.id])?.label}</span> : null}
                                             </ChoiceCard>
                                         );
                                     })}
@@ -732,7 +737,7 @@ export default function Book() {
                         <ErrorText>{errorFor('services')}</ErrorText>
                     </span>
                 )}
-                {multiday && <Notice className="mt-6">{multiday}</Notice>}
+                <p className="mt-6 text-[0.95rem] text-muted">{text.services.priceNote}</p>
             </>
         );
     }
@@ -741,43 +746,25 @@ export default function Book() {
         body = (
             <>
                 <StepHeading id={titleId} title={text.date.title} headingRef={heading}>
-                    {text.date.body(length)}
+                    {text.date.body(estimate?.label ?? null)}
                 </StepHeading>
-                {multiday && <Notice className="mb-5">{multiday}</Notice>}
                 <div className="max-w-xl">
-                    <AvailabilityCalendar job={job} selected={draft.date} onPick={(date) => update({ date, slot: draft.date === date ? draft.slot : null }, ['date', 'time'])} onMonth={onMonth} />
+                    <AvailabilityCalendar job={job} selected={draft.date} onPick={(date) => update({ date }, ['date'])} onMonth={onMonth} />
                 </div>
+                {draft.date && (
+                    <p className="mt-5 flex max-w-xl items-start gap-2.5 rounded-control border border-accent/50 bg-accent/8 px-4 py-3 font-medium" aria-live="polite">
+                        <Check className="mt-0.5 size-4 shrink-0 text-accent" />
+                        <span>
+                            {longDate(draft.date)}
+                            <span className="block font-normal text-muted">{ready ? text.date.ready(longDate(ready)) : (estimate?.label ?? text.date.readyUnknown)}</span>
+                        </span>
+                    </p>
+                )}
                 {errorFor('date') && (
                     <span data-error-anchor tabIndex={-1}>
                         <ErrorText>{errorFor('date')}</ErrorText>
                     </span>
                 )}
-            </>
-        );
-    }
-
-    if (step === 'time' && job && draft.date) {
-        body = (
-            <>
-                <StepHeading id={titleId} title={text.time.title} headingRef={heading}>
-                    {text.time.body(longDate(draft.date))}
-                </StepHeading>
-                <TimeSlots
-                    job={job}
-                    date={draft.date}
-                    selected={draft.slot?.time ?? null}
-                    onPick={(slot) => update({ slot }, ['time'])}
-                    refresh={timesRefresh}
-                    error={server.time?.[0] ? `${server.time[0]} ${text.errors.timeTaken}` : null}
-                />
-                {shown.time && (
-                    <span data-error-anchor tabIndex={-1}>
-                        <ErrorText>{shown.time}</ErrorText>
-                    </span>
-                )}
-                <button type="button" onClick={() => goTo(STEPS.indexOf('date'))} className="press mt-5 -ml-2 inline-flex min-h-11 items-center gap-2 rounded-control px-2 font-semibold text-link hover:underline hover:underline-offset-4">
-                    <ArrowLeft className="size-4" /> {text.time.changeDay}
-                </button>
             </>
         );
     }
@@ -888,7 +875,7 @@ export default function Book() {
                     {text.review.body}
                 </StepHeading>
                 <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 xl:grid-cols-[minmax(0,1fr)_24rem]">
-                    <Summary draft={draft} length={length} onEdit={(target) => goTo(STEPS.indexOf(target))} />
+                    <Summary draft={draft} unit={unit} estimate={estimate} ready={ready} onEdit={(target) => goTo(STEPS.indexOf(target))} />
                     <div className="space-y-5 lg:sticky lg:top-28">
                         {fee.enabled && (
                             <Notice>
@@ -994,20 +981,21 @@ export default function Book() {
                         <h2 id="summary-title" className="sr-only">
                             {text.summary.title}
                         </h2>
-                        <Summary draft={draft} length={length} compact />
+                        <Summary draft={draft} unit={unit} estimate={estimate} ready={ready} compact />
                     </div>
                 </aside>
             </div>
 
-            {/* Phones and tablets: the total and the next move, pinned to the bottom */}
+            {/* Phones and tablets: the time at the shop and the next move, pinned to the bottom */}
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface-2/97 shadow-bar backdrop-blur-md lg:hidden">
                 <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
                     <div className="min-w-0 flex-1">
-                        {quote.lines.length > 0 ? (
+                        {draft.serviceIds.length > 0 ? (
                             <>
-                                <p className="price text-lg leading-tight">{peso(quote.total)}</p>
+                                <p className="text-lg leading-tight font-bold">{estimate?.label ?? text.services.picked(draft.serviceIds.length)}</p>
                                 <p className="truncate text-sm text-muted">
-                                    {text.services.picked(quote.lines.length)} · {length}
+                                    {text.services.picked(draft.serviceIds.length)}
+                                    {ready && ` · ${text.date.ready(shortDate(ready))}`}
                                 </p>
                             </>
                         ) : (
@@ -1019,9 +1007,9 @@ export default function Book() {
                 </div>
             </div>
 
-            {/* Wide screens: the total is in the summary; screen readers hear it change */}
+            {/* Wide screens: the estimate is in the summary; screen readers hear it change */}
             <p className="sr-only" aria-live="polite">
-                {quote.lines.length > 0 ? `${text.review.total} ${peso(quote.total)}. ${text.services.takes(length)}.` : ''}
+                {draft.serviceIds.length > 0 && estimate ? `${text.review.takes}: ${estimate.label}.` : ''}
             </p>
             {draft.date && step === 'date' && (
                 <p className="sr-only" aria-live="polite">

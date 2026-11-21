@@ -37,7 +37,7 @@ class SeoTest extends TestCase
     public function test_every_page_has_its_own_title_and_description(): void
     {
         $this->get('/book')
-            ->assertSee('<title>Reserve a drop-off time | 826 Auto Aesthetic &amp; Protection</title>', escape: false)
+            ->assertSee('<title>Reserve a drop-off date | 826 Auto Aesthetic &amp; Protection</title>', escape: false)
             ->assertSee('<link rel="canonical" href="https://826auto.test/book" />', escape: false);
 
         $this->get('/branches/cainta')->assertSee('<title>826 Cainta | 826 Auto Aesthetic &amp; Protection</title>', escape: false);

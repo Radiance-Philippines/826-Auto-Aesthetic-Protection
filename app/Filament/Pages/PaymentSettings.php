@@ -6,7 +6,6 @@ use App\Models\PaymentSetting;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -23,7 +22,7 @@ use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
 /**
- * The reservation fee (owners only): on or off, how much, how long a slot
+ * The reservation fee (owners only): on or off, how much (a fixed amount), how long a day
  * is held for the customer to pay, and the main GCash and Maya accounts
  * (a branch can have its own instead). Customers pay in their own app and
  * upload a screenshot for the branch to check.
@@ -63,30 +62,22 @@ class PaymentSettings extends Page
             ->statePath('data')
             ->components([
                 Section::make('Reservation fee')
-                    ->description('Off: a reservation is confirmed the moment it’s made. On: the slot is held while the customer pays by GCash or Maya and uploads a screenshot; you check it and confirm. Nothing is charged on the site.')
+                    ->description('Off: a reservation is confirmed the moment it’s made. On: the day is held while the customer pays by GCash or Maya and uploads a screenshot; you check it and confirm. Nothing is charged on the site.')
                     ->columns(2)
                     ->components([
                         Toggle::make('reservation_fee_enabled')
                             ->label('Ask for a reservation fee')
                             ->live()
                             ->columnSpanFull(),
-                        Select::make('amount_rule')
-                            ->label('The fee is')
-                            ->options(PaymentSetting::RULES)
-                            ->default('fixed')
-                            ->required()
-                            ->live()
-                            ->visible(fn (Get $get) => (bool) $get('reservation_fee_enabled')),
                         TextInput::make('amount_value')
-                            ->label(fn (Get $get) => $get('amount_rule') === 'percent' ? 'Percent of the estimate' : 'Amount')
-                            ->prefix(fn (Get $get) => $get('amount_rule') === 'fixed' ? '₱' : null)
-                            ->suffix(fn (Get $get) => $get('amount_rule') === 'percent' ? '%' : null)
+                            ->label('Amount')
+                            ->prefix('₱')
                             ->integer()
                             ->minValue(1)
-                            ->maxValue(fn (Get $get) => $get('amount_rule') === 'percent' ? 99 : 1_000_000)
-                            ->required(fn (Get $get) => $get('reservation_fee_enabled') && in_array($get('amount_rule'), ['fixed', 'percent'], true))
-                            ->visible(fn (Get $get) => $get('reservation_fee_enabled') && in_array($get('amount_rule'), ['fixed', 'percent'], true))
-                            ->helperText('Never more than the estimate. Bookings already made keep their fee.'),
+                            ->maxValue(1_000_000)
+                            ->required(fn (Get $get) => (bool) $get('reservation_fee_enabled'))
+                            ->visible(fn (Get $get) => (bool) $get('reservation_fee_enabled'))
+                            ->helperText('A fixed amount: there is no price yet when a customer books. Bookings already made keep their fee.'),
                         TextInput::make('hold_minutes')
                             ->label('Hold the slot for')
                             ->suffix('minutes')
@@ -95,7 +86,7 @@ class PaymentSettings extends Page
                             ->maxValue(PaymentSetting::MAX_HOLD_MINUTES)
                             ->default(30)
                             ->required()
-                            ->helperText('If no screenshot comes in by then, the slot opens up for others.')
+                            ->helperText('If no screenshot comes in by then, the day opens up for others.')
                             ->visible(fn (Get $get) => (bool) $get('reservation_fee_enabled')),
                         Textarea::make('instructions')
                             ->label('Payment notes for customers')
@@ -165,11 +156,7 @@ class PaymentSettings extends Page
     {
         $data = $this->form->getState();
 
-        if (isset($data['amount_rule']) && ! in_array($data['amount_rule'], ['fixed', 'percent'], true)) {
-            $data['amount_value'] = null;
-        }
-
-        PaymentSetting::instance()->update($data);
+        PaymentSetting::instance()->update([...$data, 'amount_rule' => 'fixed']);
 
         Notification::make()->success()->title('Payments saved')->send();
     }

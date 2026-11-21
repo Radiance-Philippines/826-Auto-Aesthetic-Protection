@@ -1,11 +1,9 @@
-import type { Branch, BranchHours, Category, Photo, Rate, Service, VehicleSize } from '../types';
+import type { Branch, BranchHours, Category, Estimate, Photo, Service, VehicleType } from '../types';
 
 /**
  * Everything the site shows, embedded in the page by SiteController.
  */
 export const site = window.APP826;
-
-export const sizes: VehicleSize[] = site.catalog.sizes;
 
 export const categories: Category[] = site.catalog.categories;
 
@@ -15,8 +13,6 @@ export const services: (Service & { category: Category })[] = categories.flatMap
 export const serviceById = (id: number) => services.find((service) => service.id === id);
 
 export const serviceBySlug = (slug: string | null | undefined) => services.find((service) => service.slug === slug);
-
-export const sizeById = (id: number | null | undefined) => sizes.find((size) => size.id === id);
 
 export const branchById = (id: number | null | undefined) => site.branches.find((branch) => branch.id === id);
 
@@ -28,50 +24,56 @@ export const bookableBranches = site.branches.filter((branch) => branch.bookable
 /** Branches that come to the customer */
 export const homeBranches = site.branches.filter((branch) => branch.homeService.offered);
 
-export const rateFor = (service: Service, sizeId: number | null | undefined): Rate | undefined => service.rates.find((rate) => rate.sizeId === sizeId);
-
-/** The lowest price a service has, for "From ₱X"; null without rates */
-export function fromPrice(service: Service): number | null {
-    return service.rates.length ? Math.min(...service.rates.map((rate) => rate.price)) : null;
-}
-
-/** The lowest price over a category's services; null when none has rates */
-export function categoryFromPrice(category: Category): number | null {
-    const prices = category.services.map(fromPrice).filter((price): price is number => price !== null);
-
-    return prices.length ? Math.min(...prices) : null;
-}
-
 /** Open branches where a service can be booked */
 export const branchesOffering = (service: Service): Branch[] => site.branches.filter((branch) => branch.serviceIds.includes(service.id));
 
-/** The services a branch offers for a vehicle size (a rate for that size), in the catalog's order */
-export function servicesAt(branch: Branch | undefined, sizeId: number | null, { home = false } = {}) {
-    if (!branch || !sizeId) {
+/** The services a branch offers, in the catalog's order; for home service only those that can be done outside the shop */
+export function servicesAt(branch: Branch | undefined, { home = false } = {}) {
+    if (!branch) {
         return [];
     }
 
-    return services.filter((service) => branch.serviceIds.includes(service.id) && rateFor(service, sizeId) && (!home || service.homeServiceOk));
+    return services.filter((service) => branch.serviceIds.includes(service.id) && (!home || service.homeServiceOk));
 }
 
-/**
- * The same sum the server makes: days add up, then minutes ("2 days + 4
- * hours"). Shown while the server's own answer is on its way.
- */
-export function lengthLabel(days: number, minutes: number): string {
-    const parts: string[] = [];
+/** "about 3 days", "1 day"; the same wording the server uses */
+export const daysLabel = (days: number): string => (days === 1 ? '1 day' : `about ${days} days`);
 
-    if (days > 0) {
-        parts.push(days === 1 ? '1 day' : `${days} days`);
+/** The estimate for a set of services: their days added up (the server's own answer replaces it when it comes) */
+export function estimateOf(serviceIds: number[]): Estimate | null {
+    const days = serviceIds.reduce((sum, id) => sum + (serviceById(id)?.estimateDays ?? 0), 0);
+
+    return days > 0 ? { days, label: daysLabel(days) } : null;
+}
+
+/** The kinds of unit to pick from; the server's list, with the contract's seven as a fallback */
+export const vehicleTypes: VehicleType[] =
+    site.vehicleTypes && site.vehicleTypes.length
+        ? site.vehicleTypes
+        : [
+              { key: 'sedan', label: 'Sedan' },
+              { key: 'hatchback', label: 'Hatchback' },
+              { key: 'coupe', label: 'Coupe' },
+              { key: 'suv', label: 'SUV' },
+              { key: 'pickup', label: 'Pickup' },
+              { key: 'van', label: 'Van' },
+              { key: 'motorcycle', label: 'Motorcycle' },
+          ];
+
+export const vehicleTypeLabel = (key: string | null | undefined) => vehicleTypes.find((type) => type.key === key)?.label ?? null;
+
+/** What a category's services take, as one line: "1 to 5 days"; null when no service has an estimate */
+export function categoryDays(category: Category): string | null {
+    const days = category.services.map((service) => service.estimateDays).filter((value): value is number => value !== null && value > 0);
+
+    if (days.length === 0) {
+        return null;
     }
 
-    if (minutes > 0) {
-        const hours = Math.floor(minutes / 60);
-        const rest = minutes % 60;
-        parts.push(rest === 0 ? (hours === 1 ? '1 hour' : `${hours} hours`) : hours === 0 ? `${rest} min` : `${hours} hr ${rest} min`);
-    }
+    const low = Math.min(...days);
+    const high = Math.max(...days);
 
-    return parts.join(' + ');
+    return low === high ? daysLabel(low) : `${low} to ${high} days`;
 }
 
 /**

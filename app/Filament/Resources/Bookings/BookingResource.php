@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\PaymentSetting;
 use App\Models\Service;
 use App\Models\VehicleSize;
+use App\Support\Schedule\Estimate;
 use BackedEnum;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -19,7 +20,6 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -43,7 +43,7 @@ use UnitEnum;
 
 /**
  * Reservations from the site, home-service requests, and bookings the team
- * takes at the counter or over the phone. Staff see only their branches.
+ * takes at the counter or over the phone; units wait here for their size review. Staff see only their branches.
  */
 class BookingResource extends Resource
 {
@@ -75,7 +75,7 @@ class BookingResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Screenshots to check and home-service requests to schedule';
+        return 'Screenshots to check, home-service requests to schedule and units to size';
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -89,8 +89,9 @@ class BookingResource extends Resource
             'requested', 'payment_review' => 'warning',
             'awaiting_payment' => 'info',
             'confirmed' => 'primary',
-            'checked_in' => 'info',
-            'ready', 'completed' => 'success',
+            'arrived', 'in_progress' => 'info',
+            'quality_check' => 'warning',
+            'ready', 'exited' => 'success',
             'no_show' => 'danger',
             default => 'gray',
         };
@@ -112,30 +113,24 @@ class BookingResource extends Resource
     }
 
     /**
-     * The services a branch offers that have a rate for the size, as
-     * "Graphene coating · ₱12,000 · 3 days".
+     * The services a branch offers that can be booked, as
+     * "Graphene coating · 3 days".
      *
      * @return array<int, string>
      */
-    public static function serviceOptions(mixed $branchId, mixed $sizeId, bool $home = false): array
+    public static function serviceOptions(mixed $branchId, bool $home = false): array
     {
-        if (blank($branchId) || blank($sizeId)) {
+        if (blank($branchId)) {
             return [];
         }
 
         return Service::query()
-            ->active()
+            ->bookable()
             ->whereHas('branches', fn (Builder $branches) => $branches->whereKey($branchId))
             ->when($home, fn (Builder $services) => $services->where('home_service_ok', true))
-            ->with(['rates' => fn ($rates) => $rates->where('vehicle_size_id', $sizeId)])
             ->ordered()
             ->get()
-            ->filter(fn (Service $service) => $service->rateFor((int) $sizeId)?->isBookable())
-            ->mapWithKeys(function (Service $service) use ($sizeId) {
-                $rate = $service->rateFor((int) $sizeId);
-
-                return [$service->id => "{$service->name} · ₱".number_format((int) $rate->price).' · '.$rate->length()->label()];
-            })
+            ->mapWithKeys(fn (Service $service) => [$service->id => "{$service->name} · ".(new Estimate((int) $service->estimate_days))->label()])
             ->all();
     }
 
@@ -168,32 +163,24 @@ class BookingResource extends Resource
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn (Set $set) => $set('services', [])),
-                        Select::make('vehicle_size_id')
-                            ->label('Vehicle size')
-                            ->options(fn () => VehicleSize::query()->active()->ordered()->pluck('name', 'id')->all())
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('services', [])),
                         CheckboxList::make('services')
-                            ->options(fn (Get $get) => self::serviceOptions($get('branch_id'), $get('vehicle_size_id'), $get('kind') === 'home'))
-                            ->helperText(fn (Get $get) => blank($get('branch_id')) || blank($get('vehicle_size_id'))
-                                ? 'Pick the branch and the vehicle size first.'
-                                : 'Only services this branch offers with a price and duration for this size.')
+                            ->options(fn (Get $get) => self::serviceOptions($get('branch_id'), $get('kind') === 'home'))
+                            ->helperText(fn (Get $get) => blank($get('branch_id'))
+                                ? 'Pick the branch first.'
+                                : 'Only services this branch offers that have a day estimate.')
                             ->required()
                             ->columns(1)
                             ->columnSpanFull(),
-                        DateTimePicker::make('starts_at')
-                            ->label(fn (Get $get) => $get('kind') === 'home' ? 'Arrive at (optional)' : 'Drop-off')
-                            ->seconds(false)
-                            ->minutesStep(15)
-                            ->displayFormat('D, M j, Y g:i A')
+                        DatePicker::make('drop_off_on')
+                            ->label(fn (Get $get) => $get('kind') === 'home' ? 'Team comes on (optional)' : 'Drop-off date')
+                            ->displayFormat('D, M j, Y')
                             ->required(fn (Get $get) => $get('kind') !== 'home')
                             ->helperText(fn (Get $get) => $get('kind') === 'home'
                                 ? 'Leave blank to schedule it later.'
-                                : 'Ready-by is worked out from the services and the branch hours.'),
+                                : 'The ready date is worked out from the services and the days the branch is open.'),
                         Toggle::make('force')
-                            ->label('Book even if it’s full or outside hours')
-                            ->helperText('For when you’ve made room yourself. The timeline shows it as over capacity.')
+                            ->label('Book even if it’s full')
+                            ->helperText('For when you’ve made room yourself. The queue shows the day as over its cap.')
                             ->visible(fn (Get $get) => $get('kind') !== 'home')
                             ->dehydrated(),
                         DatePicker::make('preferred_date')
@@ -217,8 +204,15 @@ class BookingResource extends Resource
                     ->columnSpan(2)
                     ->columns(2)
                     ->components([
-                        TextInput::make('vehicle_model')->label('Make and model')->placeholder('Toyota Vios')->maxLength(80),
-                        TextInput::make('plate_number')->label('Plate number')->maxLength(15),
+                        TextInput::make('vehicle_year')->label('Year')->integer()->minValue(1950)->maxValue(now()->year + 1)->required(fn (string $operation) => $operation === 'create'),
+                        TextInput::make('vehicle_model')->label('Make and model')->placeholder('Toyota Vios')->required(fn (string $operation) => $operation === 'create')->maxLength(80),
+                        Select::make('vehicle_type')->label('Type')->options(Booking::VEHICLE_TYPES)->required(fn (string $operation) => $operation === 'create'),
+                        TextInput::make('plate_number')->label('Plate number')->required(fn (string $operation) => $operation === 'create')->maxLength(15),
+                        Select::make('vehicle_size_id')
+                            ->label('Size class (if you know it)')
+                            ->options(fn () => VehicleSize::query()->active()->ordered()->pluck('name', 'id')->all())
+                            ->helperText('Leave blank to review the unit later: the size sets the price.')
+                            ->visibleOn('create'),
                     ]),
                 Section::make('Home service')
                     ->columnSpan(2)
@@ -251,7 +245,7 @@ class BookingResource extends Resource
                     ->columns(2)
                     ->components([
                         TextEntry::make('when')
-                            ->label(fn (Booking $record) => $record->isHome() ? 'Schedule' : 'Drop-off → ready by')
+                            ->label(fn (Booking $record) => $record->isHome() ? 'Schedule' : 'Drop-off · ready around')
                             ->state(fn (Booking $record) => $record->whenLabel())
                             ->weight('bold')
                             ->columnSpanFull(),
@@ -261,16 +255,25 @@ class BookingResource extends Resource
                             ->badge()
                             ->color(fn (string $state) => $state === 'home' ? 'info' : 'gray'),
                         TextEntry::make('services')
-                            ->state(fn (Booking $record) => $record->items->map(fn ($item) => $item->service_name.' · '.($item->price !== null ? '₱'.number_format($item->price) : '—').' · '.$item->length()->label())->all())
+                            ->state(fn (Booking $record) => $record->items->map(fn ($item) => $item->service_name.' · '.($item->price !== null ? '₱'.number_format($item->price) : 'price after review'))->all())
                             ->listWithLineBreaks()
                             ->bulleted()
                             ->columnSpanFull(),
                         TextEntry::make('total_price')
-                            ->label('Estimate')
-                            ->formatStateUsing(fn (?int $state) => $state === null ? '—' : '₱'.number_format($state)),
+                            ->label('Price')
+                            ->formatStateUsing(fn (?int $state) => $state === null ? 'Not set: review the unit' : '₱'.number_format($state))
+                            ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null),
                         TextEntry::make('length')
                             ->label('Takes')
-                            ->state(fn (Booking $record) => $record->length()->label() ?: '—'),
+                            ->state(fn (Booking $record) => $record->estimate()->label() ?: '—'),
+                        TextEntry::make('arrived_at')
+                            ->label('Arrived')
+                            ->dateTime('M j, Y g:i A')
+                            ->placeholder('—'),
+                        TextEntry::make('exited_at')
+                            ->label('Exited')
+                            ->dateTime('M j, Y g:i A')
+                            ->placeholder('—'),
                         TextEntry::make('message')
                             ->label('From the customer')
                             ->prose()
@@ -303,6 +306,12 @@ class BookingResource extends Resource
                         TextEntry::make('vehicle')
                             ->state(fn (Booking $record) => $record->vehicleLabel() ?: null)
                             ->placeholder('—'),
+                        TextEntry::make('vehicle_size_name')
+                            ->label('Size class')
+                            ->state(fn (Booking $record) => $record->size_reviewed_at ? $record->vehicle_size_name : null)
+                            ->placeholder('Not reviewed yet')
+                            ->badge()
+                            ->color(fn (Booking $record) => $record->size_reviewed_at ? 'gray' : 'warning'),
                         TextEntry::make('admin_note')->label('Private note')->placeholder('—'),
                         TextEntry::make('created_at')
                             ->label(fn (Booking $record) => 'Came in by '.strtolower(Booking::SOURCES[$record->source] ?? $record->source))
@@ -355,7 +364,7 @@ class BookingResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('starts_at')
+            ->defaultSort('drop_off_on')
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['branch', 'items']))
             ->recordClasses(fn (Booking $record) => $record->isRead() ? null : 'font-semibold')
             ->columns([
@@ -368,11 +377,11 @@ class BookingResource extends Resource
                     ->trueColor('primary')
                     ->falseColor('gray')
                     ->tooltip(fn (Booking $record) => $record->isRead() ? 'Read' : 'Unread'),
-                TextColumn::make('starts_at')
+                TextColumn::make('drop_off_on')
                     ->label('Drop-off')
-                    ->state(fn (Booking $record) => $record->starts_at ?? $record->preferred_date)
-                    ->formatStateUsing(fn (Booking $record) => $record->starts_at ? $record->starts_at->format('D, M j, g:i A') : 'Asked for '.$record->preferred_date?->format('D, M j'))
-                    ->description(fn (Booking $record) => $record->ends_at ? 'Ready '.($record->ends_at->isSameDay($record->starts_at) ? $record->ends_at->format('g:i A') : $record->ends_at->format('D, M j, g:i A')) : Booking::KINDS[$record->kind])
+                    ->state(fn (Booking $record) => $record->drop_off_on ?? $record->preferred_date)
+                    ->formatStateUsing(fn (Booking $record) => $record->drop_off_on ? $record->drop_off_on->format('D, M j') : 'Asked for '.$record->preferred_date?->format('D, M j'))
+                    ->description(fn (Booking $record) => $record->ready_on ? 'Ready around '.$record->ready_on->format('D, M j') : Booking::KINDS[$record->kind])
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Customer')
@@ -392,9 +401,11 @@ class BookingResource extends Resource
                     ->color(fn (Booking $record) => $record->stage() === 'expired' ? 'gray' : self::statusColor($record->status))
                     ->description(fn (Booking $record) => $record->stage() === 'awaiting_payment' && $record->hold_expires_at ? 'until '.$record->hold_expires_at->format('g:i A') : null),
                 TextColumn::make('total_price')
-                    ->label('Estimate')
-                    ->formatStateUsing(fn (?int $state) => $state === null ? '—' : '₱'.number_format($state))
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Price')
+                    ->formatStateUsing(fn (?int $state) => $state === null ? 'Size needed' : '₱'.number_format($state))
+                    ->badge(fn (Booking $record) => $record->needsSizeReview())
+                    ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null)
+                    ->toggleable(),
                 TextColumn::make('created_at')
                     ->label('Made')
                     ->since()

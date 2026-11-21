@@ -11,14 +11,11 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -28,8 +25,9 @@ use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
- * Holidays, half days and bays out of service, per branch (or for every
- * branch, by the owner). Customers can't pick a time that runs into them.
+ * Whole days a branch is closed (holidays, brownouts) or fully booked, per
+ * branch (or for every branch, by the owner). Customers can't pick those
+ * days.
  */
 class BranchBlockResource extends Resource
 {
@@ -46,7 +44,7 @@ class BranchBlockResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Bookings';
 
-    protected static ?string $navigationLabel = 'Closures and bays';
+    protected static ?string $navigationLabel = 'Closures';
 
     protected static ?string $modelLabel = 'closure';
 
@@ -65,55 +63,23 @@ class BranchBlockResource extends Resource
                 ->label('What happens')
                 ->options(BranchBlock::KINDS)
                 ->default('closed')
-                ->required()
-                ->live(),
+                ->required(),
             TextInput::make('title')
                 ->label('Why')
-                ->placeholder('Bonifacio Day, brownout, bay 2 under repair…')
+                ->placeholder('Bonifacio Day, brownout, big booking that week…')
                 ->required()
                 ->maxLength(120),
-            TextInput::make('bays')
-                ->label('Bays out')
-                ->integer()
-                ->minValue(1)
-                ->maxValue(50)
-                ->placeholder('All')
-                ->helperText('Leave blank for every bay.')
-                ->visible(fn (Get $get) => $get('kind') === 'bays'),
-            Toggle::make('whole_days')
-                ->label('Whole days')
-                ->default(true)
-                ->live()
-                ->dehydrated(false)
-                ->columnSpanFull(),
             DatePicker::make('first_day')
                 ->label('From')
                 ->displayFormat('D, M j, Y')
-                ->required(fn (Get $get) => $get('whole_days'))
-                ->visible(fn (Get $get) => $get('whole_days'))
+                ->required()
                 ->dehydrated(false),
             DatePicker::make('last_day')
                 ->label('To (the last day)')
                 ->displayFormat('D, M j, Y')
                 ->afterOrEqual('first_day')
-                ->required(fn (Get $get) => $get('whole_days'))
-                ->visible(fn (Get $get) => $get('whole_days'))
+                ->required()
                 ->dehydrated(false),
-            DateTimePicker::make('starts_at')
-                ->label('From')
-                ->seconds(false)
-                ->minutesStep(15)
-                ->displayFormat('D, M j, Y g:i A')
-                ->required(fn (Get $get) => ! $get('whole_days'))
-                ->visible(fn (Get $get) => ! $get('whole_days')),
-            DateTimePicker::make('ends_at')
-                ->label('Until')
-                ->seconds(false)
-                ->minutesStep(15)
-                ->displayFormat('D, M j, Y g:i A')
-                ->after('starts_at')
-                ->required(fn (Get $get) => ! $get('whole_days'))
-                ->visible(fn (Get $get) => ! $get('whole_days')),
             Textarea::make('note')
                 ->label('Private note')
                 ->rows(2)
@@ -131,14 +97,8 @@ class BranchBlockResource extends Resource
      */
     public static function prepare(array $data, array $raw): array
     {
-        if ($raw['whole_days'] ?? false) {
-            $data['starts_at'] = CarbonImmutable::parse($raw['first_day'])->startOfDay();
-            $data['ends_at'] = CarbonImmutable::parse($raw['last_day'] ?? $raw['first_day'])->addDay()->startOfDay();
-        }
-
-        if (($data['kind'] ?? 'closed') !== 'bays') {
-            $data['bays'] = null;
-        }
+        $data['starts_at'] = CarbonImmutable::parse($raw['first_day'])->startOfDay();
+        $data['ends_at'] = CarbonImmutable::parse($raw['last_day'] ?? $raw['first_day'])->addDay()->startOfDay();
 
         if (! auth()->user()?->isOwner() && blank($data['branch_id'] ?? null)) {
             abort(403);
@@ -153,13 +113,10 @@ class BranchBlockResource extends Resource
      */
     public static function fill(BranchBlock $record, array $data): array
     {
-        $whole = $record->starts_at->isStartOfDay() && $record->ends_at->isStartOfDay();
-
         return [
             ...$data,
-            'whole_days' => $whole,
-            'first_day' => $whole ? $record->starts_at->toDateString() : null,
-            'last_day' => $whole ? $record->ends_at->subDay()->toDateString() : null,
+            'first_day' => $record->firstDay()->toDateString(),
+            'last_day' => $record->lastDay()->toDateString(),
         ];
     }
 
@@ -174,7 +131,7 @@ class BranchBlockResource extends Resource
                     ->sortable(),
                 TextColumn::make('title')
                     ->label('Why')
-                    ->description(fn (BranchBlock $record) => $record->kind === 'bays' ? ($record->bays ? "{$record->bays} bay".($record->bays === 1 ? '' : 's').' out' : 'Every bay out') : 'Closed'),
+                    ->description(fn (BranchBlock $record) => $record->kind === 'full' ? 'Fully booked' : 'Closed'),
                 TextColumn::make('branch.name')
                     ->label('Branch')
                     ->placeholder('Every branch'),

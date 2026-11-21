@@ -1,12 +1,12 @@
 /**
- * A side profile for each vehicle size, drawn in one colour (currentColor)
- * with the glass and the wheel faces let through. Decorative: the size's
+ * A side profile for each kind of unit, drawn in one colour (currentColor)
+ * with the glass and the wheel faces let through. Decorative: the type's
  * name always sits next to it.
  */
 
 type Kind = 'motorcycle' | 'small' | 'sedan' | 'suv' | 'pickup';
 
-/** The size's name says which shape it is ("Small car / Hatchback", "SUV / Crossover"); anything else is a sedan */
+/** The name says which shape it is ("Small car / Hatchback", "SUV / Crossover"); anything else is a sedan */
 export function silhouetteFor(name: string | null | undefined): Kind {
     const value = (name ?? '').toLowerCase();
 
@@ -17,6 +17,8 @@ export function silhouetteFor(name: string | null | undefined): Kind {
 
     return 'sedan';
 }
+
+const TYPE_KIND: Record<string, Kind> = { motorcycle: 'motorcycle', hatchback: 'small', sedan: 'sedan', coupe: 'sedan', suv: 'suv', van: 'suv', pickup: 'pickup' };
 
 type Shape = { body: string; glass: string[]; wheels: { cx: number; cy: number; r: number }[] };
 
@@ -65,8 +67,9 @@ function Wheel({ cx, cy, r }: { cx: number; cy: number; r: number }) {
     );
 }
 
-export default function VehicleSilhouette({ name, className = '' }: { name: string | null | undefined; className?: string }) {
-    const kind = silhouetteFor(name);
+/** `type` is a unit type key ("hatchback"); `name` is any words that say the shape. Neither: a sedan. */
+export default function VehicleSilhouette({ name, type, className = '' }: { name?: string | null; type?: string | null; className?: string }) {
+    const kind = (type && TYPE_KIND[type]) || silhouetteFor(name);
 
     return (
         <svg viewBox="0 0 240 90" aria-hidden="true" focusable="false" className={`silhouette ${className}`}>

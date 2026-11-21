@@ -26,8 +26,8 @@ function AmountDue({ booking }: { booking: CustomerBooking }) {
         <div className="mt-6 panel p-5 sm:p-6">
             <p className="text-sm font-semibold text-muted">{text.amount.label}</p>
             <p className="price mt-1 text-[2.25rem] leading-none">{peso(booking.amountDue)}</p>
-            {booking.totalPrice !== null && booking.totalPrice > booking.amountDue && (
-                <p className="mt-4 border-t border-line pt-4 text-[0.95rem] text-muted">{text.amount.total(peso(booking.totalPrice))}</p>
+            {booking.price.total !== null && booking.price.total > booking.amountDue && (
+                <p className="mt-4 border-t border-line pt-4 text-[0.95rem] text-muted">{text.amount.total(peso(booking.price.total))}</p>
             )}
         </div>
     );

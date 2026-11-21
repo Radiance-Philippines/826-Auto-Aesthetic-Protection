@@ -2,22 +2,27 @@
 
 namespace App\Support\Schedule;
 
+use App\Models\Booking;
 use App\Models\Branch;
+use App\Models\BranchBlock;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 /**
- * Which drop-off times a branch has room for, for a job of a given length:
- * a month at a glance, one day's times, and the final check made (under the
- * branch's lock) before a reservation is saved or moved.
+ * Which drop-off dates a branch has room for: a month at a glance, and the
+ * final check made (under the branch's lock) before a reservation is saved
+ * or moved. A day is bookable when it is an open day inside the booking
+ * window (lead days to the end of the month months-ahead out), isn't marked
+ * fully booked, and the units dropping off that day are fewer than the cap.
  */
 final class Availability
 {
     /**
-     * The earliest drop-off: now plus the branch's notice.
+     * The earliest drop-off date: today plus the branch's notice in days.
      */
-    public static function earliestStart(Branch $branch): CarbonImmutable
+    public static function earliest(Branch $branch): CarbonImmutable
     {
-        return now()->toImmutable()->addHours($branch->leadHours())->startOfMinute();
+        return today()->toImmutable()->addDays($branch->leadDays());
     }
 
     /**
@@ -29,40 +34,51 @@ final class Availability
     }
 
     /**
-     * Each day of a month: "open" (at least one time has room), "full"
-     * (times exist but every one is taken) or "closed" (no times: closed,
-     * past, too soon, or past the booking window).
+     * Units counting toward the cap, per date, within a range.
+     *
+     * @return array<string, int>
+     */
+    public static function counts(Branch $branch, CarbonImmutable $from, CarbonImmutable $to, ?int $exceptBookingId = null): array
+    {
+        return Booking::query()
+            ->countingTowardCap()
+            ->where('branch_id', $branch->getKey())
+            ->whereBetween('drop_off_on', [$from->toDateString(), $to->toDateString()])
+            ->when($exceptBookingId, fn ($query) => $query->whereKeyNot($exceptBookingId))
+            ->selectRaw('drop_off_on as day, count(*) as total')
+            ->groupBy('drop_off_on')
+            ->pluck('total', 'day')
+            ->map(fn ($total) => (int) $total)
+            ->all();
+    }
+
+    /**
+     * Each day of a month: "open" (room left), "full" (an open day whose
+     * cap is reached, or marked fully booked) or "closed" (not an open
+     * day, past, too soon, or past the booking window).
      *
      * @return array{month: string, first: string, last: string, days: array<string, string>}
      */
-    public static function month(Branch $branch, Length $length, CarbonImmutable $month): array
+    public static function month(Branch $branch, CarbonImmutable $month, ?int $exceptBookingId = null): array
     {
         $start = $month->startOfMonth()->startOfDay();
         $end = $start->endOfMonth()->startOfDay();
-        $earliest = self::earliestStart($branch);
+        $earliest = self::earliest($branch);
         $last = self::lastDay($branch);
+        $cap = $branch->dailyCap();
 
         $calendar = OpenCalendar::for($branch, $start, $end);
-        $candidates = [];
-        $latestReady = null;
-
-        for ($date = $start; $date <= $end; $date = $date->addDay()) {
-            $slots = $date > $last || $date < $earliest->startOfDay() ? [] : $calendar->candidates($date, $length, $earliest);
-            $candidates[$date->toDateString()] = $slots;
-
-            foreach ($slots as $slot) {
-                $latestReady = $latestReady === null ? $slot->readyBy : $latestReady->max($slot->readyBy);
-            }
-        }
-
-        $occupancy = $latestReady ? Occupancy::load($branch, $start, $latestReady) : null;
+        $counts = self::counts($branch, $start, $end, $exceptBookingId);
+        $full = self::fullBlocks($branch, $start, $end);
         $days = [];
 
-        foreach ($candidates as $date => $slots) {
-            $days[$date] = match (true) {
-                $slots === [] => 'closed',
-                self::anyFits($occupancy, $slots) => 'open',
-                default => 'full',
+        for ($date = $start; $date <= $end; $date = $date->addDay()) {
+            $key = $date->toDateString();
+
+            $days[$key] = match (true) {
+                $cap <= 0, $date < $earliest, $date > $last, ! $calendar->isOpen($date) => 'closed',
+                $full->contains(fn (BranchBlock $block) => $block->coversDate($date)), ($counts[$key] ?? 0) >= $cap => 'full',
+                default => 'open',
             };
         }
 
@@ -75,96 +91,52 @@ final class Availability
     }
 
     /**
-     * The drop-off times on one day that have room.
-     *
-     * @return list<Slot>
+     * The final word on one drop-off date: "ok", else why not ("closed",
+     * "full", "too_soon" or "too_far"). The team's check ignores the notice
+     * and the booking window.
      */
-    public static function day(Branch $branch, Length $length, CarbonImmutable $date, ?int $exceptBookingId = null): array
+    public static function check(Branch $branch, CarbonImmutable $date, ?int $exceptBookingId = null, bool $byStaff = false): string
     {
         $date = $date->startOfDay();
 
-        if ($date > self::lastDay($branch)) {
-            return [];
+        if (! $byStaff && $date < self::earliest($branch)) {
+            return 'too_soon';
         }
 
-        $slots = OpenCalendar::for($branch, $date, $date)->candidates($date, $length, self::earliestStart($branch));
-
-        if ($slots === []) {
-            return [];
+        if (! $byStaff && $date > self::lastDay($branch)) {
+            return 'too_far';
         }
 
-        $occupancy = Occupancy::load($branch, $slots[0]->start, max(array_map(fn (Slot $slot) => $slot->readyBy, $slots)), $exceptBookingId);
-
-        return array_values(array_filter($slots, fn (Slot $slot) => $occupancy->fits($slot->start, $slot->readyBy)));
-    }
-
-    /**
-     * The final word on one drop-off time: the slot when it's free, else
-     * why not ("closed", "not_a_start" or "full").
-     */
-    public static function check(Branch $branch, Length $length, CarbonImmutable $start, ?int $exceptBookingId = null): Slot|string
-    {
-        if ($length->isEmpty() || (int) $branch->bays <= 0) {
+        if ($branch->dailyCap() <= 0 || ! OpenCalendar::for($branch, $date, $date)->isOpen($date)) {
             return 'closed';
         }
 
-        $date = $start->startOfDay();
-
-        if ($date > self::lastDay($branch)) {
-            return 'not_a_start';
+        if (self::fullBlocks($branch, $date, $date)->isNotEmpty()) {
+            return 'full';
         }
 
-        $slot = collect(OpenCalendar::for($branch, $date, $date)->candidates($date, $length, self::earliestStart($branch)))
-            ->first(fn (Slot $candidate) => $candidate->start->equalTo($start));
-
-        if (! $slot instanceof Slot) {
-            return 'not_a_start';
-        }
-
-        return Occupancy::load($branch, $slot->start, $slot->readyBy, $exceptBookingId)->fits($slot->start, $slot->readyBy)
-            ? $slot
-            : 'full';
+        return (self::counts($branch, $date, $date, $exceptBookingId)[$date->toDateString()] ?? 0) >= $branch->dailyCap() ? 'full' : 'ok';
     }
 
     /**
-     * The team's check for a walk-in, a call or a move: any time the shop
-     * is open (no step, notice or booking window), as long as a bay is free
-     * until the job is ready.
+     * Units already dropping off on a date, for the queue's header.
      */
-    public static function checkForStaff(Branch $branch, Length $length, CarbonImmutable $start, ?int $exceptBookingId = null): Slot|string
+    public static function unitsOn(Branch $branch, CarbonImmutable $date): int
     {
-        if ($length->isEmpty()) {
-            return 'closed';
-        }
-
-        $calendar = OpenCalendar::for($branch, $start, $start);
-
-        if (! $calendar->isOpenAt($start)) {
-            return 'not_a_start';
-        }
-
-        $ready = $calendar->finish($start, $length);
-
-        if ($ready === null) {
-            return 'closed';
-        }
-
-        $slot = new Slot($start, $ready);
-
-        return (int) $branch->bays > 0 && Occupancy::load($branch, $start, $ready, $exceptBookingId)->fits($start, $ready) ? $slot : 'full';
+        return self::counts($branch, $date, $date)[$date->toDateString()] ?? 0;
     }
 
     /**
-     * @param  list<Slot>  $slots
+     * "Fully booked" blocks touching a range.
+     *
+     * @return Collection<int, BranchBlock>
      */
-    private static function anyFits(?Occupancy $occupancy, array $slots): bool
+    private static function fullBlocks(Branch $branch, CarbonImmutable $from, CarbonImmutable $to): Collection
     {
-        foreach ($slots as $slot) {
-            if ($occupancy === null || $occupancy->fits($slot->start, $slot->readyBy)) {
-                return true;
-            }
-        }
-
-        return false;
+        return BranchBlock::query()
+            ->fullDays()
+            ->forBranch($branch)
+            ->overlapping($from->startOfDay(), $to->startOfDay()->addDay())
+            ->get(['id', 'branch_id', 'kind', 'starts_at', 'ends_at']);
     }
 }

@@ -10,7 +10,7 @@ use App\Filament\Support\PanelDefaults;
 use App\Models\Booking;
 use App\Models\User;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,7 +32,7 @@ class PanelDefaultsTest extends TestCase
     {
         Livewire::test(CreateBooking::class)
             ->assertFormFieldExists('branch_id', fn (Select $field) => ! $field->isNative())
-            ->assertFormFieldExists('starts_at', fn (DateTimePicker $field) => ! $field->isNative());
+            ->assertFormFieldExists('drop_off_on', fn (DatePicker $field) => ! $field->isNative());
 
         $table = Livewire::test(ListBookings::class)->instance()->getTable();
 

@@ -14,7 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * POST /api/home-requests: a customer asks a branch to come to them. No
- * bay and no time yet: the branch calls to agree on one.
+ * date is held and no price is shown: the branch reviews the unit, then
+ * calls to agree on a day.
  */
 class HomeRequestController extends Controller
 {
@@ -46,7 +47,6 @@ class HomeRequestController extends Controller
 
         $details = $request->validate([
             'branch' => ['required', 'integer'],
-            'size' => ['required', 'integer'],
             'services' => ['required', 'array', 'min:1', 'max:12'],
             'services.*' => ['integer'],
             'preferred_date' => ['required', 'date_format:Y-m-d', "after_or_equal:{$first}", "before_or_equal:{$last}"],
@@ -58,6 +58,7 @@ class HomeRequestController extends Controller
             'has_water' => ['nullable', 'boolean'],
             'has_power' => ['nullable', 'boolean'],
             'has_shade' => ['nullable', 'boolean'],
+            ...$this->vehicleRules(),
             ...$this->contactRules(),
         ], [
             'services.required' => 'Pick at least one service.',
@@ -72,7 +73,7 @@ class HomeRequestController extends Controller
             ...$this->contactMessages(),
         ]);
 
-        $quote = Reservations::quote($branch, (int) $details['size'], $this->serviceIds($request), home: true);
+        $quote = Reservations::quote($branch, $this->serviceIds($request), home: true);
 
         if (($details['area'] ?? null) === self::OTHER_AREA) {
             $details['area'] = 'Other: '.trim((string) $details['area_other']);

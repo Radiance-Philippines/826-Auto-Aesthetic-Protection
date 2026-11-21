@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 class BranchFactory extends Factory
 {
     /**
-     * An open branch with 2 bays, open 8 AM – 6 PM Monday to Saturday.
+     * An open branch that takes 2 units a day, open 8 AM – 6 PM Monday to Saturday.
      *
      * @return array<string, mixed>
      */
@@ -27,10 +27,9 @@ class BranchFactory extends Factory
             'city' => $name,
             'address' => fake()->streetAddress(),
             'phone' => '0917'.fake()->numerify('#######'),
-            'bays' => 2,
             'weekly_hours' => self::hours(),
-            'step_minutes' => 60,
-            'lead_hours' => 2,
+            'daily_cap' => 2,
+            'lead_days' => 1,
             'months_ahead' => 3,
         ];
     }
@@ -38,22 +37,22 @@ class BranchFactory extends Factory
     /**
      * The same hours Monday to Saturday, closed on Sunday.
      *
-     * @return array<string, array{open: string, close: string, last_dropoff: string|null}|null>
+     * @return array<string, array{open: string, close: string}|null>
      */
-    public static function hours(string $open = '08:00', string $close = '18:00', ?string $lastDropoff = null): array
+    public static function hours(string $open = '08:00', string $close = '18:00'): array
     {
         $hours = [];
 
         foreach (range(1, 7) as $day) {
-            $hours[(string) $day] = $day === 7 ? null : ['open' => $open, 'close' => $close, 'last_dropoff' => $lastDropoff];
+            $hours[(string) $day] = $day === 7 ? null : ['open' => $open, 'close' => $close];
         }
 
         return $hours;
     }
 
-    public function bays(int $bays): static
+    public function cap(int $cap): static
     {
-        return $this->state(fn () => ['bays' => $bays]);
+        return $this->state(fn () => ['daily_cap' => $cap]);
     }
 
     public function draft(): static

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Pages\Timeline;
+use App\Filament\Pages\Queue;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use Filament\Support\Icons\Heroicon;
@@ -11,7 +11,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 /**
  * Today at the signed-in team member's branches: drop-offs, cars in the
- * shop, and what needs them (screenshots and home-service requests).
+ * shop, and what needs them (screenshots, home-service requests and units
+ * waiting for their size review).
  */
 class BookingStats extends StatsOverviewWidget
 {
@@ -30,28 +31,26 @@ class BookingStats extends StatsOverviewWidget
     protected function getStats(): array
     {
         $scoped = fn () => Booking::query()->visibleTo(auth()->user());
-        $today = today();
 
-        $dropOffs = $scoped()->where('kind', 'onsite')->whereIn('status', ['confirmed', 'payment_review', 'awaiting_payment'])
-            ->where(fn ($hold) => $hold->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now()))
-            ->whereBetween('starts_at', [$today, $today->copy()->endOfDay()])->count();
-        $inShop = $scoped()->whereIn('status', ['checked_in', 'ready'])->count();
+        $dropOffs = $scoped()->countingTowardCap()->where('drop_off_on', today()->toDateString())->count();
+        $inShop = $scoped()->whereIn('status', Booking::IN_SHOP)->count();
         $ready = $scoped()->where('status', 'ready')->count();
         $toDo = $scoped()->needsAction()->count();
+        $sizes = $scoped()->needsSizeReview()->count();
 
         return [
             Stat::make('Drop-offs today', $dropOffs)
-                ->description('Reserved for today')
+                ->description('Booked for today')
                 ->descriptionIcon(Heroicon::OutlinedCalendarDays)
                 ->color($dropOffs ? 'primary' : 'gray')
-                ->url(Timeline::getUrl()),
+                ->url(Queue::getUrl()),
             Stat::make('In the shop', $inShop)
-                ->description($ready ? "{$ready} ready for pickup" : 'Checked in')
+                ->description($ready ? "{$ready} ready" : 'Arrived or being worked on')
                 ->descriptionIcon(Heroicon::OutlinedWrenchScrewdriver)
                 ->color($inShop ? 'info' : 'gray')
                 ->url(BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
             Stat::make('Needs you', $toDo)
-                ->description($toDo ? 'Screenshots to check, home visits to schedule' : 'All caught up')
+                ->description($toDo ? ($sizes ? "{$sizes} to size, plus screenshots and home visits" : 'Screenshots to check, home visits to schedule') : 'All caught up')
                 ->descriptionIcon(Heroicon::OutlinedInboxArrowDown)
                 ->color($toDo ? 'warning' : 'gray')
                 ->url(BookingResource::getUrl('index', ['activeTab' => 'action'])),

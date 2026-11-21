@@ -94,7 +94,7 @@ class UserResource extends Resource
                     CheckboxList::make('branches')
                         ->label('Branches')
                         ->relationship('branches', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
-                        ->helperText('The bookings, timeline and closures they work with.')
+                        ->helperText('The bookings, queue and closures they work with.')
                         ->columns(2)
                         ->visible(fn (Get $get) => ! $get('is_owner'))
                         ->columnSpanFull(),

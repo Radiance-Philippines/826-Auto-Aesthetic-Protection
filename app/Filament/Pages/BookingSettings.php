@@ -91,7 +91,7 @@ class BookingSettings extends Page
                             ->visible(fn (Get $get) => (bool) $get('reschedule_enabled')),
                     ]),
                 Section::make('Per customer')
-                    ->description('Keeps one Google account from holding every bay. Set 0 for no limit.')
+                    ->description('Keeps one Google account from holding every day. Set 0 for no limit.')
                     ->columns(2)
                     ->components([
                         TextInput::make('max_unpaid_holds_per_guest')

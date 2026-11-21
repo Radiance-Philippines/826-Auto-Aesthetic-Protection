@@ -13,9 +13,9 @@ use Illuminate\Database\Seeder;
 /**
  * 826's starting content, only from what they publish themselves (their
  * Google Site and Facebook pages): the services and their descriptions,
- * the film brands, the main number and email, and the three branches
- * known so far, as drafts. Prices, durations, hours, bays and addresses
- * stay blank until the owner gives them. Only fills blanks, so re-seeding
+ * the film brands, the main number and email, the size classes, and the
+ * three branches known so far, as drafts. Prices, day estimates, hours,
+ * daily caps and addresses stay blank until the owner gives them. Only fills blanks, so re-seeding
  * never overwrites edits from the admin.
  */
 class DatabaseSeeder extends Seeder
@@ -57,9 +57,10 @@ class DatabaseSeeder extends Seeder
     ];
 
     /**
-     * A starting list for the price list; rename, add or hide sizes in the admin.
+     * The size classes the admin assigns to a unit after seeing it; rename
+     * or hide them in the admin. Only seeded on a fresh install.
      */
-    private const SIZES = ['Motorcycle', 'Small car / Hatchback', 'Sedan', 'SUV / Crossover', 'Pickup / Van'];
+    private const SIZES = ['Small', 'Medium', 'Large', 'XL'];
 
     /**
      * The branches 826 lists on Facebook, by city only; the rest comes from the owner.

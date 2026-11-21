@@ -18,7 +18,8 @@ use Filament\Tables\Table;
 use UnitEnum;
 
 /**
- * The sizes prices are split by (owners only). Customers pick one first.
+ * The size classes prices are split by (owners only). Customers never pick
+ * one: the team assigns it to each unit after seeing it.
  */
 class VehicleSizeResource extends Resource
 {
@@ -35,9 +36,9 @@ class VehicleSizeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            TextInput::make('name')->placeholder('Sedan')->required()->maxLength(60),
-            TextInput::make('examples')->placeholder('Vios, City, Civic')->maxLength(160)->helperText('Helps customers pick the right size.'),
-            Toggle::make('is_active')->label('Shown to customers')->default(true),
+            TextInput::make('name')->placeholder('Medium')->required()->maxLength(60),
+            TextInput::make('examples')->placeholder('Vios, City, Civic')->maxLength(160)->helperText('Helps the team pick the right class.'),
+            Toggle::make('is_active')->label('Offered when reviewing a unit')->default(true),
         ]);
     }
 
@@ -49,12 +50,12 @@ class VehicleSizeResource extends Resource
             ->columns([
                 TextColumn::make('name')->description(fn (VehicleSize $record) => $record->examples),
                 TextColumn::make('rates_count')->label('Prices set')->counts('rates')->alignCenter(),
-                IconColumn::make('is_active')->label('Shown')->boolean(),
+                IconColumn::make('is_active')->label('Offered')->boolean(),
             ])
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make()
-                    ->modalDescription('Its prices go too. Bookings already made keep the size’s name.'),
+                    ->modalDescription('Its prices go too. Bookings already made keep the class’s name.'),
             ]);
     }
 

@@ -33,14 +33,14 @@ Route::controller(GuestAuthController::class)->group(function () {
     Route::get('/auth/local', 'local')->name('auth.local');
 });
 
-// Open days and drop-off times for the picked services
-Route::prefix('api/availability')->controller(AvailabilityController::class)->middleware('throttle:availability')->group(function () {
-    Route::get('/', 'month')->name('availability.month');
-    Route::get('/day', 'day')->name('availability.day');
-});
+// Open days for the picked services
+Route::get('/api/availability', [AvailabilityController::class, 'month'])->middleware('throttle:availability')->name('availability.month');
 
 Route::post('/api/bookings', [ReservationController::class, 'store'])->middleware('throttle:bookings')->name('bookings.store');
 Route::post('/api/home-requests', [HomeRequestController::class, 'store'])->middleware('throttle:bookings')->name('home-requests.store');
+
+// The signed-in customer's saved units, for repeat bookings
+Route::get('/api/my-vehicles', [MyBookingsController::class, 'vehicles'])->middleware('throttle:my-bookings')->name('my-vehicles.index');
 
 // My bookings: paying the reservation fee, cancelling, moving
 Route::prefix('api/my-bookings')->controller(MyBookingsController::class)->group(function () {

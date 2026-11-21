@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { AvailabilityCalendar, TimeSlots } from '../components/Availability';
+import { AvailabilityCalendar } from '../components/Availability';
 import { HoldCountdown, StageTimeline } from '../components/BookingStatus';
 import { Mark } from '../components/Brand';
 import { ContactButtons } from '../components/BranchParts';
@@ -13,14 +13,15 @@ import PaymentPanel from '../components/PaymentPanel';
 import SignInBlock from '../components/SignInBlock';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { guest } from '../lib/auth';
-import { forget, type JobQuery } from '../lib/availability';
+import { forget, type JobQuery, readyOn } from '../lib/availability';
 import { cancelBooking, fetchBooking, LIVE_STAGES, rescheduleBooking } from '../lib/bookings';
 import { copy } from '../lib/copy';
-import { dayAndTime, longDate, stamp } from '../lib/dates';
+import { longDate, shortDate, stamp } from '../lib/dates';
 import { BOOK_DRAFT, emptyBookDraft, saveDraft } from '../lib/draft';
-import { branchById, peso, rateFor, serviceById, site } from '../lib/site';
+import { branchById, daysLabel, peso, services, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
-import type { CustomerBooking, TimeSlot } from '../types';
+import { unitName } from '../lib/vehicles';
+import type { CustomerBooking, MonthAvailability } from '../types';
 
 const text = copy.booking;
 
@@ -78,21 +79,22 @@ function CancelDialog({ booking, bookingKey, onClose, onDone }: { booking: Custo
 function MoveDialog({ booking, bookingKey, onClose, onDone }: { booking: CustomerBooking; bookingKey: string | null; onClose: () => void; onDone: (booking: CustomerBooking, demo: boolean) => void }) {
     const job: JobQuery = { kind: 'move', booking: booking.id, key: bookingKey };
     const [date, setDate] = useState<string | null>(null);
-    const [slot, setSlot] = useState<TimeSlot | null>(null);
+    const [months, setMonths] = useState<Record<string, MonthAvailability>>({});
     const [working, setWorking] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [refresh, setRefresh] = useState(0);
     const { rescheduleCutoffHours, maxReschedules } = site.booking;
+    const branch = booking.branch ? branchById(booking.branch.id) : undefined;
+    const ready = date && booking.estimate ? readyOn(date, booking.estimate.days, months, branch?.hours) : null;
 
     const confirm = async () => {
-        if (!date || !slot) {
-            setError(date ? copy.book.errors.time : text.move.pickDay);
+        if (!date) {
+            setError(text.move.pickDay);
             return;
         }
 
         setWorking(true);
         setError(null);
-        const result = await rescheduleBooking(booking.id, bookingKey, date, slot.time);
+        const result = await rescheduleBooking(booking.id, bookingKey, date);
         setWorking(false);
 
         if (result.kind === 'ok') {
@@ -102,9 +104,9 @@ function MoveDialog({ booking, bookingKey, onClose, onDone }: { booking: Custome
         }
 
         if (result.kind === 'invalid') {
+            // That day filled up (or isn't open anymore): fresh days next time
             forget(job);
-            setSlot(null);
-            setRefresh((count) => count + 1);
+            setDate(null);
             setError(Object.values(result.errors)[0]?.[0] ?? copy.book.errors.failed);
             return;
         }
@@ -113,28 +115,26 @@ function MoveDialog({ booking, bookingKey, onClose, onDone }: { booking: Custome
     };
 
     return (
-        <Modal title={text.move.title} description={text.move.body(booking.length.label)} onClose={onClose} className="sm:max-w-3xl">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-                <AvailabilityCalendar
-                    job={job}
-                    selected={date}
-                    onPick={(picked) => {
-                        setDate(picked);
-                        setSlot(null);
-                        setError(null);
-                    }}
-                />
-                <div>
-                    {date ? (
-                        <>
-                            <p className="mb-3 font-semibold">{longDate(date)}</p>
-                            <TimeSlots job={job} date={date} selected={slot?.time ?? null} onPick={setSlot} refresh={refresh} />
-                        </>
-                    ) : (
-                        <p className="text-muted">{text.move.pickDay}</p>
-                    )}
-                </div>
-            </div>
+        <Modal title={text.move.title} description={text.move.body(booking.estimate?.label ?? null)} onClose={onClose} className="sm:max-w-xl">
+            <AvailabilityCalendar
+                job={job}
+                selected={date}
+                onPick={(picked) => {
+                    setDate(picked);
+                    setError(null);
+                }}
+                onMonth={(month) => setMonths((current) => ({ ...current, [month.month]: month }))}
+            />
+            <p className="mt-5 font-medium" aria-live="polite">
+                {date ? (
+                    <>
+                        {longDate(date)}
+                        <span className="block font-normal text-muted">{ready ? copy.book.date.ready(longDate(ready)) : (booking.estimate?.label ?? '')}</span>
+                    </>
+                ) : (
+                    <span className="text-muted">{text.move.pickDay}</span>
+                )}
+            </p>
             <p className="mt-6 text-sm text-muted">{text.move.rule(rescheduleCutoffHours, maxReschedules)}</p>
             {error && (
                 <p role="alert" className="mt-4 flex items-start gap-2 font-medium text-danger">
@@ -145,7 +145,7 @@ function MoveDialog({ booking, bookingKey, onClose, onDone }: { booking: Custome
                 <button type="button" onClick={onClose} className={buttonClass('outline')}>
                     {text.move.keep}
                 </button>
-                <button type="button" onClick={confirm} disabled={working || !slot} className={buttonClass('accent')}>
+                <button type="button" onClick={confirm} disabled={working || !date} className={buttonClass('accent')}>
                     {working ? text.move.working : text.move.confirm}
                 </button>
             </div>
@@ -153,11 +153,15 @@ function MoveDialog({ booking, bookingKey, onClose, onDone }: { booking: Custome
     );
 }
 
-/** The booking's facts as a service ticket: when, where, the car, the work and the price */
+/** The booking's facts as a service ticket: when, where, the unit, the work and the price */
 function Details({ booking }: { booking: CustomerBooking }) {
-    const start = dayAndTime(booking.startsAt);
-    const ready = dayAndTime(booking.readyBy);
     const home = booking.kind === 'home';
+    const unit = unitName(booking.vehicle.year, booking.vehicle.model) || booking.vehicle.model;
+    const typeLabel = booking.vehicle.typeLabel ?? vehicleTypeLabel(booking.vehicle.type);
+    const arrived = stamp(booking.arrivedAt);
+    const exited = stamp(booking.exitedAt);
+    const priced = booking.price.status === 'set' && booking.price.total !== null;
+    const priceOf = (name: string, index: number) => booking.price.items[index]?.name === name ? booking.price.items[index].price : (booking.price.items.find((item) => item.name === name)?.price ?? null);
 
     return (
         <section aria-labelledby="details-title" className="ticket">
@@ -170,15 +174,15 @@ function Details({ booking }: { booking: CustomerBooking }) {
             </div>
             <span aria-hidden="true" className="gold-rule mx-5 mt-4 block sm:mx-6" />
 
-            {/* The car: its size drawn, the model and the plate */}
+            {/* The unit: its type drawn, the year and model, the type and the plate */}
             <div className="flex items-center gap-5 px-5 pt-5 sm:px-6">
                 <span className="block w-28 shrink-0 text-text/75 sm:w-40">
-                    <VehicleSilhouette name={booking.vehicle.size} className="w-full" />
+                    <VehicleSilhouette type={booking.vehicle.type} className="w-full" />
                 </span>
                 <div className="min-w-0 flex-1">
                     <p className="eyebrow text-[0.68rem] text-muted">{text.vehicle}</p>
-                    <p className="mt-1.5 font-semibold">{booking.vehicle.model ?? booking.vehicle.size}</p>
-                    {booking.vehicle.model && <p className="text-sm text-muted">{booking.vehicle.size}</p>}
+                    <p className="mt-1.5 font-semibold">{unit || typeLabel}</p>
+                    {unit && typeLabel && <p className="text-sm text-muted">{typeLabel}</p>}
                 </div>
                 {booking.vehicle.plate && <span className="plate shrink-0 max-sm:hidden">{booking.vehicle.plate}</span>}
             </div>
@@ -191,23 +195,22 @@ function Details({ booking }: { booking: CustomerBooking }) {
             <div aria-hidden="true" className="ticket-tear" />
             <div className="px-5 sm:px-6">
                 <dl className="grid content-start gap-5 sm:grid-cols-2">
-                    {start ? (
+                    {booking.dropOffOn ? (
                         <>
                             <div>
                                 <dt className="eyebrow flex items-center gap-1.5 text-[0.68rem] text-muted">
                                     <Calendar className="size-3.5" /> {text.when}
                                 </dt>
-                                <dd className="mt-1.5 font-semibold">
-                                    {start.day}, {start.time}
-                                </dd>
+                                <dd className="mt-1.5 font-semibold">{longDate(booking.dropOffOn)}</dd>
                             </div>
-                            {ready && (
+                            {(booking.readyOn || booking.estimate) && (
                                 <div>
                                     <dt className="eyebrow flex items-center gap-1.5 text-[0.68rem] text-muted">
-                                        <Clock className="size-3.5" /> {text.ready}
+                                        <Clock className="size-3.5" /> {booking.readyOn ? text.ready : text.estimate}
                                     </dt>
                                     <dd className="mt-1.5 font-semibold">
-                                        {ready.day === start.day ? ready.time : `${ready.day}, ${ready.time}`}
+                                        {booking.readyOn ? longDate(booking.readyOn) : booking.estimate?.label}
+                                        {booking.readyOn && booking.estimate && <span className="block text-sm font-normal text-muted">{booking.estimate.label}</span>}
                                     </dd>
                                 </div>
                             )}
@@ -227,6 +230,18 @@ function Details({ booking }: { booking: CustomerBooking }) {
                                     booking.when
                                 )}
                             </dd>
+                        </div>
+                    )}
+                    {arrived && (
+                        <div>
+                            <dt className="eyebrow text-[0.68rem] text-muted">{text.arrived}</dt>
+                            <dd className="mt-1.5 font-semibold">{arrived}</dd>
+                        </div>
+                    )}
+                    {exited && (
+                        <div>
+                            <dt className="eyebrow text-[0.68rem] text-muted">{text.exited}</dt>
+                            <dd className="mt-1.5 font-semibold">{exited}</dd>
                         </div>
                     )}
                     {booking.branch && (
@@ -258,33 +273,44 @@ function Details({ booking }: { booking: CustomerBooking }) {
             <div className="px-5 sm:px-6">
                 <p className="eyebrow text-[0.68rem] text-muted">{text.services}</p>
                 <ul className="mt-3 space-y-2.5">
-                    {booking.items.map((item, index) => (
-                        <li key={`${item.name}-${index}`} className="flex justify-between gap-4">
-                            <span>
-                                {item.name}
-                                {item.duration && <span className="block text-sm text-muted">{item.duration}</span>}
-                            </span>
-                            {item.price !== null && <span className="price shrink-0">{peso(item.price)}</span>}
-                        </li>
-                    ))}
+                    {booking.items.map((item, index) => {
+                        const price = priced ? priceOf(item.name, index) : null;
+
+                        return (
+                            <li key={`${item.name}-${index}`} className="flex justify-between gap-4">
+                                <span>
+                                    {item.name}
+                                    {item.estimateDays ? <span className="block text-sm text-muted">{daysLabel(item.estimateDays)}</span> : null}
+                                </span>
+                                {price !== null && <span className="price shrink-0">{peso(price)}</span>}
+                            </li>
+                        );
+                    })}
                 </ul>
             </div>
-            {booking.totalPrice !== null && (
-                <>
-                    <div aria-hidden="true" className="ticket-tear" />
-                    <div className="flex items-end justify-between gap-4 px-5 sm:px-6">
+
+            <div aria-hidden="true" className="ticket-tear" />
+            <div className="px-5 sm:px-6">
+                <p className="eyebrow text-[0.68rem] text-muted">{text.price}</p>
+                {priced ? (
+                    <div className="mt-2 flex items-end justify-between gap-4">
                         <p>
-                            <span className="eyebrow block text-[0.68rem] text-muted">{text.total}</span>
-                            {booking.length.label && (
-                                <span className="mt-1.5 block text-sm text-muted">
-                                    {home ? text.work : text.takes}: {booking.length.label}
+                            <span className="block font-semibold">{text.priceTotal}</span>
+                            {booking.estimate?.label && (
+                                <span className="mt-1 block text-sm text-muted">
+                                    {home ? text.work : text.takes}: {booking.estimate.label}
                                 </span>
                             )}
                         </p>
-                        <p className="price text-[1.75rem] leading-none">{peso(booking.totalPrice)}</p>
+                        <p className="price text-[1.75rem] leading-none">{peso(booking.price.total!)}</p>
                     </div>
-                </>
-            )}
+                ) : (
+                    <div className="mt-2">
+                        <p className="font-semibold">{text.priceReviewing}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted">{text.priceReviewingBody}</p>
+                    </div>
+                )}
+            </div>
             {booking.amountDue !== null && booking.payment.paidAt && (
                 <dl className="mx-5 mt-5 space-y-1.5 border-t border-line pt-4 text-[0.95rem] sm:mx-6">
                     <div className="flex justify-between gap-4">
@@ -391,19 +417,19 @@ export default function BookingDetail() {
     const contact = booking.branch ? { ...booking.branch, facebook: branch?.facebook ?? null } : null;
 
     const bookAgain = () => {
-        const fits = (serviceId: number) => {
-            const service = serviceById(serviceId);
-
-            return Boolean(service && branch?.serviceIds.includes(serviceId) && rateFor(service, booking.vehicle.sizeId));
-        };
+        const wanted = booking.serviceIds ?? services.filter((service) => booking.items.some((item) => item.name === service.name)).map((service) => service.id);
+        const fits = (serviceId: number) => Boolean(branch?.serviceIds.includes(serviceId));
 
         saveDraft(BOOK_DRAFT, {
             ...emptyBookDraft(),
             branchId: branch?.bookable ? branch.id : null,
-            sizeId: booking.vehicle.sizeId,
+            // A saved unit only exists for a signed-in customer; the link's visitor types it in
+            vehicleId: guest ? booking.vehicle.id : null,
+            year: booking.vehicle.year ? String(booking.vehicle.year) : '',
             model: booking.vehicle.model ?? '',
+            type: booking.vehicle.type ?? '',
             plate: booking.vehicle.plate ?? '',
-            serviceIds: booking.serviceIds.filter(fits),
+            serviceIds: wanted.filter(fits),
             name: guest?.name ?? '',
             email: guest?.email ?? '',
         });
@@ -502,7 +528,7 @@ export default function BookingDetail() {
                             )}
                         </div>
                     )}
-                    {booking.canCancel && booking.startsAt && <p className="-mt-2 text-sm text-muted">{text.cancel.rule(site.booking.cancelCutoffHours)}</p>}
+                    {booking.canCancel && booking.dropOffOn && <p className="-mt-2 text-sm text-muted">{text.cancel.rule(site.booking.cancelCutoffHours)}</p>}
                 </div>
 
                 <aside className="space-y-6">
