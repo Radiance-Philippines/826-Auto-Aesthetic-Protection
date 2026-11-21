@@ -123,7 +123,7 @@ class CustomerTest extends TestCase
         $booking = Booking::factory()->create(['guest_id' => $walkIn->id, 'branch_id' => $this->branch->id]);
 
         $provider = Mockery::mock();
-        $provider->shouldReceive('user')->andReturn((new GoogleUser)->map(['id' => '1234567890', 'name' => 'Maria Santos', 'email' => 'maria@example.com', 'avatar' => null]));
+        $provider->shouldReceive('user')->andReturn((new GoogleUser)->map(['id' => '1234567890', 'name' => 'Maria Santos', 'email' => 'Maria@Example.com', 'avatar' => null])->setRaw(['email_verified' => true]));
         Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
 
         $this->get('/auth/google/callback')->assertRedirect();
@@ -132,6 +132,21 @@ class CustomerTest extends TestCase
         $this->assertAuthenticatedAs($walkIn, 'guest');
         $this->assertSame('1234567890', $walkIn->fresh()->google_id);
         $this->assertSame($walkIn->id, $booking->fresh()->guest_id);
+    }
+
+    public function test_an_unverified_google_email_does_not_adopt_the_walk_in_customer(): void
+    {
+        SiteSetting::instance()->update(['google_client_id' => 'client.apps.googleusercontent.com', 'google_client_secret' => 'secret']);
+        $walkIn = Guest::factory()->walkIn()->create(['email' => 'maria@example.com']);
+
+        $provider = Mockery::mock();
+        $provider->shouldReceive('user')->andReturn((new GoogleUser)->map(['id' => '999', 'name' => 'Someone Else', 'email' => 'maria@example.com', 'avatar' => null])->setRaw(['email_verified' => false]));
+        Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
+
+        $this->get('/auth/google/callback')->assertRedirect();
+
+        $this->assertNull($walkIn->fresh()->google_id);
+        $this->assertSame(2, Guest::count());
     }
 
     public function test_staff_see_only_customers_of_their_branches(): void

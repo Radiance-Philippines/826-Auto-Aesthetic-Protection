@@ -62,9 +62,13 @@ class GuestAuthController extends Controller
             return redirect(url($return).(str_contains($return, '?') ? '&' : '?').'signin=failed');
         }
 
-        // A customer the team added earlier (same email, no Google account yet) keeps their history
-        if (! Guest::query()->where('google_id', (string) $profile->getId())->exists()) {
-            Guest::query()->whereNull('google_id')->where('email', $profile->getEmail())->oldest('id')->first()
+        // A customer the team added earlier (same email, no Google account yet) keeps their history,
+        // but only when Google says the email is verified: the team typed that email in, so it
+        // proves nothing by itself.
+        $verified = filter_var(data_get($profile->getRaw(), 'email_verified', false), FILTER_VALIDATE_BOOL);
+
+        if ($verified && ! Guest::query()->where('google_id', (string) $profile->getId())->exists()) {
+            Guest::query()->whereNull('google_id')->whereRaw('lower(email) = ?', [mb_strtolower($profile->getEmail())])->oldest('id')->first()
                 ?->update(['google_id' => (string) $profile->getId()]);
         }
 
