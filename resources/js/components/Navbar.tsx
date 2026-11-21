@@ -15,7 +15,7 @@ export const navLinks = [
     { to: '/services', label: copy.nav.services },
     { to: '/branches', label: copy.nav.branches },
     ...(homeBranches.length ? [{ to: '/home-service', label: copy.nav.homeService }] : []),
-    ...(site.photos.length ? [{ to: '/gallery', label: copy.nav.gallery }] : []),
+    ...(site.photos.length || site.videos.length ? [{ to: '/gallery', label: copy.nav.gallery }] : []),
 ];
 
 /**

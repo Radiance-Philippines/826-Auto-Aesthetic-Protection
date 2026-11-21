@@ -5,6 +5,7 @@ import { PageHeader } from '../components/Heading';
 import { Facebook } from '../components/Icons';
 import Lightbox from '../components/Lightbox';
 import Picture from '../components/Picture';
+import VideoCard from '../components/VideoCard';
 import { copy } from '../lib/copy';
 import { photoAlt, photoCategories, site } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
@@ -23,7 +24,7 @@ export default function Gallery() {
                 <p>{text.intro}</p>
             </PageHeader>
             <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14 xl:px-12">
-                {site.photos.length === 0 ? (
+                {site.photos.length === 0 && site.videos.length === 0 ? (
                     <div className="max-w-xl panel p-6">
                         <p className="leading-relaxed">{text.empty}</p>
                         {site.settings.facebook && (
@@ -34,6 +35,20 @@ export default function Gallery() {
                     </div>
                 ) : (
                     <>
+                        {site.videos.length > 0 && (
+                            <section aria-labelledby="videos-title" className="mb-12">
+                                <h2 id="videos-title" className="font-display mb-5 text-2xl">
+                                    {text.videos}
+                                </h2>
+                                <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    {site.videos.map((video) => (
+                                        <li key={video.id}>
+                                            <VideoCard video={video} />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        )}
                         {photoCategories.length > 1 && (
                             <div role="group" aria-label={text.title} className="mb-8 flex flex-wrap gap-2">
                                 {[null, ...photoCategories].map((key) => (

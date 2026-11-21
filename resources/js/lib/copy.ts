@@ -177,8 +177,12 @@ export const copy = {
         title: 'Our work',
         intro: 'Cars coated, wrapped, tinted and detailed at 826.',
         all: 'All',
-        empty: 'Photos are on the way. In the meantime, see the latest work on our Facebook page.',
+        empty: 'Photos and videos are on the way. In the meantime, see the latest work on our Facebook page.',
         open: (alt: string) => `Open photo: ${alt}`,
+        videos: 'Videos',
+        play: (title: string) => `Play video: ${title}`,
+        playing: (title: string) => `Video: ${title}`,
+        onYouTube: 'Watch on YouTube',
     },
     calendar: {
         previous: 'Previous month',

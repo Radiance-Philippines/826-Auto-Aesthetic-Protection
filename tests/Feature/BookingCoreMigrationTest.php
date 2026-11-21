@@ -22,7 +22,7 @@ class BookingCoreMigrationTest extends TestCase
 
     public function test_old_rows_keep_their_dates_statuses_and_settings(): void
     {
-        $this->artisan('migrate:rollback', ['--step' => 1])->assertSuccessful();
+        $this->artisan('migrate:rollback', ['--path' => 'database/migrations/2026_11_21_154222_create_vehicles_and_date_only_booking.php'])->assertSuccessful();
         $this->assertTrue(Schema::hasColumn('bookings', 'starts_at'));
         $this->assertFalse(Schema::hasColumn('bookings', 'drop_off_on'));
 

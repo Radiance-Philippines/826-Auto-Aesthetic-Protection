@@ -118,6 +118,9 @@ export type BookingSettings = {
     windows: Record<HomeWindow, string>;
 };
 
+/** A YouTube video (a link, nothing uploaded) */
+export type VideoItem = { id: number; title: string; caption: string | null; youtubeId: string; thumbnail: string; url: string };
+
 export type PhotoCategory = string;
 
 export type Photo = Image & {
@@ -148,6 +151,7 @@ export type SiteData = {
     branches: Branch[];
     booking: BookingSettings;
     photos: Photo[];
+    videos: VideoItem[];
     photoCategories: Record<string, string>;
 };
 

@@ -11,6 +11,7 @@ use App\Models\Photo;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\SiteSetting;
+use App\Models\Video;
 use App\Support\GoogleSignIn;
 use App\Support\StructuredData;
 use Illuminate\Http\Request;
@@ -235,6 +236,7 @@ class SiteController extends Controller
                     'windows' => Booking::WINDOWS,
                 ],
                 'photos' => Photo::ordered()->get()->map->toSite()->values(),
+                'videos' => Video::published()->ordered()->get()->map->toSite()->values(),
                 'photoCategories' => Photo::CATEGORIES,
             ],
         ], $status);
