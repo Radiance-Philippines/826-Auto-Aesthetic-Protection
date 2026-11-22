@@ -9,11 +9,6 @@ import { KEY_PAGES, open } from './support';
  * that tracks it, so it is visible and the rest still guards the page.
  */
 const KNOWN: Record<string, string> = {
-    // Home: the big step numbers ("01", "02"...) are text-text/30, below 4.5:1
-    'home:color-contrast': 'step numbers on the home page use text-text/30',
-    // Book: the ticket Summary puts <dt>/<dd> inside nested <div>s that sit in a <div> inside <dl>? see Summary() in Book.tsx
-    'book:definition-list': 'Summary() <dl> contains a non-group child',
-    'book:dlitem': 'Summary() <dt>/<dd> are wrapped so they are not direct dl children',
 };
 
 for (const { name, path } of KEY_PAGES.filter((page) => page.status === 200)) {

@@ -152,7 +152,7 @@ function StepsSection() {
                     {steps.map((step, index) => (
                         <li key={step.title} className="relative border-t border-line pt-6">
                             <span aria-hidden="true" className={`absolute -top-px left-0 h-0.5 w-10 ${index === 0 ? 'bg-accent' : 'bg-text/35'}`} />
-                            <span className="font-display text-[1.6rem] text-text/30 tabular" aria-hidden="true">
+                            <span className="font-display text-[1.6rem] text-muted tabular" aria-hidden="true">
                                 {String(index + 1).padStart(2, '0')}
                             </span>
                             <h3 className="mt-3 text-lg leading-snug font-bold">{step.title}</h3>
