@@ -9,6 +9,7 @@ use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\Resources\Customers\RelationManagers\BookingsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\PointsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\ReferralRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\UnitsRelationManager;
 use App\Models\Booking;
@@ -124,9 +125,11 @@ class CustomerResource extends Resource
                         ->label('Times used')
                         ->state(fn (Guest $record) => $record->referralRedemptions()->whereNull('voided_at')->count()),
                     TextEntry::make('points')
-                        ->label('Points earned')
-                        ->state(fn (Guest $record) => (int) $record->referralRedemptions()->sum('points_awarded'))
-                        ->helperText(fn () => ReferralSetting::current()->owner_points === null ? 'No points set in Settings → Referral.' : null),
+                        ->label('Points balance')
+                        ->state(fn (Guest $record) => $record->pointsBalance())
+                        ->helperText(fn (Guest $record) => ReferralSetting::current()->owner_points === null
+                            ? 'No points set in Settings → Referral.'
+                            : (int) $record->referralRedemptions()->sum('points_awarded').' earned, '.(int) $record->rewardRedemptions()->sum('points').' spent'),
                 ]),
             Section::make('Warranty')
                 ->columnSpanFull()
@@ -140,7 +143,7 @@ class CustomerResource extends Resource
                             return $active === 1 ? '1 service is covered now' : "{$active} services are covered now";
                         })
                         ->helperText('Open the warranty checker for the dates and to log a backjob.')
-                        ->url(fn (Guest $record) => Warranty::getUrl(['customer' => $record->id])),
+                        ->url(fn (Guest $record) => Warranty::canAccess() ? Warranty::getUrl(['customer' => $record->id]) : null),
                 ]),
         ]);
     }
@@ -191,6 +194,7 @@ class CustomerResource extends Resource
             UnitsRelationManager::class,
             BookingsRelationManager::class,
             ReferralRelationManager::class,
+            PointsRelationManager::class,
         ];
     }
 

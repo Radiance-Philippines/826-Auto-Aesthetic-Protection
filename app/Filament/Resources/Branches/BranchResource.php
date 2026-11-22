@@ -8,7 +8,10 @@ use App\Filament\Resources\Branches\Pages\ListBranches;
 use App\Models\Branch;
 use App\Models\PaymentSetting;
 use App\Models\User;
+use App\Support\Inbox\InboxException;
+use App\Support\Meta\PageConnection;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
@@ -18,7 +21,10 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Fieldset;
@@ -192,18 +198,87 @@ class BranchResource extends Resource
                             ...self::paymentFields('gcash', 'GCash'),
                             ...self::paymentFields('maya', 'Maya'),
                         ]),
+                    Tab::make('Facebook page')
+                        ->icon(Heroicon::OutlinedChatBubbleLeftRight)
+                        ->columns(2)
+                        ->schema(self::facebookFields()),
                     Tab::make('Staff')
                         ->icon(Heroicon::OutlinedUsers)
                         ->schema([
                             CheckboxList::make('staff')
                                 ->label('Team members at this branch')
-                                ->relationship('staff', 'name', fn ($query) => $query->where('is_owner', false)->orderBy('name'))
+                                ->relationship('staff', 'name', fn ($query) => $query->where('role', '!=', 'super_admin')->orderBy('name'))
                                 ->getOptionLabelFromRecordUsing(fn (User $record) => "{$record->name} ({$record->email})")
                                 ->columns(['md' => 2])
-                                ->helperText('They see this branch’s bookings, queue and closures. Owners see every branch. Invite people in Settings → Users.'),
+                                ->helperText('They see this branch’s bookings, queue and closures. Super admins see every branch. Invite people in Settings → Users.'),
                         ]),
                 ]),
         ]);
+    }
+
+    /**
+     * This branch's Facebook Page, for its Messenger chats in the Inbox. The
+     * token is write-only: it is never put in the form or shown again.
+     *
+     * @return list<Component>
+     */
+    private static function facebookFields(): array
+    {
+        return [
+            Callout::make('Messenger chats for this branch')
+                ->info()
+                ->description('Customers who message this Page show up in Inbox under this branch. The owner sets up the Meta app first (Settings → Meta). Paste the Page ID and a Page access token, save, then press Connect check.')
+                ->columnSpanFull(),
+            TextInput::make('facebook_page_id')
+                ->label('Facebook Page ID')
+                ->helperText('Page → About → Page transparency.')
+                ->regex('/^[0-9]+$/')
+                ->maxLength(50)
+                ->unique(ignoreRecord: true)
+                ->autocomplete('off')
+                ->live(onBlur: true),
+            TextInput::make('facebook_page_name')
+                ->label('Page name')
+                ->helperText('Filled in by Connect check.')
+                ->maxLength(190)
+                ->disabled()
+                ->dehydrated(false),
+            TextInput::make('facebook_page_token')
+                ->label(fn (?Branch $record): string => filled($record?->facebook_page_token) ? 'New Page access token' : 'Page access token')
+                ->helperText(fn (?Branch $record): string => filled($record?->facebook_page_token) ? 'A token is saved (hidden). Leave blank to keep it, or paste a new one to replace it.' : 'Generated for this Page in your Meta app (Messenger → Generate token). Stored encrypted.')
+                ->password()
+                ->revealable(false)
+                ->autocomplete('new-password')
+                ->maxLength(1000)
+                ->dehydrated(fn (?string $state): bool => filled($state))
+                ->columnSpanFull(),
+            Actions::make([
+                Action::make('connectCheck')
+                    ->label('Connect check')
+                    ->icon(Heroicon::OutlinedSignal)
+                    ->color('gray')
+                    ->visible(fn (?Branch $record, string $operation): bool => $operation === 'edit' && $record !== null)
+                    ->action(function (Get $get, ?Branch $record): void {
+                        try {
+                            $warning = PageConnection::check($record, (string) $get('facebook_page_id'), $get('facebook_page_token'));
+                        } catch (InboxException $exception) {
+                            Notification::make()->danger()->persistent()->title('Not connected')->body($exception->getMessage())->send();
+
+                            return;
+                        }
+
+                        $notification = Notification::make()
+                            ->title('Connected to '.$record->facebook_page_name)
+                            ->body($warning ?? 'The token and the Page ID match. New messages arrive in the Inbox.');
+
+                        ($warning === null ? $notification->success() : $notification->warning()->persistent())->send();
+                    }),
+            ])->columnSpanFull(),
+            TextEntry::make('facebook_status')
+                ->label('Status')
+                ->state(fn (?Branch $record): string => $record?->hasFacebookPage() ? 'Connected '.$record->facebook_connected_at->diffForHumans() : 'Not connected')
+                ->columnSpanFull(),
+        ];
     }
 
     /**

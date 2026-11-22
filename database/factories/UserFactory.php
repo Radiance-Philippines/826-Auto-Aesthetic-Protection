@@ -44,10 +44,25 @@ class UserFactory extends Factory
     }
 
     /**
-     * Can also manage users and the email settings.
+     * A super admin: every area, every branch.
      */
     public function owner(): static
     {
-        return $this->state(fn (array $attributes) => ['is_owner' => true]);
+        return $this->state(fn (array $attributes) => ['role' => 'super_admin']);
+    }
+
+    public function operations(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => 'operations']);
+    }
+
+    public function salesAdmin(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => 'sales_admin']);
+    }
+
+    public function branchManager(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => 'branch_manager']);
     }
 }

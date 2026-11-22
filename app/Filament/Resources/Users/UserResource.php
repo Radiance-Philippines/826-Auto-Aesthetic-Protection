@@ -6,30 +6,34 @@ use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Branch;
 use App\Models\User;
+use App\Support\Access;
 use App\Support\Invitations;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Throwable;
 use UnitEnum;
 
 /**
- * Who can sign in to the admin (owners only). Team members are invited by
- * email, choose their own password, and see only the branches they're
- * assigned to; owners see every branch.
+ * Who can sign in to the admin (super admins only). Team members are
+ * invited by email with a role, choose their own password, and see only the
+ * branches they're assigned to; super admins see every branch. A role has
+ * default areas of work; an account can be given its own list instead.
  */
 class UserResource extends Resource
 {
@@ -45,6 +49,9 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /**
+     * Super admins only: handing out roles is how someone becomes one.
+     */
     public static function canViewAny(): bool
     {
         return (bool) auth()->user()?->isOwner();
@@ -61,13 +68,24 @@ class UserResource extends Resource
     }
 
     /**
-     * Not yourself, and never the last owner.
+     * Not yourself, and never the last super admin.
      */
     public static function canDelete(Model $record): bool
     {
         return self::canViewAny()
             && ! $record->is(auth()->user())
-            && ! ($record->isOwner() && User::where('is_owner', true)->count() <= 1);
+            && ! ($record->isOwner() && User::where('role', Access::SUPER_ADMIN)->count() <= 1);
+    }
+
+    /**
+     * The areas that can be ticked for one account: all but Users, which
+     * stays with super admins.
+     *
+     * @return array<string, string>
+     */
+    public static function areaOptions(): array
+    {
+        return Arr::except(Access::AREAS, ['users']);
     }
 
     public static function form(Schema $schema): Schema
@@ -84,19 +102,28 @@ class UserResource extends Resource
                         ->required()
                         ->maxLength(190)
                         ->unique(ignoreRecord: true),
-                    Toggle::make('is_owner')
-                        ->label('Owner')
-                        ->helperText('Owners see every branch and manage branches, services, prices, settings and users.')
-                        // You can't demote yourself (and lock everyone out of this page)
-                        ->disabled(fn (?User $record) => $record?->is(auth()->user()))
+                    Select::make('role')
+                        ->options(Access::ROLES)
+                        ->required()
+                        ->selectablePlaceholder(false)
                         ->live()
+                        ->afterStateUpdated(fn (Set $set, ?string $state) => $set('access', Access::defaults($state)))
+                        ->helperText('A super admin sees every branch and everything. The others work with their own branches only.')
+                        // You can't demote yourself (and lock everyone out of this page)
+                        ->disabled(fn (?User $record) => $record?->is(auth()->user())),
+                    CheckboxList::make('access')
+                        ->label('Extra access')
+                        ->options(self::areaOptions())
+                        ->helperText('Ticked is what this role does by default. Tick or untick to give this account its own list; change the role to start over.')
+                        ->columns(2)
+                        ->visible(fn (Get $get) => $get('role') !== Access::SUPER_ADMIN)
                         ->columnSpanFull(),
                     CheckboxList::make('branches')
                         ->label('Branches')
                         ->relationship('branches', 'name', fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
                         ->helperText('The bookings, queue and closures they work with.')
                         ->columns(2)
-                        ->visible(fn (Get $get) => ! $get('is_owner'))
+                        ->visible(fn (Get $get) => $get('role') !== Access::SUPER_ADMIN)
                         ->columnSpanFull(),
                 ]),
         ]);
@@ -111,12 +138,16 @@ class UserResource extends Resource
                 TextColumn::make('name')
                     ->searchable()
                     ->description(fn (User $record) => $record->email),
-                TextColumn::make('is_owner')
-                    ->label('Role')
+                TextColumn::make('role')
                     ->badge()
-                    ->formatStateUsing(fn (bool $state) => $state ? 'Owner' : 'Branch staff')
-                    ->color(fn (bool $state) => $state ? 'primary' : 'gray')
-                    ->description(fn (User $record) => $record->isOwner() ? 'Every branch' : ($record->branches->pluck('name')->implode(', ') ?: 'No branch yet')),
+                    ->formatStateUsing(fn (string $state) => Access::ROLES[$state] ?? $state)
+                    ->color(fn (string $state) => $state === Access::SUPER_ADMIN ? 'primary' : 'gray')
+                    ->description(fn (User $record) => ($record->isOwner() ? 'Every branch' : ($record->branches->pluck('name')->implode(', ') ?: 'No branch yet')).(is_array($record->permissions) ? ' · own access list' : '')),
+                TextColumn::make('two_factor')
+                    ->label('2FA')
+                    ->state(fn (User $record) => $record->hasTwoFactor() ? 'On' : 'Off')
+                    ->badge()
+                    ->color(fn (string $state) => $state === 'On' ? 'success' : 'gray'),
                 TextColumn::make('status')
                     ->state(fn (User $record) => $record->isPendingInvite() ? 'Invite sent' : 'Active')
                     ->badge()
@@ -125,6 +156,7 @@ class UserResource extends Resource
             ])
             ->recordActions([
                 self::resendInviteAction(),
+                self::resetTwoFactorAction(),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
@@ -135,7 +167,7 @@ class UserResource extends Resource
         return Action::make('invite')
             ->label('Invite team member')
             ->icon(Heroicon::OutlinedUserPlus)
-            ->modalDescription('They get an email with a link to choose their password. Branch staff see only the branches you pick.')
+            ->modalDescription('They get an email with a link to choose their password. Everyone but a super admin sees only the branches you pick.')
             ->modalSubmitActionLabel('Send invite')
             ->schema([
                 TextInput::make('name')
@@ -146,15 +178,22 @@ class UserResource extends Resource
                     ->required()
                     ->maxLength(190)
                     ->unique(User::class, 'email'),
+                Select::make('role')
+                    ->options(Access::ROLES)
+                    ->default(Access::BRANCH_MANAGER)
+                    ->required()
+                    ->selectablePlaceholder(false)
+                    ->live(),
                 CheckboxList::make('branches')
                     ->label('Branches')
                     ->options(fn () => Branch::query()->ordered()->pluck('name', 'id')->all())
-                    ->required()
+                    ->required(fn (Get $get) => $get('role') !== Access::SUPER_ADMIN)
+                    ->visible(fn (Get $get) => $get('role') !== Access::SUPER_ADMIN)
                     ->columns(2),
             ])
             ->action(function (array $data, Action $action) {
                 try {
-                    $user = app(Invitations::class)->invite($data['name'], $data['email'], auth()->user());
+                    $user = app(Invitations::class)->invite($data['name'], $data['email'], auth()->user(), $data['role'] ?? Access::BRANCH_MANAGER);
                     $user->branches()->sync(array_map('intval', $data['branches'] ?? []));
                 } catch (Throwable $e) {
                     Notification::make()->danger()->persistent()->title('Invite not sent')->body($e->getMessage())->send();
@@ -162,6 +201,27 @@ class UserResource extends Resource
                 }
 
                 Notification::make()->success()->title("Invite sent to {$user->email}")->send();
+            });
+    }
+
+    /**
+     * For someone locked out of their authenticator: clears the app code, the
+     * recovery codes and the email code, so they can set it up again.
+     */
+    public static function resetTwoFactorAction(): Action
+    {
+        return Action::make('resetTwoFactor')
+            ->label('Reset 2FA')
+            ->icon(Heroicon::OutlinedLockOpen)
+            ->color('gray')
+            ->authorize(fn () => self::canViewAny())
+            ->visible(fn (User $record) => $record->hasTwoFactor())
+            ->requiresConfirmation()
+            ->modalDescription('Clears their authenticator app, recovery codes and email code. They sign in with just their password until they set it up again.')
+            ->action(function (User $record) {
+                $record->resetTwoFactor();
+
+                Notification::make()->success()->title("2FA reset for {$record->name}")->send();
             });
     }
 

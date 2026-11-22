@@ -20,6 +20,11 @@ class BookingStats extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return (bool) auth()->user()?->canAccessArea('bookings.view');
+    }
+
     // Gentle on SQLite: refresh once a minute, not every 5 seconds
     protected ?string $pollingInterval = '60s';
 

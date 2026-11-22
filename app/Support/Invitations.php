@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Team accounts: created by an owner, who emails them a link to choose
+ * Team accounts: created by a super admin, who emails them a link to choose
  * their own password (the account starts with a random one nobody knows).
  */
 class Invitations
@@ -21,14 +21,15 @@ class Invitations
     /**
      * If the email can't be sent, no account is made.
      */
-    public function invite(string $name, string $email, ?User $invitedBy = null): User
+    public function invite(string $name, string $email, ?User $invitedBy = null, string $role = Access::BRANCH_MANAGER): User
     {
         $this->ensureEmailIsSetUp();
 
-        return DB::transaction(function () use ($name, $email, $invitedBy) {
+        return DB::transaction(function () use ($name, $email, $invitedBy, $role) {
             $user = User::create([
                 'name' => $name,
                 'email' => strtolower(trim($email)),
+                'role' => array_key_exists($role, Access::ROLES) ? $role : Access::BRANCH_MANAGER,
                 // Never used: they choose their own from the link
                 'password' => Str::password(40),
             ]);

@@ -45,7 +45,7 @@ class GoogleSignInSettings extends Page
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->isOwner();
+        return (bool) auth()->user()?->canAccessArea('settings');
     }
 
     public function mount(): void

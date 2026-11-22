@@ -73,6 +73,19 @@ class Branch extends Model
         'maya_qr',
         'maya_name',
         'maya_number',
+        'facebook_page_id',
+        'facebook_page_name',
+        'facebook_page_token',
+        'facebook_connected_at',
+    ];
+
+    /**
+     * The Page token never leaves the server (it is write-only in /admin).
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'facebook_page_token',
     ];
 
     protected $attributes = [
@@ -96,7 +109,19 @@ class Branch extends Model
             'home_service_areas' => 'array',
             'gcash_enabled' => 'boolean',
             'maya_enabled' => 'boolean',
+            'facebook_page_token' => 'encrypted',
+            'facebook_connected_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // A different Page or token has not been checked yet (Connect check sets the time again)
+        static::saving(function (Branch $branch) {
+            if ($branch->exists && $branch->isDirty(['facebook_page_id', 'facebook_page_token']) && ! $branch->isDirty('facebook_connected_at')) {
+                $branch->facebook_connected_at = null;
+            }
+        });
     }
 
     public function scopeOrdered(Builder $query): void
@@ -144,6 +169,22 @@ class Branch extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    /**
+     * @return HasMany<Conversation, $this>
+     */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    /**
+     * Messenger is on for this branch: its Page is checked and a token is saved.
+     */
+    public function hasFacebookPage(): bool
+    {
+        return filled($this->facebook_page_id) && filled($this->facebook_page_token) && $this->facebook_connected_at !== null;
     }
 
     /**

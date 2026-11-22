@@ -13,14 +13,15 @@ use Illuminate\Mail\Mailables\Envelope;
 /**
  * Tells a branch's team that something happened to a booking: a new
  * reservation or hold, a unit that needs its size, a payment screenshot to check, a home-service
- * request, or a customer cancelling or moving one. Replying answers the
+ * request, a customer cancelling or moving one, or operations changing a
+ * unit's ready date or details (a heads-up for sales). Replying answers the
  * customer when they left an email.
  */
 class TeamBookingAlert extends Mailable
 {
-    public const KINDS = ['reserved', 'hold', 'size_review', 'payment', 'home_request', 'cancelled', 'rescheduled', 'review'];
+    public const KINDS = ['reserved', 'hold', 'size_review', 'payment', 'home_request', 'cancelled', 'rescheduled', 'review', 'heads_up'];
 
-    public function __construct(public Booking $booking, public string $kind) {}
+    public function __construct(public Booking $booking, public string $kind, public ?string $note = null) {}
 
     public function envelope(): Envelope
     {
@@ -29,13 +30,14 @@ class TeamBookingAlert extends Mailable
         $branch = $booking->branch?->name;
 
         return new Envelope(
-            replyTo: $booking->email ? [new Address($booking->email, $booking->name)] : [],
+            replyTo: $booking->email && $this->kind !== 'heads_up' ? [new Address($booking->email, $booking->name)] : [],
             subject: match ($this->kind) {
                 'reserved' => "New reservation at {$branch}: {$booking->name}, {$when} ({$booking->reference})",
                 'hold' => "New hold at {$branch}, waiting for the fee: {$booking->name}, {$when}",
                 'size_review' => "Size to set: {$booking->vehicleLabel()} at {$branch}, {$when} ({$booking->reference})",
                 'payment' => "Screenshot to check: {$booking->name} ({$booking->reference})",
                 'home_request' => "Home service request: {$booking->name}, {$when}",
+                'heads_up' => "Heads-up on {$booking->name} ({$booking->reference}): {$this->note}",
                 'review' => "New review waiting for approval: {$booking->name} at {$branch}",
                 'cancelled' => "Cancelled by the customer: {$booking->name}, {$when} ({$booking->reference})",
                 default => "Moved by the customer: {$booking->name}, now {$when} ({$booking->reference})",

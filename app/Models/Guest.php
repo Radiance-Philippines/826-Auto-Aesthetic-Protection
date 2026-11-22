@@ -163,6 +163,24 @@ class Guest extends Authenticatable
         return $this->hasMany(ReferralRedemption::class, 'code_guest_id');
     }
 
+    /**
+     * Points this customer spent.
+     *
+     * @return HasMany<RewardRedemption, $this>
+     */
+    public function rewardRedemptions(): HasMany
+    {
+        return $this->hasMany(RewardRedemption::class);
+    }
+
+    /**
+     * Points earned from referral redemptions, minus the points spent.
+     */
+    public function pointsBalance(): int
+    {
+        return (int) $this->referralRedemptions()->sum('points_awarded') - (int) $this->rewardRedemptions()->sum('points');
+    }
+
     public function isSignedUpWithGoogle(): bool
     {
         return filled($this->google_id);

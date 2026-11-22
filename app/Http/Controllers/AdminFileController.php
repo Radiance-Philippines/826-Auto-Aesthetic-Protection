@@ -9,13 +9,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Private files for 826's team: customers' payment screenshots, only for
- * the staff of that booking's branch (and owners).
+ * the sales side of that booking's branch (and super admins).
  */
 class AdminFileController extends Controller
 {
     public function proof(Booking $booking): StreamedResponse
     {
         abort_unless(Auth::guard('web')->check(), 403);
+        abort_unless(Auth::guard('web')->user()->canAccessArea('bookings.sales'), 403);
         Gate::forUser(Auth::guard('web')->user())->authorize('view', $booking);
 
         return MyBookingsController::streamProof($booking);

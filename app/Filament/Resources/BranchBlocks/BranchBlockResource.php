@@ -56,9 +56,9 @@ class BranchBlockResource extends Resource
             Select::make('branch_id')
                 ->label('Branch')
                 ->options(fn () => BookingResource::branchOptions())
-                ->placeholder(fn () => auth()->user()?->isOwner() ? 'Every branch' : 'Pick a branch')
-                ->required(fn () => ! auth()->user()?->isOwner())
-                ->helperText(fn () => auth()->user()?->isOwner() ? 'Leave blank to close every branch (Christmas, Holy Week).' : null),
+                ->placeholder(fn () => auth()->user()?->canAccessArea('shop') ? 'Every branch' : 'Pick a branch')
+                ->required(fn () => ! auth()->user()?->canAccessArea('shop'))
+                ->helperText(fn () => auth()->user()?->canAccessArea('shop') ? 'Leave blank to close every branch (Christmas, Holy Week).' : null),
             ToggleButtons::make('kind')
                 ->label('What happens')
                 ->options(BranchBlock::KINDS)
@@ -100,7 +100,7 @@ class BranchBlockResource extends Resource
         $data['starts_at'] = CarbonImmutable::parse($raw['first_day'])->startOfDay();
         $data['ends_at'] = CarbonImmutable::parse($raw['last_day'] ?? $raw['first_day'])->addDay()->startOfDay();
 
-        if (! auth()->user()?->isOwner() && blank($data['branch_id'] ?? null)) {
+        if (! auth()->user()?->canAccessArea('shop') && blank($data['branch_id'] ?? null)) {
             abort(403);
         }
 

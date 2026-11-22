@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             at: '*',
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
         );
+
+        // Meta's webhook proves itself with a signature, not a CSRF token
+        $middleware->preventRequestForgery(except: ['webhooks/meta']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

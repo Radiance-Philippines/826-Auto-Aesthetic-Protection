@@ -58,6 +58,11 @@ class Queue extends Page
     #[Url]
     public string $date = '';
 
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->canAccessArea('bookings.view');
+    }
+
     public function mount(): void
     {
         $branches = $this->branchOptions();
@@ -95,7 +100,7 @@ class Queue extends Page
     {
         $record = Booking::query()->visibleTo(auth()->user())->where('branch_id', $this->branch)->findOrFail($booking);
 
-        abort_unless(auth()->user()->can('update', $record), 403);
+        abort_unless(auth()->user()->canAccessArea('queue.update'), 403);
 
         if ($record->nextStatus() === null) {
             return;
@@ -120,11 +125,13 @@ class Queue extends Page
             Action::make('newBooking')
                 ->label('Add a booking')
                 ->icon(Heroicon::OutlinedPlus)
+                ->visible(fn () => BookingResource::canCreate())
                 ->url(fn () => BookingResource::getUrl('create')),
             Action::make('closures')
                 ->label('Closures and full days')
                 ->icon(Heroicon::OutlinedNoSymbol)
                 ->color('gray')
+                ->visible(fn () => BranchBlockResource::canViewAny())
                 ->url(fn () => BranchBlockResource::getUrl('index')),
         ];
     }
@@ -224,7 +231,7 @@ class Queue extends Page
                 'payment_review' => 'Screenshot to check',
                 default => null,
             },
-            'canAdvance' => $booking->nextStatus() !== null,
+            'canAdvance' => $booking->nextStatus() !== null && (bool) auth()->user()?->canAccessArea('queue.update'),
             'button' => $booking->nextStatus() ? 'Mark '.strtolower(Booking::STATUSES[$booking->nextStatus()]) : null,
             'url' => BookingResource::getUrl('view', ['record' => $booking]),
         ];

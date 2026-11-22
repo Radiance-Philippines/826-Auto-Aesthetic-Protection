@@ -49,6 +49,11 @@ class Warranty extends Page
     #[Url]
     public ?int $customer = null;
 
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->canAccessArea('warranty');
+    }
+
     public function mount(): void
     {
         if ($this->customer !== null) {

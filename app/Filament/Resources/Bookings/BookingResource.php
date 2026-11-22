@@ -9,6 +9,7 @@ use App\Filament\Resources\Bookings\Pages\ListBookings;
 use App\Filament\Resources\Bookings\Pages\ViewBooking;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Booking;
+use App\Models\BookingEvent;
 use App\Models\Branch;
 use App\Models\PaymentSetting;
 use App\Models\Service;
@@ -197,6 +198,7 @@ class BookingResource extends Resource
                     ]),
                 Section::make('Customer')
                     ->columnSpan(1)
+                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
                     ->components([
                         TextInput::make('name')->required()->maxLength(120),
                         TextInput::make('phone')->label('Mobile')->tel()->required()->maxLength(40),
@@ -219,6 +221,7 @@ class BookingResource extends Resource
                 Section::make('Home service')
                     ->columnSpan(2)
                     ->columns(2)
+                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
                     ->visible(fn (Get $get, ?Booking $record) => ($record?->kind ?? $get('kind')) === 'home')
                     ->components([
                         Textarea::make('address')->rows(2)->maxLength(500)->required()->columnSpanFull(),
@@ -230,6 +233,7 @@ class BookingResource extends Resource
                     ]),
                 Section::make('Notes')
                     ->columnSpan(1)
+                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
                     ->components([
                         Textarea::make('message')->label('From the customer')->rows(3)->maxLength(1000),
                         Textarea::make('admin_note')->label('Private note')->rows(3)->maxLength(2000),
@@ -297,7 +301,7 @@ class BookingResource extends Resource
                                 : null),
                         TextEntry::make('reference')->copyable(),
                         TextEntry::make('name')
-                            ->url(fn (Booking $record) => $record->guest_id ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
+                            ->url(fn (Booking $record) => $record->guest_id && CustomerResource::canViewAny() ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
                             ->helperText(fn (Booking $record) => $record->guest?->email ? "Signed in as {$record->guest->email}" : ($record->guest ? 'Customer record, no Google account' : null)),
                         TextEntry::make('phone')
                             ->label('Mobile')
@@ -326,7 +330,7 @@ class BookingResource extends Resource
                     ->columnSpan(2)
                     ->columnStart(1)
                     ->columns(2)
-                    ->visible(fn (Booking $record) => $record->source !== 'manual' && ($record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null))
+                    ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source !== 'manual' && ($record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null))
                     ->components([
                         TextEntry::make('amount_due')
                             ->label('Fee')
@@ -351,7 +355,7 @@ class BookingResource extends Resource
                     ->columnSpan(2)
                     ->columnStart(1)
                     ->columns(2)
-                    ->visible(fn (Booking $record) => $record->source === 'manual')
+                    ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source === 'manual')
                     ->components([
                         TextEntry::make('amount_paid')
                             ->label('Paid')
@@ -377,6 +381,18 @@ class BookingResource extends Resource
                             ->state(fn (Booking $record) => collect(['has_water', 'has_power', 'has_shade'])
                                 ->map(fn (string $field) => $record->{$field} === null ? 'not said' : ($record->{$field} ? 'yes' : 'no'))
                                 ->implode(' / ')),
+                    ]),
+                Section::make('History')
+                    ->columnSpan(2)
+                    ->columnStart(1)
+                    ->collapsible()
+                    ->components([
+                        TextEntry::make('history')
+                            ->hiddenLabel()
+                            ->state(fn (Booking $record) => $record->events()->with('user')->limit(100)->get()->map(fn (BookingEvent $event) => $event->line())->all())
+                            ->listWithLineBreaks()
+                            ->bulleted()
+                            ->placeholder('Nothing recorded yet. Moves and changes from now on show here.'),
                     ]),
             ]);
     }
@@ -405,7 +421,7 @@ class BookingResource extends Resource
                     ->sortable(),
                 TextColumn::make('name')
                     ->label('Customer')
-                    ->url(fn (Booking $record) => $record->guest_id ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
+                    ->url(fn (Booking $record) => $record->guest_id && CustomerResource::canViewAny() ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
                     ->searchable(['name', 'phone', 'reference', 'plate_number'])
                     ->description(fn (Booking $record) => "{$record->reference} · {$record->phone}"),
                 TextColumn::make('services')

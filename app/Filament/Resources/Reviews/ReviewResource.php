@@ -90,6 +90,7 @@ class ReviewResource extends Resource
     public static function approve(): Action
     {
         return Action::make('approve')
+            ->authorize('update')
             ->label('Approve')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
@@ -103,6 +104,7 @@ class ReviewResource extends Resource
     public static function reject(): Action
     {
         return Action::make('reject')
+            ->authorize('update')
             ->label('Reject')
             ->icon(Heroicon::OutlinedXCircle)
             ->color('danger')
@@ -122,6 +124,7 @@ class ReviewResource extends Resource
     public static function feature(): Action
     {
         return Action::make('feature')
+            ->authorize('update')
             ->label(fn (Review $record) => $record->is_featured ? 'Unfeature' : 'Feature')
             ->icon(fn (Review $record) => $record->is_featured ? Heroicon::Star : Heroicon::OutlinedStar)
             ->color('gray')

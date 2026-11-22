@@ -6,18 +6,18 @@ use App\Models\Review;
 use App\Models\User;
 
 /**
- * Branch staff moderate their own branches' reviews; only owners delete.
+ * Staff with the reviews area moderate their own branches' reviews; only a super admin deletes.
  */
 class ReviewPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->canAccessArea('reviews');
     }
 
     public function view(User $user, Review $review): bool
     {
-        return $user->canManageBranch($review->branch_id);
+        return $user->canAccessArea('reviews') && $user->canManageBranch($review->branch_id);
     }
 
     public function create(User $user): bool
@@ -27,7 +27,7 @@ class ReviewPolicy
 
     public function update(User $user, Review $review): bool
     {
-        return $user->canManageBranch($review->branch_id);
+        return $user->canAccessArea('reviews') && $user->canManageBranch($review->branch_id);
     }
 
     public function delete(User $user, Review $review): bool

@@ -18,6 +18,9 @@
 @case ('review')
 # New review waiting for approval
 @break
+@case ('heads_up')
+# Heads-up from operations
+@break
 @case ('cancelled')
 # Cancelled by the customer
 @break
@@ -54,13 +57,17 @@
 
 {!! nl2br(e($booking->review->body)) !!}
 </x-mail::panel>
-@elseif ($booking->message)
+@elseif ($booking->message && $kind !== 'heads_up')
 <x-mail::panel>
 {!! nl2br(e($booking->message)) !!}
 </x-mail::panel>
 @endif
 
-@if ($kind === 'size_review')
+@if ($kind === 'heads_up')
+{{ $note }}
+
+Let the customer know if it matters to them.
+@elseif ($kind === 'size_review')
 Look at the unit, then set its size in the admin: that prices the booking and emails the customer.
 @elseif ($kind === 'payment')
 Check the screenshot against your GCash or Maya, then mark it paid in the admin.

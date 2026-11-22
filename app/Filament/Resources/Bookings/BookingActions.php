@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Bookings;
 use App\Models\Booking;
 use App\Models\PaymentSetting;
 use App\Models\VehicleSize;
+use App\Support\HeadsUp;
 use App\Support\Notifier;
 use App\Support\PaymentProof;
 use App\Support\Reservations;
@@ -30,11 +31,20 @@ use Illuminate\Validation\ValidationException;
 final class BookingActions
 {
     /**
+     * Enforced on the server too: a hidden or unauthorised action can't be called.
+     */
+    private static function allows(string ...$areas): bool
+    {
+        return (bool) auth()->user()?->canAccessAnyArea(...$areas);
+    }
+
+    /**
      * The screenshot matches: the booking is confirmed.
      */
     public static function markPaid(): Action
     {
         return Action::make('markPaid')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label(fn (Booking $record) => $record->status === 'payment_review' ? 'Payment checked: confirm' : 'Mark fee paid')
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('success')
@@ -71,6 +81,7 @@ final class BookingActions
     public static function rejectProof(): Action
     {
         return Action::make('rejectProof')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label('Ask for another screenshot')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('gray')
@@ -134,6 +145,7 @@ final class BookingActions
     private static function step(string $name, string $label, Heroicon $icon, string $color, string $next, string|Closure $description): Action
     {
         return Action::make($name)
+            ->authorize(fn () => self::allows('queue.update'))
             ->label($label)
             ->icon($icon)
             ->color($color)
@@ -150,6 +162,7 @@ final class BookingActions
     public static function setSize(): Action
     {
         return Action::make('setSize')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label(fn (Booking $record) => $record->size_reviewed_at ? 'Change size' : 'Review unit')
             ->icon(Heroicon::OutlinedScale)
             ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : 'gray')
@@ -187,6 +200,7 @@ final class BookingActions
     public static function noShow(): Action
     {
         return Action::make('noShow')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label('No-show')
             ->icon(Heroicon::OutlinedUserMinus)
             ->color('gray')
@@ -199,6 +213,7 @@ final class BookingActions
     public static function cancel(): Action
     {
         return Action::make('cancelBooking')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label(fn (Booking $record) => $record->status === 'requested' ? 'Decline' : 'Cancel booking')
             ->icon(Heroicon::OutlinedXMark)
             ->color('danger')
@@ -232,6 +247,7 @@ final class BookingActions
     public static function reschedule(): Action
     {
         return Action::make('reschedule')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label('Move')
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('gray')
@@ -269,6 +285,7 @@ final class BookingActions
     public static function changeReadyDate(): Action
     {
         return Action::make('changeReadyDate')
+            ->authorize(fn () => self::allows('queue.update'))
             ->label('Change ready date')
             ->icon(Heroicon::OutlinedClock)
             ->color('gray')
@@ -281,7 +298,14 @@ final class BookingActions
                     ->required()
                     ->afterOrEqual(fn (Booking $record) => $record->drop_off_on?->toDateString()),
             ])
-            ->action(fn (Booking $record, array $data) => $record->update(['ready_on' => CarbonImmutable::parse($data['ready_on'])->startOfDay()]));
+            ->action(function (Booking $record, array $data) {
+                $from = $record->ready_on?->format('D, M j');
+                $record->update(['ready_on' => CarbonImmutable::parse($data['ready_on'])->startOfDay()]);
+
+                if ($record->wasChanged('ready_on')) {
+                    HeadsUp::send($record, 'the ready date', $from, $record->ready_on?->format('D, M j'));
+                }
+            });
     }
 
     /**
@@ -290,6 +314,7 @@ final class BookingActions
     public static function scheduleHome(): Action
     {
         return Action::make('scheduleHome')
+            ->authorize(fn () => self::allows('bookings.sales'))
             ->label('Schedule')
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('primary')

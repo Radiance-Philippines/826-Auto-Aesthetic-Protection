@@ -6,28 +6,28 @@ use App\Models\Branch;
 use App\Models\User;
 
 /**
- * The shop's setup is the owner's: branch staff can't change it.
+ * Needs the shop area (a super admin has every area).
  */
 class BranchPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function view(User $user, Branch $record): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function create(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function update(User $user, Branch $record): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     /**
@@ -35,16 +35,16 @@ class BranchPolicy
      */
     public function delete(User $user, Branch $record): bool
     {
-        return $user->isOwner() && ! $record->bookings()->exists();
+        return $user->canAccessArea('shop') && ! $record->bookings()->exists();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function reorder(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 }

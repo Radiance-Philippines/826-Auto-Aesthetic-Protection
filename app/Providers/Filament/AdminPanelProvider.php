@@ -2,14 +2,17 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\RequireTwoFactorWhenOn;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Filament\Auth\MultiFactor\Email\EmailAuthentication;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -54,6 +57,17 @@ class AdminPanelProvider extends PanelProvider
             ->passwordReset()
             // Name, email and password, from the user menu
             ->profile(isSimple: false)
+            // Two-factor sign-in: an authenticator app (with recovery codes) or an emailed
+            // code, set up from the profile. Whether it is compulsory is Settings → Security,
+            // checked on each request by RequireTwoFactorWhenOn (so always "required" here).
+            ->multiFactorAuthentication([
+                AppAuthentication::make()->recoverable(),
+                EmailAuthentication::make(),
+            ], isRequired: true)
+            ->multiFactorAuthenticationRequiredMiddlewareName(RequireTwoFactorWhenOn::class)
+            // The bell: heads-ups from operations to sales
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->brandName('826 Auto Aesthetic & Protection')
             ->brandLogo(fn () => view('filament.brand'))
             ->brandLogoHeight('2.5rem')

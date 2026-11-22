@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Bookings\Pages;
 
 use App\Filament\Resources\Bookings\BookingResource;
+use App\Models\Booking;
+use App\Support\HeadsUp;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -21,6 +23,25 @@ class EditBooking extends EditRecord
             ViewAction::make(),
             DeleteAction::make(),
         ];
+    }
+
+    /**
+     * A changed unit needs its size looked at again, and sales is told.
+     */
+    protected function afterSave(): void
+    {
+        /** @var Booking $booking */
+        $booking = $this->getRecord();
+
+        if (! $booking->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
+            return;
+        }
+
+        $change = $booking->events()->where('kind', 'unit')->first();
+
+        $booking->update(['priced_at' => null]);
+
+        HeadsUp::send($booking, 'the unit', $change?->from, $change?->to);
     }
 
     protected function getRedirectUrl(): string

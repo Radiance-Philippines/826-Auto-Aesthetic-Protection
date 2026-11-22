@@ -19,7 +19,7 @@ final class Notifier
     /**
      * To the branch's alert address, else the main one.
      */
-    public static function team(Booking $booking, string $kind): bool
+    public static function team(Booking $booking, string $kind, ?string $note = null): bool
     {
         $settings = MailSetting::instance();
         $to = $booking->branch?->alert_email ?: $settings->alertAddress();
@@ -29,7 +29,7 @@ final class Notifier
         }
 
         try {
-            Mail::to($to)->send(new TeamBookingAlert($booking, $kind));
+            Mail::to($to)->send(new TeamBookingAlert($booking, $kind, $note));
 
             return true;
         } catch (Throwable $e) {

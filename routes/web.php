@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminFileController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
+use App\Http\Controllers\MetaWebhookController;
 use App\Http\Controllers\MyBookingsController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReservationController;
@@ -67,6 +68,12 @@ Route::permanentRedirect('/booking', '/book');
 Route::permanentRedirect('/reserve', '/book');
 Route::permanentRedirect('/prices', '/services');
 Route::permanentRedirect('/locations', '/branches');
+
+// Messenger messages for each branch's Facebook Page: Meta checks the URL (GET), then signs every event (POST)
+Route::controller(MetaWebhookController::class)->middleware('throttle:300,1')->group(function () {
+    Route::get('/webhooks/meta', 'verify')->name('webhooks.meta.verify');
+    Route::post('/webhooks/meta', 'receive')->name('webhooks.meta');
+});
 
 // For search engines (public/robots.txt would shadow this route)
 Route::get('/robots.txt', [SeoController::class, 'robots']);

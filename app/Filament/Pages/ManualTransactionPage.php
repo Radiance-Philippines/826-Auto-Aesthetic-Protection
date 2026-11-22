@@ -61,7 +61,7 @@ class ManualTransactionPage extends Page
     {
         $user = auth()->user();
 
-        return $user !== null && ($user->isOwner() || $user->branchIds() !== []);
+        return $user !== null && $user->canAccessArea('bookings.sales') && ($user->isOwner() || $user->branchIds() !== []);
     }
 
     public function mount(): void

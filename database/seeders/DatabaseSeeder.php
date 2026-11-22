@@ -78,7 +78,7 @@ class DatabaseSeeder extends Seeder
         if (app()->isLocal()) {
             User::firstOrCreate(
                 ['email' => 'admin@826auto.test'],
-                ['name' => '826 Admin', 'password' => 'password', 'is_owner' => true],
+                ['name' => '826 Admin', 'password' => 'password', 'role' => 'super_admin'],
             );
         }
 

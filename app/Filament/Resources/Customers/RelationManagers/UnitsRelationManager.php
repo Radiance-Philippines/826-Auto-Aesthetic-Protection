@@ -48,6 +48,7 @@ class UnitsRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('setSize')
+                    ->authorize(fn () => (bool) auth()->user()?->canAccessArea('bookings.sales'))
                     ->label('Set size')
                     ->icon(Heroicon::OutlinedScale)
                     ->modalDescription('Sets the unit’s size class. Its open bookings that had no price yet are priced from the services’ rates, and the customer gets an email with it.')

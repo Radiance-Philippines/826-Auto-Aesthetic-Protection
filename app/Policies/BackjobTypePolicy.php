@@ -6,42 +6,42 @@ use App\Models\BackjobType;
 use App\Models\User;
 
 /**
- * The warranty's setup is the owner's: branch staff can't change it.
+ * Warranty setup needs the shop area.
  */
 class BackjobTypePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function view(User $user, BackjobType $record): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function create(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function update(User $user, BackjobType $record): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function delete(User $user, BackjobType $record): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 
     public function reorder(User $user): bool
     {
-        return $user->isOwner();
+        return $user->canAccessArea('shop');
     }
 }

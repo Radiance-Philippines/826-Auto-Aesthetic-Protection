@@ -11,6 +11,7 @@ use App\Models\Guest;
 use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
+use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleSize;
 use App\Support\Referrals;
@@ -20,6 +21,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * SAMPLE data for local testing and the portfolio demo only, never for
@@ -84,6 +86,16 @@ class DemoData extends Command
 
     private const SIZES = ['Small', 'Medium', 'Large', 'XL'];
 
+    /**
+     * Sample staff accounts, by email: name and role.
+     *
+     * @var array<string, array{string, string}>
+     */
+    private const STAFF = [
+        'sample-operations@826auto.test' => ['Sample operations', 'operations'],
+        'sample-sales@826auto.test' => ['Sample sales', 'sales_admin'],
+    ];
+
     public function handle(): int
     {
         if (! app()->isLocal() && ! config('app.demo') && ! $this->option('force')) {
@@ -104,6 +116,7 @@ class DemoData extends Command
         $this->fillEstimatesAndRates();
         $this->fillWarrantyAndReferral();
         $this->bookings($branches[0]);
+        $this->sampleStaff($branches[0]);
 
         $this->info('Sample data added: daily caps and hours on '.collect($branches)->pluck('name')->implode(', ').', day estimates and prices where blank, and bookings at '.$branches[0]->name.'.');
         $this->line('Remove the bookings with: php artisan 826:demo-data --clear');
@@ -119,6 +132,23 @@ class DemoData extends Command
         Vehicle::query()->whereIn('guest_id', (clone $guests)->select('id'))->delete();
         $guests->delete();
         BranchBlock::query()->where('title', 'like', self::BLOCK_PREFIX.'%')->delete();
+        User::query()->whereIn('email', array_keys(self::STAFF))->delete();
+    }
+
+    /**
+     * Two clearly marked staff accounts to see the roles with, on a local
+     * machine only. Their password is random and never shown: sign in as them
+     * by resetting it from the login page, or set one yourself in Users.
+     */
+    private function sampleStaff(Branch $branch): void
+    {
+        if (! app()->isLocal()) {
+            return;
+        }
+
+        foreach (self::STAFF as $email => [$name, $role]) {
+            User::firstOrCreate(['email' => $email], ['name' => $name, 'role' => $role, 'password' => Str::random(40)])->branches()->syncWithoutDetaching([$branch->id]);
+        }
     }
 
     /**

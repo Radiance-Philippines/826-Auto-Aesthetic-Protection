@@ -6,29 +6,30 @@ use App\Models\Guest;
 use App\Models\User;
 
 /**
- * Branch staff work with the customers who booked at their branches (or
- * whose home branch is theirs); owners with all. Only owners delete.
+ * Staff work with the customers who booked at their branches (or whose home
+ * branch is theirs); a super admin with all. Seeing needs customers.view,
+ * adding and editing customers.write. Only a super admin deletes.
  */
 class GuestPolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->canAccessArea('customers.view');
     }
 
     public function view(User $user, Guest $guest): bool
     {
-        return $user->isOwner() || Guest::query()->visibleTo($user)->whereKey($guest->getKey())->exists();
+        return $user->canAccessArea('customers.view') && ($user->isOwner() || Guest::query()->visibleTo($user)->whereKey($guest->getKey())->exists());
     }
 
     public function create(User $user): bool
     {
-        return $user->isOwner() || $user->branchIds() !== [];
+        return $user->canAccessArea('customers.write') && ($user->isOwner() || $user->branchIds() !== []);
     }
 
     public function update(User $user, Guest $guest): bool
     {
-        return $this->view($user, $guest);
+        return $user->canAccessArea('customers.write') && $this->view($user, $guest);
     }
 
     public function delete(User $user, Guest $guest): bool

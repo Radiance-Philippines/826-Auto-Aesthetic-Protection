@@ -20,7 +20,7 @@ class ReferralSetting extends Model
         'percent' => 'Percent off',
     ];
 
-    protected $fillable = ['enabled', 'discount_type', 'discount_value', 'owner_points'];
+    protected $fillable = ['enabled', 'discount_type', 'discount_value', 'owner_points', 'peso_per_point'];
 
     protected function casts(): array
     {
@@ -28,6 +28,7 @@ class ReferralSetting extends Model
             'enabled' => 'boolean',
             'discount_value' => 'integer',
             'owner_points' => 'integer',
+            'peso_per_point' => 'integer',
         ];
     }
 

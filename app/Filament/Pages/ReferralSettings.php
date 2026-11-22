@@ -46,7 +46,7 @@ class ReferralSettings extends Page
 
     public static function canAccess(): bool
     {
-        return (bool) auth()->user()?->isOwner();
+        return (bool) auth()->user()?->canAccessArea('settings');
     }
 
     public function mount(): void
@@ -88,6 +88,13 @@ class ReferralSettings extends Page
                             ->minValue(0)
                             ->maxValue(1_000_000)
                             ->helperText('Earned once, when the friend’s booking exits. Leave blank for none.'),
+                        TextInput::make('peso_per_point')
+                            ->label('Pesos one point is worth')
+                            ->prefix('₱')
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(100_000)
+                            ->helperText('Set by you. Blank means points can’t be redeemed for a discount; the team can still adjust points with a note.'),
                     ]),
             ]);
     }

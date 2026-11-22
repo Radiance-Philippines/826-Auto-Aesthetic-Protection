@@ -273,7 +273,64 @@ class Booking extends Model
             if ($booking->wasChanged('status')) {
                 Referrals::syncStatus($booking);
             }
+
+            $booking->logChanges();
         });
+    }
+
+    /**
+     * Writes the booking's history: status moves, ready-date and unit
+     * changes, the size, and payment actions, with who did it. Not
+     * backfilled, and nothing is written for the booking's creation.
+     */
+    private function logChanges(): void
+    {
+        if ($this->wasChanged('id')) {
+            return;
+        }
+
+        $before = $this->getPrevious();
+        $date = fn (mixed $value) => $value ? CarbonImmutable::parse($value)->format('D, M j') : null;
+        $label = fn (?string $status) => $status ? (self::STATUSES[$status] ?? $status) : null;
+        $unit = fn (array $source) => trim(implode(' ', array_filter([$source['vehicle_year'] ?? null, $source['vehicle_model'] ?? null, isset($source['vehicle_type']) ? (self::VEHICLE_TYPES[$source['vehicle_type']] ?? null) : null]))).(filled($source['plate_number'] ?? null) ? ' · '.$source['plate_number'] : '');
+
+        $events = [];
+
+        if ($this->wasChanged('status')) {
+            $events[] = ['status', $label($before['status'] ?? null), $label($this->status), null];
+        }
+
+        if ($this->wasChanged('ready_on')) {
+            $events[] = ['ready_on', $date($before['ready_on'] ?? null), $date($this->ready_on), null];
+        }
+
+        if ($this->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
+            $events[] = ['unit', $unit([...$this->only(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number']), ...$before]), $unit($this->only(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])), null];
+        }
+
+        if ($this->wasChanged('vehicle_size_name')) {
+            $events[] = ['size', $before['vehicle_size_name'] ?? null, $this->vehicle_size_name, $this->total_price !== null ? 'Price ₱'.number_format($this->total_price) : null];
+        }
+
+        if ($this->wasChanged('paid_at') && $this->paid_at !== null) {
+            $events[] = ['paid', null, null, $this->payment_note];
+        }
+
+        if ($this->wasChanged('payment_rejected_reason') && filled($this->payment_rejected_reason)) {
+            $events[] = ['payment_rejected', null, null, $this->payment_rejected_reason];
+        }
+
+        if ($this->wasChanged('amount_paid')) {
+            $events[] = ['payment', isset($before['amount_paid']) ? '₱'.number_format($before['amount_paid']) : null, $this->amount_paid !== null ? '₱'.number_format($this->amount_paid) : null, null];
+        }
+
+        if ($this->wasChanged('discount_amount') && $this->discount_amount !== null) {
+            $events[] = ['discount', isset($before['discount_amount']) ? '₱'.number_format($before['discount_amount']) : null, '₱'.number_format($this->discount_amount), null];
+        }
+
+        foreach ($events as [$kind, $from, $to, $note]) {
+            $this->events()->create(['user_id' => Auth::guard('web')->id(), 'kind' => $kind, 'from' => $from, 'to' => $to, 'note' => $note]);
+        }
     }
 
     public static function newReference(): string
@@ -355,6 +412,16 @@ class Booking extends Model
     public function review(): HasOne
     {
         return $this->hasOne(Review::class);
+    }
+
+    /**
+     * The booking's history, newest first.
+     *
+     * @return HasMany<BookingEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(BookingEvent::class)->latest('id');
     }
 
     /**
