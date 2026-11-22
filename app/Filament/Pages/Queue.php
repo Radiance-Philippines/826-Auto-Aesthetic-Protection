@@ -11,8 +11,10 @@ use App\Support\Schedule\Availability;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Url;
 use UnitEnum;
@@ -71,6 +73,21 @@ class Queue extends Page
         abort_unless($this->branch === null || auth()->user()->canManageBranch($this->branch), 403);
 
         $this->date = $this->day()->toDateString();
+    }
+
+    /**
+     * The branch picker: Filament's own select, never the browser's.
+     */
+    public function branchForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            Select::make('branch')
+                ->hiddenLabel()
+                ->options(fn () => $this->branchOptions())
+                ->native(false)
+                ->selectablePlaceholder(false)
+                ->live(),
+        ]);
     }
 
     public function updatedBranch(): void

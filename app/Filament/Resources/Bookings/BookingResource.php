@@ -31,6 +31,7 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -142,102 +143,101 @@ class BookingResource extends Resource
         return $schema
             ->columns(3)
             ->components([
-                Section::make('Booking')
-                    ->columnSpan(2)
-                    ->columns(2)
-                    ->visibleOn('create')
-                    ->components([
-                        ToggleButtons::make('kind')
-                            ->options(Booking::KINDS)
-                            ->icons(['onsite' => Heroicon::OutlinedBuildingStorefront, 'home' => Heroicon::OutlinedHome])
-                            ->default('onsite')
-                            ->inline()
-                            ->required()
-                            ->live(),
-                        Select::make('source')
-                            ->label('Came in by')
-                            ->options(['walk_in' => 'Walk-in', 'phone' => 'Call or message', 'admin' => 'Other'])
-                            ->default('phone')
-                            ->required(),
-                        Select::make('branch_id')
-                            ->label('Branch')
-                            ->options(fn () => self::branchOptions())
-                            ->default(fn () => count(self::branchOptions()) === 1 ? array_key_first(self::branchOptions()) : null)
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('services', [])),
-                        CheckboxList::make('services')
-                            ->options(fn (Get $get) => self::serviceOptions($get('branch_id'), $get('kind') === 'home'))
-                            ->helperText(fn (Get $get) => blank($get('branch_id'))
-                                ? 'Pick the branch first.'
-                                : 'Only services this branch offers that have a day estimate.')
-                            ->required()
-                            ->columns(1)
-                            ->columnSpanFull(),
-                        DatePicker::make('drop_off_on')
-                            ->label(fn (Get $get) => $get('kind') === 'home' ? 'Team comes on (optional)' : 'Drop-off date')
-                            ->displayFormat('D, M j, Y')
-                            ->required(fn (Get $get) => $get('kind') !== 'home')
-                            ->helperText(fn (Get $get) => $get('kind') === 'home'
-                                ? 'Leave blank to schedule it later.'
-                                : 'The ready date is worked out from the services and the days the branch is open.'),
-                        Toggle::make('force')
-                            ->label('Book even if it’s full')
-                            ->helperText('For when you’ve made room yourself. The queue shows the day as over its cap.')
-                            ->visible(fn (Get $get) => $get('kind') !== 'home')
-                            ->dehydrated(),
-                        DatePicker::make('preferred_date')
-                            ->label('Customer’s preferred day')
-                            ->displayFormat('D, M j, Y')
-                            ->visible(fn (Get $get) => $get('kind') === 'home'),
-                        Select::make('preferred_window')
-                            ->label('Preferred time')
-                            ->options(Booking::WINDOWS)
-                            ->default('any')
-                            ->visible(fn (Get $get) => $get('kind') === 'home'),
-                    ]),
-                Section::make('Customer')
-                    ->columnSpan(1)
-                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
-                    ->components([
-                        TextInput::make('name')->required()->maxLength(120),
-                        TextInput::make('phone')->label('Mobile')->tel()->required()->maxLength(40),
-                        TextInput::make('email')->email()->maxLength(190),
-                    ]),
-                Section::make('Vehicle')
-                    ->columnSpan(2)
-                    ->columns(2)
-                    ->components([
-                        TextInput::make('vehicle_year')->label('Year')->integer()->minValue(1950)->maxValue(now()->year + 1)->required(fn (string $operation) => $operation === 'create'),
-                        TextInput::make('vehicle_model')->label('Make and model')->placeholder('Toyota Vios')->required(fn (string $operation) => $operation === 'create')->maxLength(80),
-                        Select::make('vehicle_type')->label('Type')->options(Booking::VEHICLE_TYPES)->required(fn (string $operation) => $operation === 'create'),
-                        TextInput::make('plate_number')->label('Plate number')->required(fn (string $operation) => $operation === 'create')->maxLength(15),
-                        Select::make('vehicle_size_id')
-                            ->label('Size class (if you know it)')
-                            ->options(fn () => VehicleSize::query()->active()->ordered()->pluck('name', 'id')->all())
-                            ->helperText('Leave blank to review the unit later: the size sets the price.')
-                            ->visibleOn('create'),
-                    ]),
-                Section::make('Home service')
-                    ->columnSpan(2)
-                    ->columns(2)
-                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
-                    ->visible(fn (Get $get, ?Booking $record) => ($record?->kind ?? $get('kind')) === 'home')
-                    ->components([
-                        Textarea::make('address')->rows(2)->maxLength(500)->required()->columnSpanFull(),
-                        TextInput::make('area')->maxLength(120),
-                        TextInput::make('landmark')->maxLength(200),
-                        Select::make('has_water')->label('Water hose')->options([1 => 'Yes', 0 => 'No']),
-                        Select::make('has_power')->label('Power outlet')->options([1 => 'Yes', 0 => 'No']),
-                        Select::make('has_shade')->label('Shade or garage')->options([1 => 'Yes', 0 => 'No']),
-                    ]),
-                Section::make('Notes')
-                    ->columnSpan(1)
-                    ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
-                    ->components([
-                        Textarea::make('message')->label('From the customer')->rows(3)->maxLength(1000),
-                        Textarea::make('admin_note')->label('Private note')->rows(3)->maxLength(2000),
-                    ]),
+                Group::make([
+                    Section::make('Booking')
+                        ->columns(2)
+                        ->visibleOn('create')
+                        ->components([
+                            ToggleButtons::make('kind')
+                                ->options(Booking::KINDS)
+                                ->icons(['onsite' => Heroicon::OutlinedBuildingStorefront, 'home' => Heroicon::OutlinedHome])
+                                ->default('onsite')
+                                ->inline()
+                                ->required()
+                                ->live(),
+                            Select::make('source')
+                                ->label('Came in by')
+                                ->options(['walk_in' => 'Walk-in', 'phone' => 'Call or message', 'admin' => 'Other'])
+                                ->default('phone')
+                                ->required(),
+                            Select::make('branch_id')
+                                ->label('Branch')
+                                ->options(fn () => self::branchOptions())
+                                ->default(fn () => count(self::branchOptions()) === 1 ? array_key_first(self::branchOptions()) : null)
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set) => $set('services', [])),
+                            CheckboxList::make('services')
+                                ->options(fn (Get $get) => self::serviceOptions($get('branch_id'), $get('kind') === 'home'))
+                                ->helperText(fn (Get $get) => blank($get('branch_id'))
+                                    ? 'Pick the branch first.'
+                                    : 'Only services this branch offers that have a day estimate.')
+                                ->required()
+                                ->columns(1)
+                                ->columnSpanFull(),
+                            DatePicker::make('drop_off_on')
+                                ->label(fn (Get $get) => $get('kind') === 'home' ? 'Team comes on (optional)' : 'Drop-off date')
+                                ->displayFormat('D, M j, Y')
+                                ->required(fn (Get $get) => $get('kind') !== 'home')
+                                ->helperText(fn (Get $get) => $get('kind') === 'home'
+                                    ? 'Leave blank to schedule it later.'
+                                    : 'The ready date is worked out from the services and the days the branch is open.'),
+                            Toggle::make('force')
+                                ->label('Book even if it’s full')
+                                ->helperText('For when you’ve made room yourself. The queue shows the day as over its cap.')
+                                ->visible(fn (Get $get) => $get('kind') !== 'home')
+                                ->dehydrated(),
+                            DatePicker::make('preferred_date')
+                                ->label('Customer’s preferred day')
+                                ->displayFormat('D, M j, Y')
+                                ->visible(fn (Get $get) => $get('kind') === 'home'),
+                            Select::make('preferred_window')
+                                ->label('Preferred time')
+                                ->options(Booking::WINDOWS)
+                                ->default('any')
+                                ->visible(fn (Get $get) => $get('kind') === 'home'),
+                        ]),
+                    Section::make('Vehicle')
+                        ->columns(2)
+                        ->components([
+                            TextInput::make('vehicle_year')->label('Year')->integer()->minValue(1950)->maxValue(now()->year + 1)->required(fn (string $operation) => $operation === 'create'),
+                            TextInput::make('vehicle_model')->label('Make and model')->placeholder('Toyota Vios')->required(fn (string $operation) => $operation === 'create')->maxLength(80),
+                            Select::make('vehicle_type')->label('Type')->options(Booking::VEHICLE_TYPES)->required(fn (string $operation) => $operation === 'create'),
+                            TextInput::make('plate_number')->label('Plate number')->required(fn (string $operation) => $operation === 'create')->maxLength(15),
+                            Select::make('vehicle_size_id')
+                                ->label('Size class (if you know it)')
+                                ->options(fn () => VehicleSize::query()->active()->ordered()->pluck('name', 'id')->all())
+                                ->helperText('Leave blank to review the unit later: the size sets the price.')
+                                ->visibleOn('create'),
+                        ]),
+                    Section::make('Home service')
+                        ->columns(2)
+                        ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
+                        ->visible(fn (Get $get, ?Booking $record) => ($record?->kind ?? $get('kind')) === 'home')
+                        ->components([
+                            Textarea::make('address')->rows(2)->maxLength(500)->required()->columnSpanFull(),
+                            TextInput::make('area')->maxLength(120),
+                            TextInput::make('landmark')->maxLength(200),
+                            Select::make('has_water')->label('Water hose')->options([1 => 'Yes', 0 => 'No']),
+                            Select::make('has_power')->label('Power outlet')->options([1 => 'Yes', 0 => 'No']),
+                            Select::make('has_shade')->label('Shade or garage')->options([1 => 'Yes', 0 => 'No']),
+                        ]),
+                ])->columnSpan(['default' => 'full', 'lg' => 2]),
+                Group::make([
+                    Section::make('Customer')
+                        ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
+                        ->components([
+                            TextInput::make('name')->required()->maxLength(120),
+                            TextInput::make('phone')->label('Mobile')->tel()->required()->maxLength(40),
+                            TextInput::make('email')->email()->maxLength(190),
+                        ]),
+                    Section::make('Notes')
+                        ->disabled(fn () => ! auth()->user()?->canAccessArea('bookings.sales'))
+                        ->components([
+                            Textarea::make('message')->label('From the customer')->rows(3)->maxLength(1000),
+                            Textarea::make('admin_note')->label('Private note')->rows(3)->maxLength(2000),
+                        ]),
+                ])->columnSpan(['default' => 'full', 'lg' => 1]),
             ]);
     }
 
@@ -246,154 +246,148 @@ class BookingResource extends Resource
         return $schema
             ->columns(3)
             ->components([
-                Section::make('When and where')
-                    ->columnSpan(2)
-                    ->columns(2)
-                    ->components([
-                        TextEntry::make('when')
-                            ->label(fn (Booking $record) => $record->isHome() ? 'Schedule' : 'Drop-off · ready around')
-                            ->state(fn (Booking $record) => $record->whenLabel())
-                            ->weight('bold')
-                            ->columnSpanFull(),
-                        TextEntry::make('branch.name')->label('Branch'),
-                        TextEntry::make('kind')
-                            ->formatStateUsing(fn (string $state) => Booking::KINDS[$state] ?? $state)
-                            ->badge()
-                            ->color(fn (string $state) => $state === 'home' ? 'info' : 'gray'),
-                        TextEntry::make('services')
-                            ->state(fn (Booking $record) => $record->items->map(fn ($item) => $item->service_name.' · '.($item->price !== null ? '₱'.number_format($item->price) : 'price after review'))->all())
-                            ->listWithLineBreaks()
-                            ->bulleted()
-                            ->columnSpanFull(),
-                        TextEntry::make('total_price')
-                            ->label('Price')
-                            ->formatStateUsing(fn (?int $state) => $state === null ? 'Not set: review the unit' : '₱'.number_format($state))
-                            ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null)
-                            ->helperText(fn (Booking $record) => $record->discount_amount ? 'After a ₱'.number_format($record->discount_amount).' referral discount' : null),
-                        TextEntry::make('length')
-                            ->label('Takes')
-                            ->state(fn (Booking $record) => $record->estimate()->label() ?: '—'),
-                        TextEntry::make('arrived_at')
-                            ->label('Arrived')
-                            ->dateTime('M j, Y g:i A')
-                            ->placeholder('—'),
-                        TextEntry::make('exited_at')
-                            ->label('Exited')
-                            ->dateTime('M j, Y g:i A')
-                            ->placeholder('—'),
-                        TextEntry::make('message')
-                            ->label('From the customer')
-                            ->prose()
-                            ->formatStateUsing(fn (string $state) => nl2br(e($state)))
-                            ->html()
-                            ->placeholder('No note')
-                            ->columnSpanFull(),
-                    ]),
-                Section::make('Customer')
-                    ->columnSpan(1)
-                    ->components([
-                        TextEntry::make('status')
-                            ->state(fn (Booking $record) => self::statusLabel($record))
-                            ->badge()
-                            ->color(fn (Booking $record) => $record->stage() === 'expired' ? 'gray' : self::statusColor($record->status))
-                            ->helperText(fn (Booking $record) => $record->stage() === 'awaiting_payment' && $record->hold_expires_at
-                                ? 'Held until '.$record->hold_expires_at->format('M j, g:i A')
-                                : null),
-                        TextEntry::make('reference')->copyable(),
-                        TextEntry::make('name')
-                            ->url(fn (Booking $record) => $record->guest_id && CustomerResource::canViewAny() ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
-                            ->helperText(fn (Booking $record) => $record->guest?->email ? "Signed in as {$record->guest->email}" : ($record->guest ? 'Customer record, no Google account' : null)),
-                        TextEntry::make('phone')
-                            ->label('Mobile')
-                            ->copyable()
-                            ->url(fn (Booking $record) => self::phoneUrl($record->phone)),
-                        TextEntry::make('email')
-                            ->copyable()
-                            ->url(fn (Booking $record) => $record->email ? 'mailto:'.$record->email : null)
-                            ->placeholder('—'),
-                        TextEntry::make('vehicle')
-                            ->state(fn (Booking $record) => $record->vehicleLabel() ?: null)
-                            ->placeholder('—'),
-                        TextEntry::make('vehicle_size_name')
-                            ->label('Size class')
-                            ->state(fn (Booking $record) => $record->size_reviewed_at ? $record->vehicle_size_name : null)
-                            ->placeholder('Not reviewed yet')
-                            ->badge()
-                            ->color(fn (Booking $record) => $record->size_reviewed_at ? 'gray' : 'warning'),
-                        TextEntry::make('admin_note')->label('Private note')->placeholder('—'),
-                        TextEntry::make('created_at')
-                            ->label(fn (Booking $record) => 'Came in by '.strtolower(Booking::SOURCES[$record->source] ?? $record->source))
-                            ->dateTime('M j, Y g:i A')
-                            ->helperText(fn (Booking $record) => $record->reschedule_count > 0 ? "Moved by the customer {$record->reschedule_count}×" : null),
-                    ]),
-                Section::make('Reservation fee')
-                    ->columnSpan(2)
-                    ->columnStart(1)
-                    ->columns(2)
-                    ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source !== 'manual' && ($record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null))
-                    ->components([
-                        TextEntry::make('amount_due')
-                            ->label('Fee')
-                            ->formatStateUsing(fn (?int $state) => $state === null ? '—' : '₱'.number_format($state))
-                            ->helperText(fn (Booking $record) => $record->paid_at ? 'Paid '.$record->paid_at->format('M j, g:i A').($record->payment_note ? " · {$record->payment_note}" : '') : null),
-                        TextEntry::make('payment_method')
-                            ->label('Paid with')
-                            ->formatStateUsing(fn (?string $state) => PaymentSetting::METHODS[$state] ?? $state)
-                            ->helperText(fn (Booking $record) => $record->payment_submitted_at ? 'Screenshot sent '.$record->payment_submitted_at->format('M j, g:i A') : null)
-                            ->placeholder('Not yet'),
-                        TextEntry::make('payment_rejected_reason')
-                            ->label('Asked for another screenshot')
-                            ->color('danger')
-                            ->visible(fn (Booking $record) => filled($record->payment_rejected_reason) && $record->stage() === 'awaiting_payment'),
-                        ViewEntry::make('payment_proof')
-                            ->label('Screenshot')
-                            ->view('filament.entries.payment-proof')
-                            ->visible(fn (Booking $record) => filled($record->payment_proof))
-                            ->columnSpanFull(),
-                    ]),
-                Section::make('Payment')
-                    ->columnSpan(2)
-                    ->columnStart(1)
-                    ->columns(2)
-                    ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source === 'manual')
-                    ->components([
-                        TextEntry::make('amount_paid')
-                            ->label('Paid')
-                            ->formatStateUsing(fn (?int $state) => $state === null ? 'Nothing recorded' : '₱'.number_format($state))
-                            ->helperText(fn (Booking $record) => $record->paid_at ? 'On '.$record->paid_at->format('M j, Y') : null),
-                        TextEntry::make('payment_method')
-                            ->label('Paid with')
-                            ->formatStateUsing(fn (?string $state) => ManualTransaction::METHODS[$state] ?? $state)
-                            ->helperText(fn (Booking $record) => $record->payment_note)
-                            ->placeholder('—'),
-                    ]),
-                Section::make('Home service')
-                    ->columnSpan(2)
-                    ->columnStart(1)
-                    ->columns(2)
-                    ->visible(fn (Booking $record) => $record->isHome())
-                    ->components([
-                        TextEntry::make('address')->columnSpanFull(),
-                        TextEntry::make('area')->placeholder('—'),
-                        TextEntry::make('landmark')->placeholder('—'),
-                        TextEntry::make('site')
-                            ->label('Water / power / shade')
-                            ->state(fn (Booking $record) => collect(['has_water', 'has_power', 'has_shade'])
-                                ->map(fn (string $field) => $record->{$field} === null ? 'not said' : ($record->{$field} ? 'yes' : 'no'))
-                                ->implode(' / ')),
-                    ]),
-                Section::make('History')
-                    ->columnSpan(2)
-                    ->columnStart(1)
-                    ->collapsible()
-                    ->components([
-                        TextEntry::make('history')
-                            ->hiddenLabel()
-                            ->state(fn (Booking $record) => $record->events()->with('user')->limit(100)->get()->map(fn (BookingEvent $event) => $event->line())->all())
-                            ->listWithLineBreaks()
-                            ->bulleted()
-                            ->placeholder('Nothing recorded yet. Moves and changes from now on show here.'),
-                    ]),
+                Group::make([
+                    Section::make('When and where')
+                        ->columns(2)
+                        ->components([
+                            TextEntry::make('when')
+                                ->label(fn (Booking $record) => $record->isHome() ? 'Schedule' : 'Drop-off · ready around')
+                                ->state(fn (Booking $record) => $record->whenLabel())
+                                ->weight('bold')
+                                ->columnSpanFull(),
+                            TextEntry::make('branch.name')->label('Branch'),
+                            TextEntry::make('kind')
+                                ->formatStateUsing(fn (string $state) => Booking::KINDS[$state] ?? $state)
+                                ->badge()
+                                ->color(fn (string $state) => $state === 'home' ? 'info' : 'gray'),
+                            TextEntry::make('services')
+                                ->state(fn (Booking $record) => $record->items->map(fn ($item) => $item->service_name.' · '.($item->price !== null ? '₱'.number_format($item->price) : 'price after review'))->all())
+                                ->listWithLineBreaks()
+                                ->bulleted()
+                                ->columnSpanFull(),
+                            TextEntry::make('total_price')
+                                ->label('Price')
+                                ->formatStateUsing(fn (?int $state) => $state === null ? 'Not set: review the unit' : '₱'.number_format($state))
+                                ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : null)
+                                ->helperText(fn (Booking $record) => $record->discount_amount ? 'After a ₱'.number_format($record->discount_amount).' referral discount' : null),
+                            TextEntry::make('length')
+                                ->label('Takes')
+                                ->state(fn (Booking $record) => $record->estimate()->label() ?: '—'),
+                            TextEntry::make('arrived_at')
+                                ->label('Arrived')
+                                ->dateTime('M j, Y g:i A')
+                                ->placeholder('—'),
+                            TextEntry::make('exited_at')
+                                ->label('Exited')
+                                ->dateTime('M j, Y g:i A')
+                                ->placeholder('—'),
+                            TextEntry::make('message')
+                                ->label('From the customer')
+                                ->prose()
+                                ->formatStateUsing(fn (string $state) => nl2br(e($state)))
+                                ->html()
+                                ->placeholder('No note')
+                                ->columnSpanFull(),
+                        ]),
+                    Section::make('Reservation fee')
+                        ->columns(2)
+                        ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source !== 'manual' && ($record->amount_due !== null || filled($record->payment_proof) || $record->paid_at !== null))
+                        ->components([
+                            TextEntry::make('amount_due')
+                                ->label('Fee')
+                                ->formatStateUsing(fn (?int $state) => $state === null ? '—' : '₱'.number_format($state))
+                                ->helperText(fn (Booking $record) => $record->paid_at ? 'Paid '.$record->paid_at->format('M j, g:i A').($record->payment_note ? " · {$record->payment_note}" : '') : null),
+                            TextEntry::make('payment_method')
+                                ->label('Paid with')
+                                ->formatStateUsing(fn (?string $state) => PaymentSetting::METHODS[$state] ?? $state)
+                                ->helperText(fn (Booking $record) => $record->payment_submitted_at ? 'Screenshot sent '.$record->payment_submitted_at->format('M j, g:i A') : null)
+                                ->placeholder('Not yet'),
+                            TextEntry::make('payment_rejected_reason')
+                                ->label('Asked for another screenshot')
+                                ->color('danger')
+                                ->visible(fn (Booking $record) => filled($record->payment_rejected_reason) && $record->stage() === 'awaiting_payment'),
+                            ViewEntry::make('payment_proof')
+                                ->label('Screenshot')
+                                ->view('filament.entries.payment-proof')
+                                ->visible(fn (Booking $record) => filled($record->payment_proof))
+                                ->columnSpanFull(),
+                        ]),
+                    Section::make('Payment')
+                        ->columns(2)
+                        ->visible(fn (Booking $record) => auth()->user()?->canAccessArea('bookings.sales') && $record->source === 'manual')
+                        ->components([
+                            TextEntry::make('amount_paid')
+                                ->label('Paid')
+                                ->formatStateUsing(fn (?int $state) => $state === null ? 'Nothing recorded' : '₱'.number_format($state))
+                                ->helperText(fn (Booking $record) => $record->paid_at ? 'On '.$record->paid_at->format('M j, Y') : null),
+                            TextEntry::make('payment_method')
+                                ->label('Paid with')
+                                ->formatStateUsing(fn (?string $state) => ManualTransaction::METHODS[$state] ?? $state)
+                                ->helperText(fn (Booking $record) => $record->payment_note)
+                                ->placeholder('—'),
+                        ]),
+                    Section::make('Home service')
+                        ->columns(2)
+                        ->visible(fn (Booking $record) => $record->isHome())
+                        ->components([
+                            TextEntry::make('address')->columnSpanFull(),
+                            TextEntry::make('area')->placeholder('—'),
+                            TextEntry::make('landmark')->placeholder('—'),
+                            TextEntry::make('site')
+                                ->label('Water / power / shade')
+                                ->state(fn (Booking $record) => collect(['has_water', 'has_power', 'has_shade'])
+                                    ->map(fn (string $field) => $record->{$field} === null ? 'not said' : ($record->{$field} ? 'yes' : 'no'))
+                                    ->implode(' / ')),
+                        ]),
+                    Section::make('History')
+                        ->collapsible()
+                        ->components([
+                            TextEntry::make('history')
+                                ->hiddenLabel()
+                                ->state(fn (Booking $record) => $record->events()->with('user')->limit(100)->get()->map(fn (BookingEvent $event) => $event->line())->all())
+                                ->listWithLineBreaks()
+                                ->bulleted()
+                                ->placeholder('Nothing recorded yet. Moves and changes from now on show here.'),
+                        ]),
+                ])->columnSpan(['default' => 'full', 'lg' => 2]),
+                Group::make([
+                    Section::make('Customer')
+                        ->components([
+                            TextEntry::make('status')
+                                ->state(fn (Booking $record) => self::statusLabel($record))
+                                ->badge()
+                                ->color(fn (Booking $record) => $record->stage() === 'expired' ? 'gray' : self::statusColor($record->status))
+                                ->helperText(fn (Booking $record) => $record->stage() === 'awaiting_payment' && $record->hold_expires_at
+                                    ? 'Held until '.$record->hold_expires_at->format('M j, g:i A')
+                                    : null),
+                            TextEntry::make('reference')->copyable(),
+                            TextEntry::make('name')
+                                ->url(fn (Booking $record) => $record->guest_id && CustomerResource::canViewAny() ? CustomerResource::getUrl('view', ['record' => $record->guest_id]) : null)
+                                ->helperText(fn (Booking $record) => $record->guest?->email ? "Signed in as {$record->guest->email}" : ($record->guest ? 'Customer record, no Google account' : null)),
+                            TextEntry::make('phone')
+                                ->label('Mobile')
+                                ->copyable()
+                                ->url(fn (Booking $record) => self::phoneUrl($record->phone)),
+                            TextEntry::make('email')
+                                ->copyable()
+                                ->url(fn (Booking $record) => $record->email ? 'mailto:'.$record->email : null)
+                                ->placeholder('—'),
+                            TextEntry::make('vehicle')
+                                ->state(fn (Booking $record) => $record->vehicleLabel() ?: null)
+                                ->placeholder('—'),
+                            TextEntry::make('vehicle_size_name')
+                                ->label('Size class')
+                                ->state(fn (Booking $record) => $record->size_reviewed_at ? $record->vehicle_size_name : null)
+                                ->placeholder('Not reviewed yet')
+                                ->badge()
+                                ->color(fn (Booking $record) => $record->size_reviewed_at ? 'gray' : 'warning'),
+                            TextEntry::make('admin_note')->label('Private note')->placeholder('—'),
+                            TextEntry::make('created_at')
+                                ->label(fn (Booking $record) => 'Came in by '.strtolower(Booking::SOURCES[$record->source] ?? $record->source))
+                                ->dateTime('M j, Y g:i A')
+                                ->helperText(fn (Booking $record) => $record->reschedule_count > 0 ? "Moved by the customer {$record->reschedule_count}×" : null),
+                        ]),
+                ])->columnSpan(['default' => 'full', 'lg' => 1]),
             ]);
     }
 

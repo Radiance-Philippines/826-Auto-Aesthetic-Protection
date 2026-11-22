@@ -15,13 +15,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-2">
                 @if (count($branches) > 1)
-                    <x-filament::input.wrapper class="min-w-48">
-                        <x-filament::input.select wire:model.live="branch" aria-label="Branch">
-                            @foreach ($branches as $id => $name)
-                                <option value="{{ $id }}">{{ $name }}</option>
-                            @endforeach
-                        </x-filament::input.select>
-                    </x-filament::input.wrapper>
+                    <div class="min-w-56">{{ $this->branchForm }}</div>
                 @else
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $shop->name }}</span>
                 @endif
