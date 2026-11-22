@@ -61,6 +61,10 @@ class MailSetting extends Model
      */
     public static function applyToConfig(): void
     {
+        if (! config('mail.use_mailbox_settings', true)) {
+            return;
+        }
+
         try {
             $settings = static::query()->oldest('id')->first();
         } catch (QueryException) {

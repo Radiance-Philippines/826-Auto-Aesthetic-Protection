@@ -18,6 +18,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Use the mailbox saved in Email settings
+    |--------------------------------------------------------------------------
+    |
+    | On (the default), a configured mailbox in the admin makes the app send
+    | through its SMTP server. The browser tests turn this off so nothing
+    | ever leaves the machine: mail goes to MAIL_MAILER (the log).
+    |
+    */
+
+    'use_mailbox_settings' => env('MAIL_USE_MAILBOX_SETTINGS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Mailer Configurations
     |--------------------------------------------------------------------------
     |

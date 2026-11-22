@@ -60,6 +60,12 @@ Builds and tests run on ribs02, never on a laptop (`ssh ribs`, `/srv/build`). Fr
   - `navigation.spec.ts`: menu, links, redirects, 404, skip link.
   - `booking.spec.ts`: the reservation wizard (validation on every step, sign-in needed, a full day, the server refusing it, the happy path).
   - `a11y.spec.ts`: axe (WCAG A and AA) on every public page, light and dark. Known open problems are listed in `KNOWN` in that file.
+  - `admin-*.spec.ts`: the Filament admin (`/admin`): sign-in with password, authenticator-app and emailed 2FA codes; bookings (arrived, exited, cancel);
+    the head detailer's queue; customers; dashboard; email settings (test send); invitations (invite, mail captured, accept link, sign in);
+    role access (200 or 403 per role); axe on the main admin pages (`KNOWN` in `admin-a11y.spec.ts`). `E2eSeeder` makes one account per role
+    (password `password`), one with an authenticator secret and one with email codes. `serve.sh` sets `MAIL_USE_MAILBOX_SETTINGS=false` and writes all
+    mail to `storage/e2e/mail.log` (the tests read it): nothing is ever sent through SMTP.
+  - `review-evidence.spec.ts`: skipped unless `REVIEW_DIR` is set; then it takes screenshots of the admin screens for reviewing work against the app.
   - Customers sign in with the local test customer (`/auth/local`, local environment only); no Google is involved.
   - Reports: `playwright-report/` (HTML), `test-results/junit.xml`, and traces and screenshots of failures in `test-results/artifacts/`.
 - **Pipeline** (`.flow/ci.yml`, Radiance Flow, on ribs02): on every push to `main` and every pull request into `main` it checks out,
