@@ -1,0 +1,96 @@
+# 826 Auto Aesthetic & Protection on Radiance Flow (owner, 2026-11-22: "gawan ng pipeline ang 826. kasama ang test automation").
+# CI on every push to main and every pull request into main: PHP and Node dependencies, code style, the front-end build,
+# PHPUnit, then the Playwright browser tests (tests/e2e) against `php artisan serve` on a seeded throwaway SQLite file.
+# Runs on ribs02. Secrets: none. The run uses .env.example with a fresh `php artisan key:generate`.
+# Reports: JUnit XML of both suites goes to Flow's test-report step (totals and failed tests on the run and the check).
+# The Playwright HTML report, screenshots and traces stay in the run's workspace on ribs02 (playwright-report/,
+# test-results/) for 24 hours; Flow has no artifact upload step yet.
+# Deploy to Hostinger is NOT in this file: it is added later, when 826 gives collaborator access.
+name: 826-ci
+description: 826 website - Composer, npm, Pint, build, PHPUnit and Playwright tests on ribs02
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  manual: true
+steps:
+  checkout:
+    uses: checkout
+    queue: ribs
+    runs_on: [ribs02]
+    network: true
+    with: { repo: "${{ source.repo }}", sha: "${{ source.sha }}" }
+    env: { GITHUB_TOKEN: "${{ secrets.github }}" }
+
+  deps:
+    needs: [checkout]
+    queue: ribs
+    runs_on: [ribs02]
+    network: true
+    timeout: 900
+    run: |
+      cp .env.example .env
+      composer install --no-interaction --no-progress --prefer-dist
+      php artisan key:generate --no-interaction
+      npm ci --no-audit --no-fund --loglevel=error
+
+  style:
+    needs: [deps]
+    queue: ribs
+    runs_on: [ribs02]
+    run: |
+      vendor/bin/pint --test
+
+  build:
+    needs: [deps]
+    queue: ribs
+    runs_on: [ribs02]
+    timeout: 900
+    run: |
+      npm run build
+
+  # PHPUnit and Playwright both write their JUnit file and then end with exit 0, so the report step below always runs;
+  # the verdict step at the end is what fails the run.
+  phpunit:
+    needs: [build]
+    queue: ribs
+    runs_on: [ribs02]
+    timeout: 1200
+    run: |
+      mkdir -p test-results
+      status=0
+      vendor/bin/phpunit --log-junit test-results/phpunit.xml || status=$?
+      echo "status=$status" >> "$FLOW_OUTPUT"
+
+  e2e:
+    needs: [build]
+    queue: ribs
+    runs_on: [ribs02]
+    timeout: 1800
+    env:
+      CI: "1"
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /home/radmin/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
+    run: |
+      mkdir -p test-results
+      status=0
+      npm run test:e2e || status=$?
+      echo "status=$status" >> "$FLOW_OUTPUT"
+
+  tests:
+    needs: [phpunit, e2e]
+    uses: test-report
+    queue: ribs
+    runs_on: [ribs02]
+    with: { files: "test-results/*.xml" }
+
+  verdict:
+    needs: [style, tests]
+    queue: ribs
+    runs_on: [ribs02]
+    env:
+      PHPUNIT_STATUS: "${{ steps.phpunit.outputs.status }}"
+      E2E_STATUS: "${{ steps.e2e.outputs.status }}"
+    run: |
+      echo "phpunit exit $PHPUNIT_STATUS, playwright exit $E2E_STATUS"
+      [ "$PHPUNIT_STATUS" = "0" ] && [ "$E2E_STATUS" = "0" ]

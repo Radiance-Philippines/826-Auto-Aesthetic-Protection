@@ -41,6 +41,32 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Testing and pipeline
+
+Builds and tests run on ribs02, never on a laptop (`ssh ribs`, `/srv/build`). From the repo, with the `ribs` skill's script:
+
+```bash
+~/.claude/skills/ribs/scripts/ribs-run.sh 826-ci -- 'cp -n .env.example .env && composer install --no-interaction --no-progress -q && php artisan key:generate -q && npm ci --no-audit --no-fund --loglevel=error && npm run build && php artisan test && npm run test:e2e'
+~/.claude/skills/ribs/scripts/ribs-clean.sh 826-ci
+```
+
+- **PHP tests** (`php artisan test`): PHPUnit feature and unit tests, in-memory SQLite.
+- **Front-end tests** (`npm run test:e2e`): Playwright (`tests/e2e/`), in Chromium at desktop 1440x900 and phone 390x844.
+  `playwright.config.ts` starts `tests/e2e/serve.sh`: a throwaway SQLite file seeded by `database/seeders/E2eSeeder.php`
+  (Cainta open Monday to Saturday, one unit a day, the second open day already full) and `php artisan serve` on a free port.
+  It needs `.env` and a finished `npm run build`. Chromium is not downloaded: it uses `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`,
+  or the copy already on ribs02 (`/home/radmin/.cache/ms-playwright/chromium_headless_shell-1243/...`).
+  - `pages.spec.ts`: every public page renders at both sizes, with no console errors, no horizontal overflow, and a screenshot.
+  - `navigation.spec.ts`: menu, links, redirects, 404, skip link.
+  - `booking.spec.ts`: the reservation wizard (validation on every step, sign-in needed, a full day, the server refusing it, the happy path).
+  - `a11y.spec.ts`: axe (WCAG A and AA) on every public page, light and dark. Known open problems are listed in `KNOWN` in that file.
+  - Customers sign in with the local test customer (`/auth/local`, local environment only); no Google is involved.
+  - Reports: `playwright-report/` (HTML), `test-results/junit.xml`, and traces and screenshots of failures in `test-results/artifacts/`.
+- **Pipeline** (`.flow/ci.yml`, Radiance Flow, on ribs02): on every push to `main` and every pull request into `main` it checks out,
+  installs Composer and npm packages (with `.env.example` and a fresh app key, no secrets), runs `pint --test`, `npm run build`,
+  then PHPUnit and the Playwright tests, reports both JUnit files with Flow's `test-report` step, and fails the run if either suite failed.
+  Deploying to Hostinger is not part of it yet.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
