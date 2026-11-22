@@ -6,6 +6,7 @@ use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\SecuritySettings;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use App\Models\User;
@@ -165,6 +166,7 @@ class PasskeyTest extends TestCase
         $this->signIn($device->assert($options, $user->id))->assertOk()->assertJsonStructure(['redirect']);
 
         $this->assertAuthenticatedAs($user);
+        $this->assertTrue(session(RequireTwoFactorWhenOn::VIA_PASSKEY));
         $this->get('/admin/bookings')->assertOk();
         $this->assertNotNull($user->passkeys()->sole()->last_used_at);
         $this->assertDatabaseHas('security_events', ['user_id' => $user->id, 'kind' => 'passkey_sign_in', 'note' => 'Work laptop']);
@@ -313,12 +315,16 @@ class PasskeyTest extends TestCase
 
         $this->get('/admin/bookings')->assertRedirect($setUp);
 
+        // Owning a passkey is not enough: this session was not started with it
         $this->addPasskey($user);
-        $this->get('/admin/bookings')->assertOk();
+        $this->get('/admin/bookings')->assertRedirect($setUp);
+
+        // A session started with the passkey counts
+        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get('/admin/bookings')->assertOk();
 
         // Not while passkeys are switched off: then it is not a way to sign in
         SecuritySetting::instance()->update(['allow_passkeys' => false]);
-        $this->get('/admin/bookings')->assertRedirect($setUp);
+        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get('/admin/bookings')->assertRedirect($setUp);
     }
 
     // Who can touch what

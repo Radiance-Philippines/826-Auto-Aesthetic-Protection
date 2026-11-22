@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use Filament\Facades\Filament;
@@ -65,6 +66,8 @@ class PasskeyLoginController extends Controller
 
         Filament::auth()->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+        // Only this session counts as strong sign-in; owning a passkey is not enough (a password login by the same person is not)
+        $request->session()->put(RequireTwoFactorWhenOn::VIA_PASSKEY, true);
 
         SecurityEvent::record(SecurityEvent::PASSKEY_SIGN_IN, $user, $passkey->name);
 
