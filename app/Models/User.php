@@ -14,12 +14,15 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\LaravelPasskeys\Models\Concerns\HasPasskeys;
+use Spatie\LaravelPasskeys\Models\Passkey;
 
 #[Fillable(['name', 'email', 'password', 'role', 'permissions'])]
 #[Hidden(['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes'])]
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasEmailAuthentication
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasEmailAuthentication, HasPasskeys
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -164,6 +167,38 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function hasTwoFactor(): bool
     {
         return filled($this->app_authentication_secret) || (bool) $this->has_email_authentication;
+    }
+
+    /**
+     * @return HasMany<Passkey, $this>
+     */
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(Passkey::class, 'authenticatable_id');
+    }
+
+    public function getPassKeyName(): string
+    {
+        return $this->email;
+    }
+
+    public function getPassKeyId(): string
+    {
+        return (string) $this->getKey();
+    }
+
+    public function getPassKeyDisplayName(): string
+    {
+        return $this->name;
+    }
+
+    /**
+     * At least one passkey, which counts as strong sign-in when "two-factor
+     * for everyone" is on (while passkey sign-in is allowed).
+     */
+    public function hasPasskeys(): bool
+    {
+        return $this->passkeys()->exists();
     }
 
     /**

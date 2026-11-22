@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\RequireTwoFactorWhenOn;
 use Filament\Actions\Action;
@@ -53,10 +55,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(Login::class)
             ->passwordReset()
-            // Name, email and password, from the user menu
-            ->profile(isSimple: false)
+            // Name, email, password, two-factor and passkeys, from the user menu
+            ->profile(EditProfile::class, isSimple: false)
             // Two-factor sign-in: an authenticator app (with recovery codes) or an emailed
             // code, set up from the profile. Whether it is compulsory is Settings → Security,
             // checked on each request by RequireTwoFactorWhenOn (so always "required" here).

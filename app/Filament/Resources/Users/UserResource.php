@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Branch;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Support\Access;
 use App\Support\Invitations;
@@ -133,7 +134,7 @@ class UserResource extends Resource
     {
         return $table
             ->defaultSort('name')
-            ->modifyQueryUsing(fn ($query) => $query->with('branches'))
+            ->modifyQueryUsing(fn ($query) => $query->with('branches')->withCount('passkeys'))
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -148,6 +149,10 @@ class UserResource extends Resource
                     ->state(fn (User $record) => $record->hasTwoFactor() ? 'On' : 'Off')
                     ->badge()
                     ->color(fn (string $state) => $state === 'On' ? 'success' : 'gray'),
+                TextColumn::make('passkeys_count')
+                    ->label('Passkeys')
+                    ->badge()
+                    ->color(fn (int $state) => $state > 0 ? 'success' : 'gray'),
                 TextColumn::make('status')
                     ->state(fn (User $record) => $record->isPendingInvite() ? 'Invite sent' : 'Active')
                     ->badge()
@@ -157,6 +162,7 @@ class UserResource extends Resource
             ->recordActions([
                 self::resendInviteAction(),
                 self::resetTwoFactorAction(),
+                self::removePasskeysAction(),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
@@ -222,6 +228,30 @@ class UserResource extends Resource
                 $record->resetTwoFactor();
 
                 Notification::make()->success()->title("2FA reset for {$record->name}")->send();
+            });
+    }
+
+    /**
+     * For a lost or stolen device: removes every passkey of that person (and
+     * says so in the security activity), so they sign in with their password
+     * and add new ones.
+     */
+    public static function removePasskeysAction(): Action
+    {
+        return Action::make('removePasskeys')
+            ->label('Remove passkeys')
+            ->icon(Heroicon::OutlinedFingerPrint)
+            ->color('gray')
+            ->authorize(fn () => self::canViewAny())
+            ->visible(fn (User $record) => $record->passkeys()->exists())
+            ->requiresConfirmation()
+            ->modalDescription('Removes every passkey of this person, for a lost or stolen device. They sign in with their password (and 2FA) until they add a passkey again.')
+            ->action(function (User $record) {
+                $count = $record->passkeys()->count();
+                $record->passkeys()->delete();
+                SecurityEvent::record(SecurityEvent::PASSKEYS_CLEARED, $record, $count === 1 ? '1 passkey' : "{$count} passkeys", auth()->user());
+
+                Notification::make()->success()->title("Passkeys removed for {$record->name}")->send();
             });
     }
 

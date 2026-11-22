@@ -6,6 +6,7 @@ use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
 use App\Http\Controllers\MetaWebhookController;
 use App\Http\Controllers\MyBookingsController;
+use App\Http\Controllers\PasskeyLoginController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
@@ -63,6 +64,12 @@ Route::prefix('api/my-bookings')->controller(MyBookingsController::class)->group
 Route::get('/admin-files/bookings/{booking}/proof', [AdminFileController::class, 'proof'])
     ->whereNumber('booking')
     ->name('admin.bookings.proof');
+
+// Sign in to /admin with a passkey: the one-time challenge, then the signed answer
+Route::prefix('admin-passkeys')->controller(PasskeyLoginController::class)->group(function () {
+    Route::get('/options', 'options')->middleware('throttle:passkey-options')->name('passkeys.options');
+    Route::post('/login', 'login')->middleware('throttle:passkey-login')->name('passkeys.login');
+});
 
 Route::permanentRedirect('/booking', '/book');
 Route::permanentRedirect('/reserve', '/book');

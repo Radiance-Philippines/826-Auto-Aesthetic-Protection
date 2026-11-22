@@ -45,6 +45,11 @@ class AppServiceProvider extends ServiceProvider
         // Filament's own dropdowns and date pickers, and an icon on every button
         PanelDefaults::apply();
 
+        // The passkey relying-party id is the host the admin is opened on, unless PASSKEY_RP_ID says otherwise
+        if (blank(config('passkeys.relying_party.id'))) {
+            config(['passkeys.relying_party.id' => $this->app->runningInConsole() ? parse_url((string) config('app.url'), PHP_URL_HOST) : request()->getHost()]);
+        }
+
         $this->limitRequests();
     }
 
@@ -64,6 +69,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('my-bookings', fn (Request $request) => Limit::perMinute(60)->by($by('my-bookings')($request)));
         RateLimiter::for('payments', fn (Request $request) => Limit::perMinute(6)->by($by('payments')($request)));
         RateLimiter::for('reviews', fn (Request $request) => Limit::perMinute(5)->by($by('reviews')($request)));
+        // Like the password form (5 a minute), counting every try; the one-time challenge fetch is cheaper
+        RateLimiter::for('passkey-login', fn (Request $request) => Limit::perMinute(5)->by('passkey-login|'.$request->ip()));
+        RateLimiter::for('passkey-options', fn (Request $request) => Limit::perMinute(20)->by('passkey-options|'.$request->ip()));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }

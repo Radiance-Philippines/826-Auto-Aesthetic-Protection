@@ -18,9 +18,10 @@ use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
 /**
- * Sign-in security (settings area): make two-factor sign-in compulsory.
- * Everyone can still set it up from their profile whether this is on or
- * not; a locked-out user is reset from Users.
+ * Sign-in security (settings area): make two-factor sign-in compulsory, and
+ * allow or stop passkey sign-in. Everyone can still set up two-factor from
+ * their profile whether this is on or not; a locked-out user is reset from
+ * Users.
  */
 class SecuritySettings extends Page
 {
@@ -61,7 +62,14 @@ class SecuritySettings extends Page
                     ->components([
                         Toggle::make('require_two_factor')
                             ->label('Require two-factor sign-in for everyone')
-                            ->helperText('When on, anyone without it is sent to set it up before they can use the admin. The email code only works once email is set up in Email settings, so the app is the safer choice.'),
+                            ->helperText('When on, anyone without it is sent to set it up before they can use the admin. A passkey counts too (while passkey sign-in is allowed below), so someone with a passkey is not asked for the app. The email code only works once email is set up in Email settings, so the app is the safer choice.'),
+                    ]),
+                Section::make('Passkeys')
+                    ->description('Each person adds passkeys from their profile, under the user menu. A passkey sign-in checks their fingerprint, face or PIN, so it does not ask for the 2FA code. Passwords keep working with the 2FA rules above.')
+                    ->components([
+                        Toggle::make('allow_passkeys')
+                            ->label('Allow passkey sign-in')
+                            ->helperText('When off, the "Sign in with a passkey" button is hidden and passkey sign-in stops working. Passkeys people already added are kept.'),
                     ]),
             ]);
     }

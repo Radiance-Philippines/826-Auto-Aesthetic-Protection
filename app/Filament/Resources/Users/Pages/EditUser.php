@@ -18,6 +18,7 @@ class EditUser extends EditRecord
     {
         return [
             UserResource::resetTwoFactorAction(),
+            UserResource::removePasskeysAction(),
             DeleteAction::make(),
         ];
     }
