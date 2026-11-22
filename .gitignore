@@ -30,3 +30,8 @@ Homestead.yaml
 Thumbs.db
 *.bak
 /.claude/settings.local.json
+
+# Browser tests (tests/e2e)
+/storage/e2e
+/playwright-report
+/test-results
