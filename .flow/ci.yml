@@ -7,7 +7,7 @@
 # The jobs and steps now come from Radiance-Philippines/devops-utilities (owner, 2026-11-23: "gusto ko ganon ang lahat ng
 # ci kita ang jobs at steps ... yung reusable ay ilagay sa devops-utilities"). Flow expands every `template:` entry before
 # the run starts, so the run page lists each step (deps_install, style_pint, phpunit_phpunit, ...) and which template file
-# it came from. The templates are pinned to the tag v1.0.0.
+# it came from. The templates are pinned to the tag v1.0.1.
 #
 # Reports: JUnit XML of both suites goes to Flow's test-report step (totals and failed tests on the run and the check).
 # Coverage: pcov, Clover, Flow's coverage step. On a pull request the changed lines must be covered at least `diff_min`
@@ -26,7 +26,7 @@ on:
 resources:
   repositories:
     - repository: devops-utilities
-      ref: v1.0.0
+      ref: v1.0.1
 steps:
   checkout:
     uses: checkout
