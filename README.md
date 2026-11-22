@@ -55,7 +55,7 @@ Builds and tests run on ribs02, never on a laptop (`ssh ribs`, `/srv/build`). Fr
   `playwright.config.ts` starts `tests/e2e/serve.sh`: a throwaway SQLite file seeded by `database/seeders/E2eSeeder.php`
   (Cainta open Monday to Saturday, one unit a day, the second open day already full) and `php artisan serve` on a free port.
   It needs `.env` and a finished `npm run build`. Chromium is not downloaded: it uses `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`,
-  or the copy already on ribs02 (`/home/radmin/.cache/ms-playwright/chromium_headless_shell-1243/...`).
+  or the copy already on ribs02 (`/opt/flow-tools/chromium_headless_shell-1243/...`).
   - `pages.spec.ts`: every public page renders at both sizes, with no console errors, no horizontal overflow, and a screenshot.
   - `navigation.spec.ts`: menu, links, redirects, 404, skip link.
   - `booking.spec.ts`: the reservation wizard (validation on every step, sign-in needed, a full day, the server refusing it, the happy path).

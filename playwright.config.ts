@@ -26,7 +26,7 @@ async function freePort(): Promise<number> {
 const port = await freePort();
 
 // ribs02 has its Chromium already; no browser is downloaded in CI
-const ribsChromium = '/home/radmin/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell';
+const ribsChromium = '/opt/flow-tools/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell';
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (existsSync(ribsChromium) ? ribsChromium : undefined);
 
 export default defineConfig({
