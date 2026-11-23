@@ -21,7 +21,18 @@ class AppRelease extends Model
 
     public const DISK = 'local';
 
-    protected $fillable = ['version', 'version_code', 'apk_path', 'size', 'sha256', 'notes', 'mandatory', 'is_published'];
+    public const CUSTOMER = 'customer';
+
+    public const STAFF = 'staff';
+
+    /**
+     * @var array<string, string>
+     */
+    public const APPS = [self::CUSTOMER => 'Customer app', self::STAFF => '826 Team (staff app)'];
+
+    protected $attributes = ['app' => self::CUSTOMER];
+
+    protected $fillable = ['app', 'version', 'version_code', 'apk_path', 'size', 'sha256', 'notes', 'mandatory', 'is_published'];
 
     protected function casts(): array
     {
@@ -38,9 +49,9 @@ class AppRelease extends Model
         $query->where('is_published', true);
     }
 
-    public static function latestPublished(): ?self
+    public static function latestPublished(string $app = self::CUSTOMER): ?self
     {
-        return static::query()->published()->orderByDesc('version_code')->first();
+        return static::query()->published()->where('app', $app)->orderByDesc('version_code')->first();
     }
 
     /**
@@ -66,7 +77,9 @@ class AppRelease extends Model
      */
     public function downloadUrl(): string
     {
-        return route('download.apk', ['version' => $this->version]);
+        return $this->app === self::STAFF
+            ? route('download.staff-apk', ['version' => $this->version])
+            : route('download.apk', ['version' => $this->version]);
     }
 
     /**

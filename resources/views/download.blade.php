@@ -13,7 +13,7 @@
             :root { --bg: #0b0c0e; --card: #131518; --text: #eef0f1; --muted: #a4abb0; --line: rgb(238 240 241 / 0.09); --accent: #2ad3cb; --on-accent: #0b0c0e; }
         }
         * { box-sizing: border-box; }
-        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; min-height: 100vh; gap: 16px; display: grid; place-items: center; align-content: center; padding: 24px 16px; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
         main { width: 100%; max-width: 30rem; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; }
         img { display: block; width: 72px; height: auto; margin-bottom: 16px; }
         h1 { margin: 0 0 8px; font-size: 1.5rem; line-height: 1.2; }
@@ -48,6 +48,27 @@
         <p style="margin-top:16px;font-size:0.875rem">After downloading, open the file to install it. Your phone may ask you to allow installs from your browser.</p>
     @else
         <p>The Android app isn’t ready to download yet. Android only for now.</p>
+    @endif
+</main>
+<main>
+    <h1>826 Team</h1>
+    @if ($staffRelease)
+        <p>For the shop’s team: the queue, today’s jobs, clients, the inbox and the numbers, by role. Sign in with your team account. Android only for now.</p>
+        <a class="button" href="{{ $staffRelease->downloadUrl() }}">Download 826 Team (version {{ $staffRelease->version }})</a>
+        <dl>
+            <dt>Version</dt><dd>{{ $staffRelease->version }}</dd>
+            @if ($staffRelease->size)
+                <dt>Size</dt><dd>{{ number_format($staffRelease->size / 1048576, 1) }} MB</dd>
+            @endif
+            @if ($staffRelease->sha256)
+                <dt>SHA-256</dt><dd><code>{{ $staffRelease->sha256 }}</code></dd>
+            @endif
+        </dl>
+        @if ($staffRelease->notes)
+            <p class="notes">{{ $staffRelease->notes }}</p>
+        @endif
+    @else
+        <p>The 826 Team app isn’t ready to download yet.</p>
     @endif
 </main>
 </body>

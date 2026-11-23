@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateGuestToken;
+use App\Http\Middleware\AuthenticateUserToken;
 use App\Http\Middleware\SkipForgeryCheckForBearer;
 use App\Http\Middleware\StartSessionUnlessBearer;
 use Illuminate\Foundation\Application;
@@ -34,7 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             StartSession::class => StartSessionUnlessBearer::class,
             PreventRequestForgery::class => SkipForgeryCheckForBearer::class,
         ]);
-        $middleware->alias(['guest.token' => AuthenticateGuestToken::class]);
+        $middleware->alias(['guest.token' => AuthenticateGuestToken::class, 'user.token' => AuthenticateUserToken::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

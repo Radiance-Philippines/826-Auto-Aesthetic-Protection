@@ -268,6 +268,9 @@ class Booking extends Model
             }
         });
 
+        // The team's unit photos are files: they go with the booking
+        static::deleting(fn (Booking $booking) => $booking->photos()->get()->each->delete());
+
         // A referral code's points are earned when the booking exits, and lost when it falls through
         static::saved(function (Booking $booking) {
             if ($booking->wasChanged('status')) {
@@ -425,6 +428,16 @@ class Booking extends Model
     }
 
     /**
+     * Photos of the unit from the staff app, newest first.
+     *
+     * @return HasMany<BookingPhoto, $this>
+     */
+    public function photos(): HasMany
+    {
+        return $this->hasMany(BookingPhoto::class)->latest('id');
+    }
+
+    /**
      * @return HasMany<BookingItem, $this>
      */
     public function items(): HasMany
@@ -579,6 +592,14 @@ class Booking extends Model
     public function nextStatus(): ?string
     {
         return ($this->isHome() ? self::NEXT_HOME : self::NEXT_ONSITE)[$this->status] ?? null;
+    }
+
+    /**
+     * The ready date can move while an onsite unit is booked or in the shop.
+     */
+    public function canChangeReadyDate(): bool
+    {
+        return $this->isOnsite() && in_array($this->status, ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready'], true);
     }
 
     public function estimate(): Estimate

@@ -114,9 +114,9 @@ class AppController extends Controller
      * GET /api/app/latest: the newest published Android release, or
      * versionCode 0 when there is none yet.
      */
-    public function latest(): JsonResponse
+    public function latest(string $app = AppRelease::CUSTOMER): JsonResponse
     {
-        $release = AppRelease::latestPublished();
+        $release = AppRelease::latestPublished($app);
 
         return response()->json($release?->toApp() ?? [
             'version' => null,

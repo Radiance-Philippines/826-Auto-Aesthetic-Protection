@@ -21,12 +21,21 @@ class SecurityEvent extends Model
 
     public const GUEST_ACCOUNT_DELETED = 'guest_account_deleted';
 
+    public const STAFF_APP_SIGN_IN = 'staff_app_sign_in';
+
+    public const STAFF_APP_SIGN_IN_FAILED = 'staff_app_sign_in_failed';
+
+    public const STAFF_APP_SIGN_OUT = 'staff_app_sign_out';
+
     public const LABELS = [
         self::PASSKEY_ADDED => 'Passkey added',
         self::PASSKEY_REMOVED => 'Passkey removed',
         self::PASSKEY_SIGN_IN => 'Signed in with a passkey',
         self::PASSKEYS_CLEARED => 'Passkeys removed by a super admin',
         self::GUEST_ACCOUNT_DELETED => 'Customer deleted their account in the app',
+        self::STAFF_APP_SIGN_IN => 'Signed in to the team app',
+        self::STAFF_APP_SIGN_IN_FAILED => 'Failed sign-in to the team app',
+        self::STAFF_APP_SIGN_OUT => 'Signed out of the team app',
     ];
 
     public const UPDATED_AT = null;

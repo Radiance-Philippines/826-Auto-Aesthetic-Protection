@@ -10,16 +10,19 @@ use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Unique;
 use UnitEnum;
 
 /**
@@ -47,18 +50,27 @@ class AppReleaseResource extends Resource
     {
         return $schema->components([
             Section::make()->columns(2)->components([
+                Select::make('app')
+                    ->label('App')
+                    ->options(AppRelease::APPS)
+                    ->default(AppRelease::CUSTOMER)
+                    ->required()
+                    ->native(false)
+                    ->selectablePlaceholder(false)
+                    ->live()
+                    ->columnSpanFull(),
                 TextInput::make('version')
                     ->required()
                     ->maxLength(20)
                     ->regex('/^\d+\.\d+\.\d+$/')
-                    ->unique(ignoreRecord: true)
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('app', $get('app') ?? AppRelease::CUSTOMER))
                     ->helperText('Like 0.1.0: the same as the version in the app.'),
                 TextInput::make('version_code')
                     ->label('Version code')
                     ->required()
                     ->numeric()
                     ->minValue(1)
-                    ->unique(ignoreRecord: true)
+                    ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('app', $get('app') ?? AppRelease::CUSTOMER))
                     ->helperText('A whole number that goes up with every release.'),
                 FileUpload::make('apk_path')
                     ->label('APK file')
@@ -90,6 +102,7 @@ class AppReleaseResource extends Resource
         return $table
             ->defaultSort('version_code', 'desc')
             ->columns([
+                TextColumn::make('app')->label('App')->badge()->formatStateUsing(fn (string $state) => AppRelease::APPS[$state] ?? $state),
                 TextColumn::make('version')->searchable()->description(fn (AppRelease $record) => 'Code '.$record->version_code),
                 TextColumn::make('size')->formatStateUsing(fn ($state) => number_format($state / 1048576, 1).' MB'),
                 IconColumn::make('is_published')->label('Published')->boolean(),

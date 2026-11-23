@@ -7,6 +7,7 @@ use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\BranchBlockResource;
 use App\Models\Booking;
 use App\Models\Branch;
+use App\Support\QueueBoard;
 use App\Support\Reservations;
 use App\Support\Schedule\Availability;
 use BackedEnum;
@@ -189,19 +190,7 @@ class Queue extends Page
         $units = Availability::unitsOn($branch, $day);
         $state = $cap > 0 ? Availability::check($branch, $day, byStaff: true) : 'closed';
 
-        $bookings = Booking::query()
-            ->where('branch_id', $branch->id)
-            ->where(fn ($board) => $board
-                ->whereIn('status', Booking::IN_SHOP)
-                ->orWhere(fn ($booked) => $booked
-                    ->where('drop_off_on', $day->toDateString())
-                    ->where(fn ($status) => $status
-                        ->whereIn('status', ['confirmed', 'payment_review'])
-                        ->orWhere(fn ($hold) => $hold->where('status', 'awaiting_payment')->where('hold_expires_at', '>', now())))))
-            ->with('items')
-            ->orderBy('drop_off_on')
-            ->orderBy('id')
-            ->get();
+        $bookings = QueueBoard::bookings($branch, $day);
 
         $columns = [];
 
@@ -209,9 +198,7 @@ class Queue extends Page
             $columns[$status] = [
                 ...$column,
                 'cards' => $bookings
-                    ->filter(fn (Booking $booking) => $status === 'confirmed'
-                        ? in_array($booking->status, ['confirmed', 'payment_review', 'awaiting_payment'], true)
-                        : $booking->status === $status)
+                    ->filter(fn (Booking $booking) => QueueBoard::column($booking) === $status)
                     ->map(fn (Booking $booking) => $this->card($booking))
                     ->values()
                     ->all(),

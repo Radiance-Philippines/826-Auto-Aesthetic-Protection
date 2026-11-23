@@ -128,4 +128,47 @@ class AppReleaseTest extends TestCase
 
         Livewire::test(ListAppReleases::class)->assertCanSeeTableRecords([$release])->assertActionHasIcon('create', Heroicon::OutlinedPlus);
     }
+
+    public function test_the_download_page_lists_the_team_app_too_and_its_apk_is_separate(): void
+    {
+        $this->get('/download')->assertOk()->assertSee('826 Team')->assertSee('The 826 Team app isn’t ready to download yet.');
+
+        $this->release(['version' => '0.1.0', 'version_code' => 1]);
+        Storage::disk(AppRelease::DISK)->put('apks/team.apk', 'team-bytes');
+        AppRelease::factory()->staff()->create(['apk_path' => 'apks/team.apk', 'version' => '0.1.0', 'version_code' => 1, 'sha256' => str_repeat('d', 64), 'notes' => 'First team build']);
+
+        $this->get('/download')
+            ->assertOk()
+            ->assertSee(url('/download/826-auto-0.1.0.apk'), false)
+            ->assertSee(url('/download/826-team-0.1.0.apk'), false)
+            ->assertSee(str_repeat('d', 64))
+            ->assertSee('First team build');
+
+        $this->get('/download/826-team-0.1.0.apk')->assertOk()->assertDownload('826-team-0.1.0.apk');
+        // Each app's file is served under its own name only
+        $this->get('/download/826-auto-0.1.0.apk')->assertDownload('826-auto-0.1.0.apk');
+        AppRelease::query()->where('app', 'customer')->delete();
+        $this->get('/download/826-auto-0.1.0.apk')->assertNotFound();
+        AppRelease::query()->where('app', 'staff')->update(['is_published' => false]);
+        $this->get('/download/826-team-0.1.0.apk')->assertNotFound();
+    }
+
+    public function test_the_owner_adds_a_team_release_with_the_same_version_code_as_the_customer_app(): void
+    {
+        $this->actingAs(User::factory()->owner()->create());
+        $this->release(['version' => '0.1.0', 'version_code' => 1]);
+
+        Livewire::test(CreateAppRelease::class)
+            ->fillForm(['app' => 'staff', 'version' => '0.1.0', 'version_code' => 1, 'apk_path' => UploadedFile::fake()->create('team.apk', 5, 'application/vnd.android.package-archive'), 'is_published' => true])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(['customer', 'staff'], AppRelease::orderBy('id')->pluck('app')->all());
+
+        // But not twice inside the team app
+        Livewire::test(CreateAppRelease::class)
+            ->fillForm(['app' => 'staff', 'version' => '0.1.0', 'version_code' => 1, 'apk_path' => UploadedFile::fake()->create('team.apk', 5, 'application/vnd.android.package-archive')])
+            ->call('create')
+            ->assertHasFormErrors(['version', 'version_code']);
+    }
 }

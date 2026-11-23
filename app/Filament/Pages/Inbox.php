@@ -8,10 +8,10 @@ use App\Models\Branch;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Guest;
-use App\Models\MetaSetting;
 use App\Models\User;
 use App\Support\Inbox\Inbox as InboxService;
 use App\Support\Inbox\InboxException;
+use App\Support\Inbox\InboxList;
 use App\Support\Inbox\SampleInbox;
 use App\Support\InboxAccess;
 use BackedEnum;
@@ -131,16 +131,12 @@ class Inbox extends Page
      */
     public function showsAllTab(): bool
     {
-        return auth()->user()?->isOwner() || $this->branchTabs->count() > 1;
+        return InboxList::showsAllTab(auth()->user(), $this->branchTabs);
     }
 
     private function validBranch(string $branch): string
     {
-        if ($this->branchTabs->has($branch)) {
-            return $branch;
-        }
-
-        return $this->showsAllTab() ? 'all' : (string) $this->branchTabs->keys()->first();
+        return InboxList::validBranch(auth()->user(), $this->branchTabs, $branch);
     }
 
     /**
@@ -151,7 +147,7 @@ class Inbox extends Page
     #[Computed]
     public function branchTabs(): SupportCollection
     {
-        return Branch::query()->visibleTo(auth()->user())->ordered()->get()->keyBy(fn (Branch $branch): string => (string) $branch->getKey());
+        return InboxList::branchTabs(auth()->user());
     }
 
     /**
@@ -162,12 +158,7 @@ class Inbox extends Page
     #[Computed]
     public function unreadByBranch(): array
     {
-        return Conversation::visibleTo(auth()->user())->unread()
-            ->selectRaw('branch_id, count(*) as total')
-            ->groupBy('branch_id')
-            ->pluck('total', 'branch_id')
-            ->map(fn ($total) => (int) $total)
-            ->all();
+        return InboxList::unreadByBranch(auth()->user());
     }
 
     /**
@@ -261,19 +252,7 @@ class Inbox extends Page
     #[Computed]
     public function conversations(): Collection
     {
-        $search = trim($this->search);
-
-        return Conversation::query()
-            ->visibleTo(auth()->user())
-            ->with('branch:id,name')
-            ->when($this->branch !== 'all' && $this->branchTabs->has($this->branch), fn ($query) => $query->where('branch_id', (int) $this->branch))
-            ->when($this->filter === 'unread', fn ($query) => $query->unread())
-            ->when($this->filter === 'open', fn ($query) => $query->where('status', Conversation::OPEN))
-            ->when($this->filter === 'done', fn ($query) => $query->where('status', Conversation::DONE))
-            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
-                ->where('customer_name', 'like', "%{$search}%")
-                ->orWhere('last_message_preview', 'like', "%{$search}%")))
-            ->latestFirst()
+        return InboxList::query(auth()->user(), $this->branchTabs, $this->branch, $this->filter, $this->search)
             ->limit(100)
             ->get();
     }
@@ -356,21 +335,7 @@ class Inbox extends Page
      */
     public function setupNotice(): ?string
     {
-        if (SampleInbox::active()) {
-            return 'These are sample chats, so you can see how the inbox works. Nothing is sent or received until Meta is set up; replies here are only saved on this page.';
-        }
-
-        if (! MetaSetting::instance()->isReady()) {
-            return auth()->user()?->isOwner()
-                ? 'Messenger is not set up yet. Add the Meta app in Settings → Meta, then each branch’s Facebook Page in Branches → Facebook page.'
-                : 'Messenger is not set up yet. Ask an owner to connect Meta and your branch’s Facebook Page.';
-        }
-
-        $tab = $this->branchTabs->get($this->branch);
-
-        return $tab && ! $tab->hasFacebookPage()
-            ? "{$tab->name} has no connected Facebook Page yet (Branches → Facebook page)."
-            : null;
+        return InboxList::setupNotice(auth()->user(), $this->branchTabs, $this->branch);
     }
 
     public function assignAction(): Action

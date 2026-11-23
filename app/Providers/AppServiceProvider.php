@@ -80,6 +80,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('app-sign-in', fn (Request $request) => Limit::perMinute(10)->by('app-sign-in|'.$request->ip()));
         // A page asks again about every 4 minutes, plus reconnects; 20 a minute leaves room and stops a loop
         RateLimiter::for('live-ticket', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->getAuthIdentifier() ? 'live-ticket|user:'.$request->user()->getAuthIdentifier() : $by('live-ticket')($request)));
+        // The team app: sign-in by address (each try counts; the per-email count is in the controller) and a generous per-person budget after it
+        RateLimiter::for('staff-sign-in', fn (Request $request) => Limit::perMinute(10)->by('staff-sign-in|'.$request->ip()));
+        RateLimiter::for('staff', fn (Request $request) => Limit::perMinute(240)->by('staff|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }

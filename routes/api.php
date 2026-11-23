@@ -2,6 +2,12 @@
 
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AppController;
+use App\Http\Controllers\StaffAuthController;
+use App\Http\Controllers\StaffCustomerController;
+use App\Http\Controllers\StaffInboxController;
+use App\Http\Controllers\StaffOverviewController;
+use App\Http\Controllers\StaffQueueController;
+use App\Http\Controllers\StaffSalesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,5 +32,47 @@ Route::prefix('app')->name('app.')->group(function () {
         Route::get('home', [AppController::class, 'home'])->name('home');
         Route::post('push-token', [AppAuthController::class, 'pushToken'])->name('push-token');
         Route::post('account/delete', [AppAuthController::class, 'delete'])->name('account.delete');
+    });
+});
+
+/*
+| The staff app's ("826 Team") endpoints, under /api/staff. Signed in with a
+| bearer token (user.token); no session, no CSRF. Every endpoint enforces
+| the admin's areas and branch scopes on the server.
+*/
+Route::prefix('staff')->name('staff.')->group(function () {
+    Route::post('sign-in', [StaffAuthController::class, 'signIn'])->middleware('throttle:staff-sign-in')->name('sign-in');
+    Route::post('sign-in/two-factor', [StaffAuthController::class, 'twoFactor'])->middleware('throttle:staff-sign-in')->name('sign-in.two-factor');
+    Route::get('latest', [StaffAuthController::class, 'latest'])->middleware('throttle:availability')->name('latest');
+
+    Route::middleware(['user.token', 'throttle:staff'])->group(function () {
+        Route::post('sign-out', [StaffAuthController::class, 'signOut'])->name('sign-out');
+        Route::get('me', [StaffAuthController::class, 'me'])->name('me');
+
+        Route::get('queue', [StaffQueueController::class, 'index'])->name('queue');
+        Route::get('bookings/{id}', [StaffQueueController::class, 'show'])->whereNumber('id')->name('bookings.show');
+        Route::post('bookings/{id}/stage', [StaffQueueController::class, 'stage'])->whereNumber('id')->name('bookings.stage');
+        Route::post('bookings/{id}/ready-date', [StaffQueueController::class, 'readyDate'])->whereNumber('id')->name('bookings.ready-date');
+        Route::post('bookings/{id}/notes', [StaffQueueController::class, 'note'])->whereNumber('id')->name('bookings.notes');
+        Route::post('bookings/{id}/photos', [StaffQueueController::class, 'photo'])->whereNumber('id')->name('bookings.photos');
+        Route::get('bookings/{id}/proof', [StaffQueueController::class, 'proof'])->whereNumber('id')->name('bookings.proof');
+
+        Route::get('today', [StaffSalesController::class, 'today'])->name('today');
+        Route::get('vehicle-sizes', [StaffSalesController::class, 'vehicleSizes'])->name('vehicle-sizes');
+        Route::post('bookings/{id}/size', [StaffSalesController::class, 'size'])->whereNumber('id')->name('bookings.size');
+        Route::post('bookings/{id}/payment/approve', [StaffSalesController::class, 'approvePayment'])->whereNumber('id')->name('bookings.payment.approve');
+        Route::post('bookings/{id}/payment/reject', [StaffSalesController::class, 'rejectPayment'])->whereNumber('id')->name('bookings.payment.reject');
+
+        Route::get('customers', [StaffCustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/{id}', [StaffCustomerController::class, 'show'])->whereNumber('id')->name('customers.show');
+        Route::patch('customers/{id}', [StaffCustomerController::class, 'update'])->whereNumber('id')->name('customers.update');
+
+        Route::get('inbox', [StaffInboxController::class, 'index'])->name('inbox');
+        Route::get('inbox/quick-replies', [StaffInboxController::class, 'quickReplies'])->name('inbox.quick-replies');
+        Route::get('inbox/{id}', [StaffInboxController::class, 'show'])->whereNumber('id')->name('inbox.show');
+        Route::post('inbox/{id}/reply', [StaffInboxController::class, 'reply'])->whereNumber('id')->name('inbox.reply');
+        Route::post('inbox/{id}/done', [StaffInboxController::class, 'done'])->whereNumber('id')->name('inbox.done');
+
+        Route::get('overview', [StaffOverviewController::class, 'show'])->name('overview');
     });
 });

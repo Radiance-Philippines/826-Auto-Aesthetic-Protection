@@ -311,6 +311,76 @@ final class Reservations
     }
 
     /**
+     * The sales side checked the fee: the booking is confirmed and the
+     * customer is told. Used by the admin action and the staff app.
+     */
+    public static function confirmPayment(Booking $booking, ?string $note = null): Booking
+    {
+        $booking->update([
+            'status' => 'confirmed',
+            'paid_at' => now(),
+            'payment_note' => $note,
+            'hold_expires_at' => null,
+        ]);
+        Notifier::customer($booking, 'paid');
+
+        return $booking;
+    }
+
+    /**
+     * The screenshot doesn't match: it is deleted, the customer sees the
+     * reason and gets a fresh hold to upload another.
+     */
+    public static function rejectPayment(Booking $booking, string $reason): Booking
+    {
+        PaymentProof::delete($booking->payment_proof);
+        $booking->update([
+            'status' => 'awaiting_payment',
+            'payment_proof' => null,
+            'payment_submitted_at' => null,
+            'payment_rejected_reason' => $reason,
+            'hold_expires_at' => $booking->isOnsite() ? now()->addMinutes(PaymentSetting::instance()->holdMinutes()) : null,
+        ]);
+        Notifier::customer($booking, 'rejected');
+
+        return $booking;
+    }
+
+    /**
+     * The admin has seen the unit: sets its size and prices the booking
+     * (see applySize), and tells the customer once it has a price. Returns
+     * the services that have no price for the class.
+     *
+     * @return list<string>
+     */
+    public static function reviewSize(Booking $booking, VehicleSize $size): array
+    {
+        $missing = self::applySize($booking, $size);
+
+        if ($missing === []) {
+            Notifier::customer($booking, 'priced');
+        }
+
+        return $missing;
+    }
+
+    /**
+     * A later (or earlier) ready date. Operations and branch managers
+     * changing it tell the sales side (HeadsUp).
+     */
+    public static function changeReadyDate(Booking $booking, CarbonImmutable $date): Booking
+    {
+        $from = $booking->ready_on?->format('D, M j');
+        $booking->update(['ready_on' => $date->startOfDay()]);
+
+        if ($booking->wasChanged('ready_on')) {
+            HeadsUp::send($booking, 'the ready date', $from, $booking->ready_on?->format('D, M j'));
+        }
+
+        return $booking;
+    }
+
+    /**
      * The admin has seen the unit: gives it its size class and prices the
      * booking from what each service costs for that class. A service with
      * no price for the class leaves the booking unpriced (and still in the

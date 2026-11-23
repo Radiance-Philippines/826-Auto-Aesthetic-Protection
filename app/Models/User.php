@@ -214,6 +214,16 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     }
 
     /**
+     * The staff app's sign-ins, one per device.
+     *
+     * @return HasMany<UserToken, $this>
+     */
+    public function tokens(): HasMany
+    {
+        return $this->hasMany(UserToken::class);
+    }
+
+    /**
      * The branches a staff member works at.
      *
      * @return BelongsToMany<Branch, $this>

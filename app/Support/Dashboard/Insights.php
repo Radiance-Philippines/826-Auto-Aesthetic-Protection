@@ -2,6 +2,7 @@
 
 namespace App\Support\Dashboard;
 
+use App\Models\Backjob;
 use App\Models\Booking;
 use App\Models\BookingEvent;
 use App\Models\BookingItem;
@@ -544,9 +545,20 @@ final class Insights
     }
 
     /**
+     * Backjobs still open at this user's branches (and the chosen branch), whatever the period.
+     */
+    public function openBackjobs(): int
+    {
+        return Backjob::query()
+            ->where('status', 'open')
+            ->whereHas('booking', fn (Builder $bookings) => $bookings->visibleTo($this->user)->when($this->branchId !== null, fn (Builder $query) => $query->where('branch_id', $this->branchId)))
+            ->count();
+    }
+
+    /**
      * @return array{rating: float|null, reviews: int}
      */
-    private function approvedReviews(): array
+    public function approvedReviews(): array
     {
         $row = $this->reviews()->approved()->toBase()->selectRaw('count(*) as total, avg(rating) as average')->first();
 

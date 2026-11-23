@@ -1,0 +1,2336 @@
+{
+    "booking-detail-detailer": {
+        "request": "GET /api/staff/bookings/{id} (operations: no money)",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-F2SVP",
+            "kind": "onsite",
+            "status": "in_progress",
+            "stage": "in_progress",
+            "statusLabel": "In progress",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "flarkin@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": "Please check the left mirror",
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-18",
+            "readyLabel": "Wed, Nov 18",
+            "preferredDate": null,
+            "dayNumber": 1,
+            "totalDays": 3,
+            "dayLabel": "Day 1 of 3",
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "quality_check",
+                "label": "Send to quality check",
+                "confirm": false
+            },
+            "can": {
+                "advance": true,
+                "changeReadyDate": true,
+                "addNote": true,
+                "addPhoto": true,
+                "setSize": false,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": "2026-11-14T10:00:00+08:00",
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": "2026-11-16T08:00:00+08:00",
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "size",
+                    "from": null,
+                    "to": "Medium",
+                    "note": null,
+                    "by": null,
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Customer or system: Size class: Medium"
+                }
+            ],
+            "money": null
+        }
+    },
+    "booking-detail-sales": {
+        "request": "GET /api/staff/bookings/{id} (sales_admin/branch_manager: money and contact)",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-KA4TH",
+            "kind": "onsite",
+            "status": "confirmed",
+            "stage": "confirmed",
+            "statusLabel": "Booked",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "maria@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-18",
+            "readyLabel": "Wed, Nov 18",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 3,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "arrived",
+                "label": "Mark arrived",
+                "confirm": false
+            },
+            "can": {
+                "advance": false,
+                "changeReadyDate": false,
+                "addNote": true,
+                "addPhoto": false,
+                "setSize": true,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "paid",
+                    "from": null,
+                    "to": null,
+                    "note": "GCash ref 123",
+                    "by": null,
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Customer or system: Fee paid (GCash ref 123)"
+                }
+            ],
+            "money": {
+                "priced": true,
+                "total": 2500,
+                "subtotal": 2600,
+                "discount": 100,
+                "items": [
+                    {
+                        "name": "Exterior detailing",
+                        "price": 2500
+                    }
+                ],
+                "amountDue": 500,
+                "amountPaid": null,
+                "paidAt": "2026-11-16T07:00:00+08:00",
+                "paymentMethod": null,
+                "paymentSubmittedAt": null,
+                "rejectedReason": null,
+                "proofUrl": null
+            }
+        }
+    },
+    "booking-note": {
+        "request": "POST /api/staff/bookings/{id}/notes {body}",
+        "status": 201,
+        "body": {
+            "id": 1,
+            "reference": "826-82G47",
+            "kind": "onsite",
+            "status": "in_progress",
+            "stage": "in_progress",
+            "statusLabel": "In progress",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "brandy21@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-18",
+            "readyLabel": "Wed, Nov 18",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 3,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "quality_check",
+                "label": "Send to quality check",
+                "confirm": false
+            },
+            "can": {
+                "advance": true,
+                "changeReadyDate": true,
+                "addNote": true,
+                "addPhoto": true,
+                "setSize": false,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "note",
+                    "from": null,
+                    "to": null,
+                    "note": "Scratch on the rear bumper, already there",
+                    "by": "Howard Runolfsdottir",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Howard Runolfsdottir: Note (Scratch on the rear bumper, already there)"
+                }
+            ],
+            "money": null
+        }
+    },
+    "booking-photo": {
+        "request": "POST /api/staff/bookings/{id}/photos (multipart: photo)",
+        "status": 201,
+        "body": {
+            "id": 1,
+            "reference": "826-2F9U6",
+            "kind": "onsite",
+            "status": "in_progress",
+            "stage": "in_progress",
+            "statusLabel": "In progress",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "delfina00@example.org",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-18",
+            "readyLabel": "Wed, Nov 18",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 3,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "quality_check",
+                "label": "Send to quality check",
+                "confirm": false
+            },
+            "can": {
+                "advance": true,
+                "changeReadyDate": true,
+                "addNote": true,
+                "addPhoto": true,
+                "setSize": false,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [
+                {
+                    "id": 1,
+                    "url": "http://127.0.0.1:8050/storage/booking-photos/1/bwZ7IoBUuOkHJQ1n7ZgRK1KVG0nrDvEfdU1d38vO-lg.webp",
+                    "thumb": "http://127.0.0.1:8050/storage/booking-photos/1/bwZ7IoBUuOkHJQ1n7ZgRK1KVG0nrDvEfdU1d38vO-thumb.webp",
+                    "by": "Bridie Yundt PhD",
+                    "at": "2026-11-16T07:00:00+08:00"
+                }
+            ],
+            "history": [],
+            "money": null
+        }
+    },
+    "booking-ready-date": {
+        "request": "POST /api/staff/bookings/{id}/ready-date {date}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-M8ECC",
+            "kind": "onsite",
+            "status": "in_progress",
+            "stage": "in_progress",
+            "statusLabel": "In progress",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "trisha.kassulke@example.net",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-24",
+            "readyLabel": "Tue, Nov 24",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 3,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "quality_check",
+                "label": "Send to quality check",
+                "confirm": false
+            },
+            "can": {
+                "advance": true,
+                "changeReadyDate": true,
+                "addNote": true,
+                "addPhoto": true,
+                "setSize": false,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "ready_on",
+                    "from": "Wed, Nov 18",
+                    "to": "Tue, Nov 24",
+                    "note": null,
+                    "by": "Marge Collins IV",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Marge Collins IV: Ready date: Wed, Nov 18 → Tue, Nov 24"
+                }
+            ],
+            "money": null
+        }
+    },
+    "booking-size": {
+        "request": "POST /api/staff/bookings/{id}/size {vehicle_size_id}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-MYZFE",
+            "kind": "onsite",
+            "status": "confirmed",
+            "stage": "confirmed",
+            "statusLabel": "Booked",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "09176394629",
+                "email": "maria@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": 1,
+                "year": 2021,
+                "model": "Mitsubishi Mirage",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "RZY8158",
+                "size": "Medium",
+                "label": "2021 Mitsubishi Mirage (Sedan) RZY8158"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 1
+                }
+            ],
+            "estimate": {
+                "days": 1,
+                "label": "1 day"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-17",
+            "readyLabel": "Tue, Nov 17",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 1,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "arrived",
+                "label": "Mark arrived",
+                "confirm": false
+            },
+            "can": {
+                "advance": false,
+                "changeReadyDate": false,
+                "addNote": true,
+                "addPhoto": false,
+                "setSize": true,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "size",
+                    "from": null,
+                    "to": "Medium",
+                    "note": "Price ₱2,500",
+                    "by": "Pierre Miller",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Pierre Miller: Size class: Medium (Price ₱2,500)"
+                }
+            ],
+            "money": {
+                "priced": true,
+                "total": 2500,
+                "subtotal": 2500,
+                "discount": null,
+                "items": [
+                    {
+                        "name": "Exterior detailing",
+                        "price": 2500
+                    }
+                ],
+                "amountDue": null,
+                "amountPaid": null,
+                "paidAt": null,
+                "paymentMethod": null,
+                "paymentSubmittedAt": null,
+                "rejectedReason": null,
+                "proofUrl": null
+            },
+            "missingPrices": []
+        }
+    },
+    "booking-stage": {
+        "request": "POST /api/staff/bookings/{id}/stage {to}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-F37QE",
+            "kind": "onsite",
+            "status": "arrived",
+            "stage": "arrived",
+            "statusLabel": "Arrived",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "0917 123 4567",
+                "email": "maria@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "ABC1234",
+                "size": "Medium",
+                "label": "2021 Toyota Vios (Sedan) ABC1234"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 3
+                }
+            ],
+            "estimate": {
+                "days": 3,
+                "label": "about 3 days"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-18",
+            "readyLabel": "Wed, Nov 18",
+            "preferredDate": null,
+            "dayNumber": 1,
+            "totalDays": 3,
+            "dayLabel": "Day 1 of 3",
+            "late": false,
+            "needsSize": false,
+            "next": {
+                "to": "in_progress",
+                "label": "Start work",
+                "confirm": false
+            },
+            "can": {
+                "advance": true,
+                "changeReadyDate": true,
+                "addNote": true,
+                "addPhoto": true,
+                "setSize": false,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "done": true,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 1,
+                    "kind": "status",
+                    "from": "Booked",
+                    "to": "Arrived",
+                    "note": null,
+                    "by": "Connor Doyle V",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Connor Doyle V: Status: Booked → Arrived"
+                }
+            ],
+            "money": null
+        }
+    },
+    "booking-stage-refused": {
+        "request": "POST /api/staff/bookings/{id}/stage (a skipped step)",
+        "status": 422,
+        "body": {
+            "message": "This unit is “Booked”. Its next step is “Arrived”.",
+            "errors": {
+                "to": [
+                    "This unit is “Booked”. Its next step is “Arrived”."
+                ]
+            }
+        }
+    },
+    "customer": {
+        "request": "GET /api/staff/customers/{id}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "name": "Maria Santos",
+            "phone": "09179856474",
+            "email": null,
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "source": "walk_in",
+            "sourceLabel": "Walk-in",
+            "referralCode": "MARIA-7K3Q",
+            "pointsBalance": 100,
+            "notes": "Prefers Saturdays",
+            "units": [
+                {
+                    "id": 1,
+                    "label": "2021 Toyota Vios (Sedan)",
+                    "plate": "ABC1234",
+                    "size": null,
+                    "historyCount": 1
+                }
+            ],
+            "bookings": [
+                {
+                    "id": 1,
+                    "reference": "826-8CV7V",
+                    "status": "exited",
+                    "statusLabel": "Exited",
+                    "branch": "Cainta",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) MZC5657",
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-10",
+                    "readyOn": "2026-11-23",
+                    "total": 2500
+                }
+            ],
+            "messenger": {
+                "conversationId": 1,
+                "branchId": 1
+            },
+            "can": {
+                "edit": true
+            }
+        }
+    },
+    "customer-update": {
+        "request": "PATCH /api/staff/customers/{id} {phone?, notes?}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "name": "Macy West",
+            "phone": "0918 765 4321",
+            "email": null,
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "source": "walk_in",
+            "sourceLabel": "Walk-in",
+            "referralCode": null,
+            "pointsBalance": 0,
+            "notes": "Call before 5pm",
+            "units": [],
+            "bookings": [],
+            "messenger": null,
+            "can": {
+                "edit": true
+            }
+        }
+    },
+    "customers": {
+        "request": "GET /api/staff/customers?q=&page=1",
+        "status": 200,
+        "body": {
+            "data": [
+                {
+                    "id": 2,
+                    "name": "Jun Reyes",
+                    "phone": "09177622597",
+                    "email": null,
+                    "branch": "Cainta",
+                    "unitsCount": 0,
+                    "bookingsCount": 0,
+                    "lastVisitOn": null
+                },
+                {
+                    "id": 1,
+                    "name": "Maria Santos",
+                    "phone": "0917 123 4567",
+                    "email": null,
+                    "branch": "Cainta",
+                    "unitsCount": 1,
+                    "bookingsCount": 0,
+                    "lastVisitOn": null
+                },
+                {
+                    "id": 3,
+                    "name": "Visitor Lopez",
+                    "phone": "09173174862",
+                    "email": null,
+                    "branch": "San Mateo",
+                    "unitsCount": 0,
+                    "bookingsCount": 1,
+                    "lastVisitOn": "2026-11-10"
+                }
+            ],
+            "page": 1,
+            "perPage": 20,
+            "total": 3,
+            "hasMore": false
+        }
+    },
+    "inbox": {
+        "request": "GET /api/staff/inbox?branch=&filter=open&q=",
+        "status": 200,
+        "body": {
+            "branch": "1",
+            "filter": "open",
+            "showsAll": false,
+            "tabs": [
+                {
+                    "key": "1",
+                    "label": "Cainta",
+                    "unread": 1
+                }
+            ],
+            "totalUnread": 1,
+            "notice": null,
+            "conversations": [
+                {
+                    "id": 2,
+                    "name": "Jun",
+                    "avatar": null,
+                    "branch": {
+                        "id": 1,
+                        "name": "Cainta"
+                    },
+                    "preview": "Jun says hi",
+                    "lastMessageAt": "2026-11-16T06:55:00+08:00",
+                    "unread": 0,
+                    "done": false,
+                    "sample": false,
+                    "linkedCustomer": false
+                },
+                {
+                    "id": 1,
+                    "name": "Maria",
+                    "avatar": null,
+                    "branch": {
+                        "id": 1,
+                        "name": "Cainta"
+                    },
+                    "preview": "Maria says hi",
+                    "lastMessageAt": "2026-11-16T06:55:00+08:00",
+                    "unread": 2,
+                    "done": false,
+                    "sample": false,
+                    "linkedCustomer": false
+                }
+            ]
+        }
+    },
+    "inbox-done": {
+        "request": "POST /api/staff/inbox/{id}/done {done}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "name": "Maria",
+            "avatar": null,
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "preview": "Maria says hi",
+            "lastMessageAt": "2026-11-16T06:55:00+08:00",
+            "unread": 0,
+            "done": true,
+            "sample": false,
+            "linkedCustomer": false
+        }
+    },
+    "inbox-quick-replies": {
+        "request": "GET /api/staff/inbox/quick-replies?conversation={id}",
+        "status": 200,
+        "body": {
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "replies": [
+                {
+                    "key": "slot_confirmed",
+                    "label": "Slot confirmed",
+                    "text": "Hi Maria, your slot at 826 Cainta is confirmed. See you!"
+                },
+                {
+                    "key": "location",
+                    "label": "Share location",
+                    "text": "Here is where to find 826 Cainta: https://maps.app.goo.gl/cainta"
+                }
+            ]
+        }
+    },
+    "inbox-reply": {
+        "request": "POST /api/staff/inbox/{id}/reply {body}",
+        "status": 201,
+        "body": {
+            "message": {
+                "id": 2,
+                "direction": "out",
+                "body": "Opo, may slot pa po kami.",
+                "attachments": [],
+                "senderName": "Prof. Emilio Koelpin",
+                "failed": false,
+                "error": null,
+                "sentAt": "2026-11-16T07:00:00+08:00"
+            },
+            "conversation": {
+                "id": 1,
+                "name": "Maria",
+                "avatar": null,
+                "branch": {
+                    "id": 1,
+                    "name": "Cainta"
+                },
+                "preview": "You: Opo, may slot pa po kami.",
+                "lastMessageAt": "2026-11-16T07:00:00+08:00",
+                "unread": 0,
+                "done": false,
+                "sample": false,
+                "linkedCustomer": false
+            },
+            "savedOnly": false
+        }
+    },
+    "inbox-thread": {
+        "request": "GET /api/staff/inbox/{id}?before=&limit=50",
+        "status": 200,
+        "body": {
+            "conversation": {
+                "id": 1,
+                "name": "Maria",
+                "avatar": null,
+                "branch": {
+                    "id": 1,
+                    "name": "Cainta"
+                },
+                "preview": "Maria says hi",
+                "lastMessageAt": "2026-11-16T06:55:00+08:00",
+                "unread": 0,
+                "done": false,
+                "sample": false,
+                "linkedCustomer": true,
+                "assignedTo": null,
+                "customer": {
+                    "id": 1,
+                    "name": "Maria Santos"
+                },
+                "pastReplyWindow": true,
+                "windowHours": 24,
+                "savesLocallyOnly": false
+            },
+            "messages": [
+                {
+                    "id": 1,
+                    "direction": "in",
+                    "body": "Maria says hi",
+                    "attachments": [],
+                    "senderName": null,
+                    "failed": false,
+                    "error": null,
+                    "sentAt": "2026-11-16T06:55:00+08:00"
+                },
+                {
+                    "id": 2,
+                    "direction": "out",
+                    "body": "Hello po!",
+                    "attachments": [],
+                    "senderName": "Helen Lynch",
+                    "failed": false,
+                    "error": null,
+                    "sentAt": "2026-11-16T06:57:00+08:00"
+                },
+                {
+                    "id": 3,
+                    "direction": "in",
+                    "body": null,
+                    "attachments": [
+                        {
+                            "type": "image",
+                            "url": "https://cdn.example/p.jpg",
+                            "name": null
+                        }
+                    ],
+                    "senderName": null,
+                    "failed": false,
+                    "error": null,
+                    "sentAt": "2026-11-16T06:59:00+08:00"
+                }
+            ],
+            "hasOlder": false
+        }
+    },
+    "latest": {
+        "request": "GET /api/staff/latest",
+        "status": 200,
+        "body": {
+            "version": "0.1.0",
+            "versionCode": 1,
+            "url": "http://127.0.0.1:8050/download/826-team-0.1.0.apk",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "notes": "First team build",
+            "mandatory": false
+        }
+    },
+    "me": {
+        "request": "GET /api/staff/me",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "name": "Dr. Bettye O'Hara",
+            "email": "dennis@example.com",
+            "role": "branch_manager",
+            "roleLabel": "Branch manager",
+            "isOwner": false,
+            "areas": [
+                "bookings.view",
+                "bookings.sales",
+                "queue.update",
+                "customers.view",
+                "customers.write",
+                "warranty",
+                "reviews",
+                "closures",
+                "inbox",
+                "dashboard"
+            ],
+            "branches": [
+                {
+                    "id": 1,
+                    "name": "Cainta"
+                }
+            ],
+            "tabs": [
+                "queue",
+                "today",
+                "inbox",
+                "overview",
+                "me"
+            ],
+            "overflow": [
+                "clients"
+            ]
+        }
+    },
+    "overview": {
+        "request": "GET /api/staff/overview?period=today|7d|30d|month&branch=<id>",
+        "status": 200,
+        "body": {
+            "period": {
+                "key": "today",
+                "label": "Nov 16, 2026",
+                "from": "2026-11-16",
+                "to": "2026-11-16"
+            },
+            "branch": null,
+            "branches": [
+                {
+                    "id": 1,
+                    "name": "Cainta"
+                }
+            ],
+            "sales": 6000,
+            "collected": 500,
+            "averageTicket": 3000,
+            "unitsDone": 2,
+            "turnaround": {
+                "toReady": 1,
+                "toExit": 2
+            },
+            "branchesTable": null,
+            "topReps": [
+                {
+                    "name": "Annette Walker",
+                    "role": "Branch manager",
+                    "jobs": 0,
+                    "sales": 0,
+                    "moves": 1,
+                    "referrals": 0
+                }
+            ],
+            "backjobsOpen": 1,
+            "reviewRating": {
+                "rating": 4.5,
+                "count": 2
+            },
+            "attention": {
+                "size": 0,
+                "screenshots": 0,
+                "home": 0,
+                "reviews": 1,
+                "chats": 0,
+                "late": 0
+            }
+        }
+    },
+    "overview-detailer": {
+        "request": "GET /api/staff/overview (operations: counts only)",
+        "status": 200,
+        "body": {
+            "period": {
+                "key": "today",
+                "label": "Nov 16, 2026",
+                "from": "2026-11-16",
+                "to": "2026-11-16"
+            },
+            "branch": null,
+            "branches": [
+                {
+                    "id": 1,
+                    "name": "Cainta"
+                }
+            ],
+            "sales": null,
+            "collected": null,
+            "averageTicket": null,
+            "unitsDone": 2,
+            "turnaround": {
+                "toReady": 1,
+                "toExit": 2
+            },
+            "branchesTable": null,
+            "topReps": null,
+            "backjobsOpen": 1,
+            "reviewRating": null,
+            "attention": {
+                "size": null,
+                "screenshots": null,
+                "home": null,
+                "reviews": null,
+                "chats": null,
+                "late": 0
+            }
+        }
+    },
+    "payment-approve": {
+        "request": "POST /api/staff/bookings/{id}/payment/approve {note?}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-MTNPD",
+            "kind": "onsite",
+            "status": "confirmed",
+            "stage": "confirmed",
+            "statusLabel": "Booked",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "09170024669",
+                "email": "maria@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "DWR7794",
+                "size": null,
+                "label": "2021 Toyota Vios (Sedan) DWR7794"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 1
+                }
+            ],
+            "estimate": {
+                "days": 1,
+                "label": "1 day"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-17",
+            "readyLabel": "Tue, Nov 17",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 1,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": true,
+            "next": {
+                "to": "arrived",
+                "label": "Mark arrived",
+                "confirm": false
+            },
+            "can": {
+                "advance": false,
+                "changeReadyDate": false,
+                "addNote": true,
+                "addPhoto": false,
+                "setSize": true,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "done": true,
+                    "current": true
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 2,
+                    "kind": "paid",
+                    "from": null,
+                    "to": null,
+                    "note": "GCash ref 99",
+                    "by": "Peter Prosacco",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Peter Prosacco: Fee paid (GCash ref 99)"
+                },
+                {
+                    "id": 1,
+                    "kind": "status",
+                    "from": "Screenshot to check",
+                    "to": "Booked",
+                    "note": null,
+                    "by": "Peter Prosacco",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Peter Prosacco: Status: Screenshot to check → Booked"
+                }
+            ],
+            "money": {
+                "priced": false,
+                "total": null,
+                "subtotal": null,
+                "discount": null,
+                "items": [
+                    {
+                        "name": "Exterior detailing",
+                        "price": null
+                    }
+                ],
+                "amountDue": 500,
+                "amountPaid": null,
+                "paidAt": "2026-11-16T07:00:00+08:00",
+                "paymentMethod": null,
+                "paymentSubmittedAt": null,
+                "rejectedReason": null,
+                "proofUrl": null
+            }
+        }
+    },
+    "payment-reject": {
+        "request": "POST /api/staff/bookings/{id}/payment/reject {reason}",
+        "status": 200,
+        "body": {
+            "id": 1,
+            "reference": "826-WSW59",
+            "kind": "onsite",
+            "status": "awaiting_payment",
+            "stage": "awaiting_payment",
+            "statusLabel": "Waiting for the reservation fee",
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "customer": {
+                "firstName": "Maria",
+                "name": "Maria Santos",
+                "phone": "09174075420",
+                "email": "maria@example.com",
+                "guestId": null,
+                "address": null,
+                "area": null
+            },
+            "customerMessage": null,
+            "vehicle": {
+                "id": null,
+                "year": 2021,
+                "model": "Toyota Vios",
+                "type": "sedan",
+                "typeLabel": "Sedan",
+                "plate": "XJE6432",
+                "size": null,
+                "label": "2021 Toyota Vios (Sedan) XJE6432"
+            },
+            "services": [
+                {
+                    "name": "Exterior detailing",
+                    "category": "Detailing",
+                    "estimateDays": 1
+                }
+            ],
+            "estimate": {
+                "days": 1,
+                "label": "1 day"
+            },
+            "dropOffOn": "2026-11-16",
+            "readyOn": "2026-11-17",
+            "readyLabel": "Tue, Nov 17",
+            "preferredDate": null,
+            "dayNumber": null,
+            "totalDays": 1,
+            "dayLabel": null,
+            "late": false,
+            "needsSize": true,
+            "next": null,
+            "can": {
+                "advance": false,
+                "changeReadyDate": false,
+                "addNote": true,
+                "addPhoto": false,
+                "setSize": true,
+                "reviewPayment": false
+            },
+            "timeline": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                },
+                {
+                    "key": "exited",
+                    "label": "Exited",
+                    "at": null,
+                    "done": false,
+                    "current": false
+                }
+            ],
+            "photos": [],
+            "history": [
+                {
+                    "id": 2,
+                    "kind": "payment_rejected",
+                    "from": null,
+                    "to": null,
+                    "note": "The amount doesn’t match",
+                    "by": "Brayan Schneider",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Brayan Schneider: Screenshot rejected (The amount doesn’t match)"
+                },
+                {
+                    "id": 1,
+                    "kind": "status",
+                    "from": "Screenshot to check",
+                    "to": "Waiting for the reservation fee",
+                    "note": null,
+                    "by": "Brayan Schneider",
+                    "at": "2026-11-16T07:00:00+08:00",
+                    "line": "Nov 16, 7:00 AM · Brayan Schneider: Status: Screenshot to check → Waiting for the reservation fee"
+                }
+            ],
+            "money": {
+                "priced": false,
+                "total": null,
+                "subtotal": null,
+                "discount": null,
+                "items": [
+                    {
+                        "name": "Exterior detailing",
+                        "price": null
+                    }
+                ],
+                "amountDue": null,
+                "amountPaid": null,
+                "paidAt": null,
+                "paymentMethod": null,
+                "paymentSubmittedAt": null,
+                "rejectedReason": "The amount doesn’t match",
+                "proofUrl": null
+            }
+        }
+    },
+    "queue": {
+        "request": "GET /api/staff/queue?branch=<id>&date=2026-11-16",
+        "status": 200,
+        "body": {
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "branches": [
+                {
+                    "id": 1,
+                    "name": "Cainta"
+                }
+            ],
+            "date": "2026-11-16",
+            "heading": "Monday, Nov 16, 2026",
+            "isToday": true,
+            "dropOffs": {
+                "cap": 3,
+                "booked": 4,
+                "state": "full"
+            },
+            "columns": [
+                {
+                    "key": "confirmed",
+                    "label": "Booked",
+                    "count": 2,
+                    "cards": [
+                        {
+                            "id": 1,
+                            "reference": "826-FRANF",
+                            "kind": "onsite",
+                            "stage": "confirmed",
+                            "name": "Maria",
+                            "unit": "2021 Toyota Vios (Sedan) ABC1234",
+                            "vehicle": {
+                                "id": null,
+                                "year": 2021,
+                                "model": "Toyota Vios",
+                                "type": "sedan",
+                                "typeLabel": "Sedan",
+                                "plate": "ABC1234",
+                                "size": "Medium"
+                            },
+                            "services": [
+                                "Exterior detailing"
+                            ],
+                            "servicesLabel": "Exterior detailing",
+                            "dropOffOn": "2026-11-16",
+                            "readyOn": "2026-11-18",
+                            "readyLabel": "Wed, Nov 18",
+                            "dayNumber": null,
+                            "totalDays": 3,
+                            "dayLabel": null,
+                            "home": false,
+                            "needsSize": false,
+                            "late": false,
+                            "note": null,
+                            "next": {
+                                "to": "arrived",
+                                "label": "Mark arrived",
+                                "confirm": false
+                            },
+                            "canAdvance": true,
+                            "arrivedAt": null
+                        },
+                        {
+                            "id": 2,
+                            "reference": "826-7GQYG",
+                            "kind": "onsite",
+                            "stage": "awaiting_payment",
+                            "name": "Jun",
+                            "unit": "2021 Toyota Vios (Sedan) ABC1234",
+                            "vehicle": {
+                                "id": null,
+                                "year": 2021,
+                                "model": "Toyota Vios",
+                                "type": "sedan",
+                                "typeLabel": "Sedan",
+                                "plate": "ABC1234",
+                                "size": "Medium"
+                            },
+                            "services": [
+                                "Exterior detailing"
+                            ],
+                            "servicesLabel": "Exterior detailing",
+                            "dropOffOn": "2026-11-16",
+                            "readyOn": "2026-11-18",
+                            "readyLabel": "Wed, Nov 18",
+                            "dayNumber": null,
+                            "totalDays": 3,
+                            "dayLabel": null,
+                            "home": false,
+                            "needsSize": true,
+                            "late": false,
+                            "note": "Waiting for the fee",
+                            "next": null,
+                            "canAdvance": false,
+                            "arrivedAt": null
+                        }
+                    ]
+                },
+                {
+                    "key": "arrived",
+                    "label": "Arrived",
+                    "count": 0,
+                    "cards": []
+                },
+                {
+                    "key": "in_progress",
+                    "label": "In progress",
+                    "count": 1,
+                    "cards": [
+                        {
+                            "id": 3,
+                            "reference": "826-DV5RW",
+                            "kind": "onsite",
+                            "stage": "in_progress",
+                            "name": "Ana",
+                            "unit": "2021 Toyota Vios (Sedan) ABC1234",
+                            "vehicle": {
+                                "id": null,
+                                "year": 2021,
+                                "model": "Toyota Vios",
+                                "type": "sedan",
+                                "typeLabel": "Sedan",
+                                "plate": "ABC1234",
+                                "size": "Medium"
+                            },
+                            "services": [
+                                "Exterior detailing"
+                            ],
+                            "servicesLabel": "Exterior detailing",
+                            "dropOffOn": "2026-11-16",
+                            "readyOn": "2026-11-18",
+                            "readyLabel": "Wed, Nov 18",
+                            "dayNumber": 1,
+                            "totalDays": 3,
+                            "dayLabel": "Day 1 of 3",
+                            "home": false,
+                            "needsSize": false,
+                            "late": false,
+                            "note": null,
+                            "next": {
+                                "to": "quality_check",
+                                "label": "Send to quality check",
+                                "confirm": false
+                            },
+                            "canAdvance": true,
+                            "arrivedAt": "2026-11-16T08:00:00+08:00"
+                        }
+                    ]
+                },
+                {
+                    "key": "quality_check",
+                    "label": "Quality check",
+                    "count": 0,
+                    "cards": []
+                },
+                {
+                    "key": "ready",
+                    "label": "Ready",
+                    "count": 1,
+                    "cards": [
+                        {
+                            "id": 4,
+                            "reference": "826-M9F86",
+                            "kind": "onsite",
+                            "stage": "ready",
+                            "name": "Lito",
+                            "unit": "2021 Toyota Vios (Sedan) ABC1234",
+                            "vehicle": {
+                                "id": null,
+                                "year": 2021,
+                                "model": "Toyota Vios",
+                                "type": "sedan",
+                                "typeLabel": "Sedan",
+                                "plate": "ABC1234",
+                                "size": "Medium"
+                            },
+                            "services": [
+                                "Exterior detailing"
+                            ],
+                            "servicesLabel": "Exterior detailing",
+                            "dropOffOn": "2026-11-12",
+                            "readyOn": "2026-11-14",
+                            "readyLabel": "Sat, Nov 14",
+                            "dayNumber": 3,
+                            "totalDays": 3,
+                            "dayLabel": "Day 3 of 3",
+                            "home": false,
+                            "needsSize": false,
+                            "late": true,
+                            "note": null,
+                            "next": {
+                                "to": "exited",
+                                "label": "Mark as exited",
+                                "confirm": true
+                            },
+                            "canAdvance": true,
+                            "arrivedAt": "2026-11-12T08:00:00+08:00"
+                        }
+                    ]
+                }
+            ],
+            "counts": {
+                "all": 4,
+                "confirmed": 2,
+                "arrived": 0,
+                "in_progress": 1,
+                "quality_check": 0,
+                "ready": 1
+            },
+            "needsSize": null,
+            "homeRequests": null
+        }
+    },
+    "sign-in": {
+        "request": "POST /api/staff/sign-in {email, password, device_name}",
+        "status": 200,
+        "body": {
+            "token": "<40 random characters, shown once>",
+            "expiresAt": "2026-12-23T20:16:22+08:00",
+            "user": {
+                "id": 1,
+                "name": "Dr. Bettye O'Hara",
+                "email": "dennis@example.com",
+                "role": "branch_manager",
+                "roleLabel": "Branch manager",
+                "isOwner": false,
+                "areas": [
+                    "bookings.view",
+                    "bookings.sales",
+                    "queue.update",
+                    "customers.view",
+                    "customers.write",
+                    "warranty",
+                    "reviews",
+                    "closures",
+                    "inbox",
+                    "dashboard"
+                ],
+                "branches": [
+                    {
+                        "id": 1,
+                        "name": "Cainta"
+                    }
+                ],
+                "tabs": [
+                    "queue",
+                    "today",
+                    "inbox",
+                    "overview",
+                    "me"
+                ],
+                "overflow": [
+                    "clients"
+                ]
+            }
+        }
+    },
+    "sign-in-two-factor": {
+        "request": "POST /api/staff/sign-in/two-factor {challenge, code}",
+        "status": 200,
+        "body": {
+            "token": "<40 random characters, shown once>",
+            "expiresAt": "2026-12-23T20:16:22+08:00",
+            "user": {
+                "id": 1,
+                "name": "Percival McGlynn III",
+                "email": "dennis@example.com",
+                "role": "branch_manager",
+                "roleLabel": "Branch manager",
+                "isOwner": false,
+                "areas": [
+                    "bookings.view",
+                    "bookings.sales",
+                    "queue.update",
+                    "customers.view",
+                    "customers.write",
+                    "warranty",
+                    "reviews",
+                    "closures",
+                    "inbox",
+                    "dashboard"
+                ],
+                "branches": [
+                    {
+                        "id": 1,
+                        "name": "Cainta"
+                    }
+                ],
+                "tabs": [
+                    "queue",
+                    "today",
+                    "inbox",
+                    "overview",
+                    "me"
+                ],
+                "overflow": [
+                    "clients"
+                ]
+            }
+        }
+    },
+    "sign-in-two-factor-not-set-up": {
+        "request": "POST /api/staff/sign-in (two-factor required, not set up)",
+        "status": 403,
+        "body": {
+            "message": "Two-factor sign-in is required for the team. On the website, open your profile and set up an authenticator app first, then sign in here again."
+        }
+    },
+    "sign-in-two-factor-required": {
+        "request": "POST /api/staff/sign-in (account has an authenticator app)",
+        "status": 200,
+        "body": {
+            "twoFactor": {
+                "challenge": "wacpg1FDTqUFPepUlMn5RLEWcp3aSyfMtmbKPNq3",
+                "expiresInSeconds": 300
+            }
+        }
+    },
+    "sign-in-wrong": {
+        "request": "POST /api/staff/sign-in (wrong email or password: 422, same text either way)",
+        "status": 422,
+        "body": {
+            "message": "Those details don’t match. Check your email and password.",
+            "errors": {
+                "email": [
+                    "Those details don’t match. Check your email and password."
+                ]
+            }
+        }
+    },
+    "sign-out": {
+        "request": "POST /api/staff/sign-out",
+        "status": 200,
+        "body": {
+            "ok": true
+        }
+    },
+    "today": {
+        "request": "GET /api/staff/today?branch=<id>",
+        "status": 200,
+        "body": {
+            "branch": {
+                "id": 1,
+                "name": "Cainta"
+            },
+            "date": "2026-11-16",
+            "dropOffsToday": [
+                {
+                    "id": 1,
+                    "reference": "826-RY7ZP",
+                    "kind": "onsite",
+                    "stage": "confirmed",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) TKW3688",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "TKW3688",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-16",
+                    "readyOn": "2026-11-17",
+                    "readyLabel": "Tue, Nov 17",
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": false,
+                    "needsSize": true,
+                    "late": false,
+                    "note": null,
+                    "next": {
+                        "to": "arrived",
+                        "label": "Mark arrived",
+                        "confirm": false
+                    },
+                    "canAdvance": false,
+                    "arrivedAt": null
+                }
+            ],
+            "needsSizeReview": [
+                {
+                    "id": 1,
+                    "reference": "826-RY7ZP",
+                    "kind": "onsite",
+                    "stage": "confirmed",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) TKW3688",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "TKW3688",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-16",
+                    "readyOn": "2026-11-17",
+                    "readyLabel": "Tue, Nov 17",
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": false,
+                    "needsSize": true,
+                    "late": false,
+                    "note": null,
+                    "next": {
+                        "to": "arrived",
+                        "label": "Mark arrived",
+                        "confirm": false
+                    },
+                    "canAdvance": false,
+                    "arrivedAt": null
+                },
+                {
+                    "id": 2,
+                    "reference": "826-TVQZV",
+                    "kind": "onsite",
+                    "stage": "confirmed",
+                    "name": "Maria",
+                    "unit": "2021 Toyota Vios (Sedan) FDQ7192",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Toyota Vios",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "FDQ7192",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-17",
+                    "readyOn": "2026-11-17",
+                    "readyLabel": "Tue, Nov 17",
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": false,
+                    "needsSize": true,
+                    "late": false,
+                    "note": null,
+                    "next": {
+                        "to": "arrived",
+                        "label": "Mark arrived",
+                        "confirm": false
+                    },
+                    "canAdvance": false,
+                    "arrivedAt": null
+                },
+                {
+                    "id": 3,
+                    "reference": "826-HMTA6",
+                    "kind": "onsite",
+                    "stage": "payment_review",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) SXP9835",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "SXP9835",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-18",
+                    "readyOn": "2026-11-17",
+                    "readyLabel": "Tue, Nov 17",
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": false,
+                    "needsSize": true,
+                    "late": false,
+                    "note": "Screenshot to check",
+                    "next": null,
+                    "canAdvance": false,
+                    "arrivedAt": null
+                },
+                {
+                    "id": 4,
+                    "reference": "826-WK7YH",
+                    "kind": "home",
+                    "stage": "requested",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) WMY4902",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "WMY4902",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": null,
+                    "readyOn": null,
+                    "readyLabel": null,
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": true,
+                    "needsSize": true,
+                    "late": false,
+                    "note": null,
+                    "next": null,
+                    "canAdvance": false,
+                    "arrivedAt": null
+                }
+            ],
+            "paymentsToCheck": [
+                {
+                    "id": 3,
+                    "reference": "826-HMTA6",
+                    "kind": "onsite",
+                    "stage": "payment_review",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) SXP9835",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "SXP9835",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": "2026-11-18",
+                    "readyOn": "2026-11-17",
+                    "readyLabel": "Tue, Nov 17",
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": false,
+                    "needsSize": true,
+                    "late": false,
+                    "note": "Screenshot to check",
+                    "next": null,
+                    "canAdvance": false,
+                    "arrivedAt": null,
+                    "payment": {
+                        "method": "gcash",
+                        "amountDue": 500,
+                        "submittedAt": "2026-11-16T07:00:00+08:00",
+                        "proofUrl": "http://127.0.0.1:8050/api/staff/bookings/3/proof"
+                    }
+                }
+            ],
+            "homeRequests": [
+                {
+                    "id": 4,
+                    "reference": "826-WK7YH",
+                    "kind": "home",
+                    "stage": "requested",
+                    "name": "Maria",
+                    "unit": "2021 Mitsubishi Mirage (Sedan) WMY4902",
+                    "vehicle": {
+                        "id": null,
+                        "year": 2021,
+                        "model": "Mitsubishi Mirage",
+                        "type": "sedan",
+                        "typeLabel": "Sedan",
+                        "plate": "WMY4902",
+                        "size": null
+                    },
+                    "services": [
+                        "Exterior detailing"
+                    ],
+                    "servicesLabel": "Exterior detailing",
+                    "dropOffOn": null,
+                    "readyOn": null,
+                    "readyLabel": null,
+                    "dayNumber": null,
+                    "totalDays": 1,
+                    "dayLabel": null,
+                    "home": true,
+                    "needsSize": true,
+                    "late": false,
+                    "note": null,
+                    "next": null,
+                    "canAdvance": false,
+                    "arrivedAt": null,
+                    "preferredDate": "2026-11-20",
+                    "preferredWindow": "morning",
+                    "address": "12 Rizal St",
+                    "area": "Cainta"
+                }
+            ]
+        }
+    },
+    "unauthorized": {
+        "request": "Any /api/staff call without a live token (401)",
+        "status": 401,
+        "body": {
+            "message": "Sign in to continue.",
+            "signIn": true
+        }
+    },
+    "vehicle-sizes": {
+        "request": "GET /api/staff/vehicle-sizes",
+        "status": 200,
+        "body": [
+            {
+                "id": 1,
+                "name": "Medium",
+                "examples": null
+            },
+            {
+                "id": 2,
+                "name": "Large",
+                "examples": "Fortuner"
+            }
+        ]
+    }
+}

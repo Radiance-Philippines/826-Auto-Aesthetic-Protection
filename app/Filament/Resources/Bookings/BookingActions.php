@@ -5,9 +5,7 @@ namespace App\Filament\Resources\Bookings;
 use App\Models\Booking;
 use App\Models\PaymentSetting;
 use App\Models\VehicleSize;
-use App\Support\HeadsUp;
 use App\Support\Notifier;
-use App\Support\PaymentProof;
 use App\Support\Reservations;
 use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
@@ -62,13 +60,7 @@ final class BookingActions
             ])
             ->modalSubmitActionLabel('Confirm')
             ->action(function (Booking $record, array $data) {
-                $record->update([
-                    'status' => 'confirmed',
-                    'paid_at' => now(),
-                    'payment_note' => $data['payment_note'] ?? null,
-                    'hold_expires_at' => null,
-                ]);
-                Notifier::customer($record, 'paid');
+                Reservations::confirmPayment($record, $data['payment_note'] ?? null);
 
                 Notification::make()->success()->title('Booking confirmed')->send();
             });
@@ -96,15 +88,7 @@ final class BookingActions
             ])
             ->modalSubmitActionLabel('Ask again')
             ->action(function (Booking $record, array $data) {
-                PaymentProof::delete($record->payment_proof);
-                $record->update([
-                    'status' => 'awaiting_payment',
-                    'payment_proof' => null,
-                    'payment_submitted_at' => null,
-                    'payment_rejected_reason' => $data['reason'],
-                    'hold_expires_at' => $record->isOnsite() ? now()->addMinutes(PaymentSetting::instance()->holdMinutes()) : null,
-                ]);
-                Notifier::customer($record, 'rejected');
+                Reservations::rejectPayment($record, $data['reason']);
 
                 Notification::make()->success()->title('Asked for another screenshot')->send();
             });
@@ -179,7 +163,7 @@ final class BookingActions
             ->modalSubmitActionLabel('Set size')
             ->action(function (Booking $record, array $data) {
                 $size = VehicleSize::query()->findOrFail($data['vehicle_size_id']);
-                $missing = Reservations::applySize($record, $size);
+                $missing = Reservations::reviewSize($record, $size);
 
                 if ($missing !== []) {
                     Notification::make()
@@ -192,7 +176,6 @@ final class BookingActions
                     return;
                 }
 
-                Notifier::customer($record, 'priced');
                 Notification::make()->success()->title("Size set: {$size->name}")->body('Price: ₱'.number_format((int) $record->total_price))->send();
             });
     }
@@ -289,7 +272,7 @@ final class BookingActions
             ->label('Change ready date')
             ->icon(Heroicon::OutlinedClock)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->isOnsite() && in_array($record->status, ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready'], true))
+            ->visible(fn (Booking $record) => $record->canChangeReadyDate())
             ->fillForm(fn (Booking $record) => ['ready_on' => $record->ready_on?->toDateString()])
             ->schema([
                 DatePicker::make('ready_on')
@@ -299,12 +282,7 @@ final class BookingActions
                     ->afterOrEqual(fn (Booking $record) => $record->drop_off_on?->toDateString()),
             ])
             ->action(function (Booking $record, array $data) {
-                $from = $record->ready_on?->format('D, M j');
-                $record->update(['ready_on' => CarbonImmutable::parse($data['ready_on'])->startOfDay()]);
-
-                if ($record->wasChanged('ready_on')) {
-                    HeadsUp::send($record, 'the ready date', $from, $record->ready_on?->format('D, M j'));
-                }
+                Reservations::changeReadyDate($record, CarbonImmutable::parse($data['ready_on']));
             });
     }
 
