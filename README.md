@@ -61,7 +61,7 @@ Builds and tests run on ribs02, never on a laptop (`ssh ribs`, `/srv/build`). Fr
   - `booking.spec.ts`: the reservation wizard (validation on every step, sign-in needed, a full day, the server refusing it, the happy path).
   - `a11y.spec.ts`: axe (WCAG A and AA) on every public page, light and dark. Known open problems are listed in `KNOWN` in that file.
   - `admin-*.spec.ts`: the Filament admin (`/admin`): sign-in with password, authenticator-app and emailed 2FA codes; bookings (arrived, exited, cancel);
-    the head detailer's queue; customers; dashboard; email settings (test send); invitations (invite, mail captured, accept link, sign in);
+    the detailers' queue; customers; dashboard; email settings (test send); invitations (invite, mail captured, accept link, sign in);
     role access (200 or 403 per role); axe on the main admin pages (`KNOWN` in `admin-a11y.spec.ts`). `E2eSeeder` makes one account per role
     (password `password`), one with an authenticator secret and one with email codes. `serve.sh` sets `MAIL_USE_MAILBOX_SETTINGS=false` and writes all
     mail to `storage/e2e/mail.log` (the tests read it): nothing is ever sent through SMTP.

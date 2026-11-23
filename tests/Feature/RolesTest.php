@@ -402,10 +402,10 @@ class RolesTest extends TestCase
         $this->actingAs(User::factory()->owner()->create());
 
         Livewire::test(ListUsers::class)
-            ->callAction('invite', data: ['name' => 'Head Detailer', 'email' => 'head@example.com', 'role' => 'operations', 'branches' => [$this->cainta->id]])
+            ->callAction('invite', data: ['name' => 'Detailer', 'email' => 'detailer@example.com', 'role' => 'operations', 'branches' => [$this->cainta->id]])
             ->assertHasNoActionErrors();
 
-        $member = User::where('email', 'head@example.com')->sole();
+        $member = User::where('email', 'detailer@example.com')->sole();
         $this->assertSame('operations', $member->role);
         $this->assertFalse($member->canAccessArea('bookings.sales'));
         Mail::assertSent(Invitation::class);

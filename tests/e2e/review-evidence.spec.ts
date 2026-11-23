@@ -99,7 +99,7 @@ test('card 18 and 19: the unit on the booking form, units on the customer', asyn
 
 test('card 20 and 21 and 22: arrivals, closures, queue and the heads-up', async ({ page, browser }, info) => {
     await adminLogin(page, TEAM.operations);
-    await step(info, page, 21, 'queue-head-detailer', () => adminOpen(page, '/admin/queue').then(() => undefined), { phone: true });
+    await step(info, page, 21, 'queue-detailer', () => adminOpen(page, '/admin/queue').then(() => undefined), { phone: true });
     await step(info, page, 20, 'bookings-list-estimates', () => adminOpen(page, '/admin/bookings').then(() => undefined));
 
     await step(info, page, 22, 'ops-changes-ready-date', async () => {

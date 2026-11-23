@@ -24,7 +24,7 @@ final class Access
     public const ROLES = [
         self::SUPER_ADMIN => 'Super admin',
         self::BRANCH_MANAGER => 'Branch manager',
-        self::OPERATIONS => 'Operations (head detailer)',
+        self::OPERATIONS => 'Operations (detailers)',
         self::SALES_ADMIN => 'Sales admin',
     ];
 
