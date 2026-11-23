@@ -1,19 +1,32 @@
 # 826 Auto Aesthetic & Protection on Radiance Flow (owner, 2026-11-22: "gawan ng pipeline ang 826. kasama ang test automation").
 # CI on every push to main and every pull request into main: PHP and Node dependencies, code style, the front-end build,
-# PHPUnit, then the Playwright browser tests (tests/e2e) against `php artisan serve` on a seeded throwaway SQLite file.
-# Runs on ribs02. Secrets: none. The run uses .env.example with a fresh `php artisan key:generate`.
+# PHPUnit with coverage, then the Playwright browser tests (tests/e2e) against `php artisan serve` on a seeded throwaway
+# SQLite file. Runs on ribs02. Secrets: only the GitHub token Flow itself hands to `uses` steps. The run uses .env.example
+# with a fresh `php artisan key:generate`.
+#
+# The jobs and steps now come from Radiance-Philippines/devops-utilities (owner, 2026-11-23: "gusto ko ganon ang lahat ng
+# ci kita ang jobs at steps ... yung reusable ay ilagay sa devops-utilities"). Flow expands every `template:` entry before
+# the run starts, so the run page lists each step (deps_install, style_pint, phpunit_phpunit, ...) and which template file
+# it came from. The templates are pinned to the tag v1.0.1.
+#
 # Reports: JUnit XML of both suites goes to Flow's test-report step (totals and failed tests on the run and the check).
+# Coverage: pcov, Clover, Flow's coverage step. On a pull request the changed lines must be covered at least `diff_min`
+# percent (80) or the run fails; on main the overall coverage is reported and nothing is gated.
 # The Playwright HTML report, screenshots and traces stay in the run's workspace on ribs02 (playwright-report/,
 # test-results/) for 24 hours; Flow has no artifact upload step yet.
 # Deploy to Hostinger is NOT in this file: it is added later, when 826 gives collaborator access.
 name: 826-ci
-description: 826 website - Composer, npm, Pint, build, PHPUnit and Playwright tests on ribs02
+description: 826 website - Composer, npm, Pint, build, PHPUnit with coverage and Playwright tests on ribs02
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   manual: true
+resources:
+  repositories:
+    - repository: devops-utilities
+      ref: v1.0.1
 steps:
   checkout:
     uses: checkout
@@ -24,73 +37,41 @@ steps:
     env: { GITHUB_TOKEN: "${{ secrets.github }}" }
 
   deps:
+    template: laravel/deps.yml@devops-utilities
     needs: [checkout]
-    queue: ribs
-    runs_on: [ribs02]
-    network: true
-    timeout: 900
-    run: |
-      cp .env.example .env
-      composer install --no-interaction --no-progress --prefer-dist
-      php artisan key:generate --no-interaction
-      npm ci --no-audit --no-fund --loglevel=error
 
   style:
+    template: laravel/pint.yml@devops-utilities
     needs: [deps]
-    queue: ribs
-    runs_on: [ribs02]
-    run: |
-      vendor/bin/pint --test
 
   build:
+    template: node/build.yml@devops-utilities
     needs: [deps]
-    queue: ribs
-    runs_on: [ribs02]
-    timeout: 900
-    run: |
-      npm run build
 
-  # PHPUnit and Playwright both write their JUnit file and then end with exit 0, so the report step below always runs;
-  # the verdict step at the end is what fails the run.
   phpunit:
+    template: laravel/test-coverage.yml@devops-utilities
     needs: [build]
-    queue: ribs
-    runs_on: [ribs02]
-    timeout: 1200
-    run: |
-      mkdir -p test-results
-      status=0
-      vendor/bin/phpunit --log-junit test-results/phpunit.xml || status=$?
-      echo "status=$status" >> "$FLOW_OUTPUT"
+    parameters:
+      pcov_dir: app
 
   e2e:
+    template: playwright/e2e.yml@devops-utilities
     needs: [build]
-    queue: ribs
-    runs_on: [ribs02]
-    timeout: 1800
-    env:
-      CI: "1"
-      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /opt/flow-tools/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell
-    run: |
-      mkdir -p test-results
-      status=0
-      npm run test:e2e || status=$?
-      echo "status=$status" >> "$FLOW_OUTPUT"
 
   tests:
+    template: report/test-report.yml@devops-utilities
     needs: [phpunit, e2e]
-    uses: test-report
-    queue: ribs
-    runs_on: [ribs02]
-    with: { files: "test-results/*.xml" }
+
+  coverage:
+    template: report/coverage.yml@devops-utilities
+    needs: [phpunit]
+    parameters:
+      diff_min: 80
 
   verdict:
-    needs: [style, tests]
-    queue: ribs
-    runs_on: [ribs02]
-    env:
-      PHPUNIT_STATUS: "${{ steps.phpunit.outputs.status }}"
-      E2E_STATUS: "${{ steps.e2e.outputs.status }}"
-    run: |
-      echo "phpunit exit $PHPUNIT_STATUS, playwright exit $E2E_STATUS"
-      [ "$PHPUNIT_STATUS" = "0" ] && [ "$E2E_STATUS" = "0" ]
+    template: report/verdict.yml@devops-utilities
+    needs: [style, tests, coverage]
+    parameters:
+      statuses:
+        PHPUNIT_STATUS: "${{ steps.phpunit_phpunit.outputs.status }}"
+        E2E_STATUS: "${{ steps.e2e_e2e.outputs.status }}"
