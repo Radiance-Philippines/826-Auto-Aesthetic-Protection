@@ -7,11 +7,11 @@ use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\AuthenticatePanel;
 use App\Http\Middleware\RequireTwoFactorWhenOn;
+use App\Http\Middleware\ValidateImpersonation;
 use App\Support\Panels;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Auth\MultiFactor\Email\EmailAuthentication;
-use Filament\Facades\Filament;
 use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -77,29 +77,6 @@ abstract class BasePanelProvider extends PanelProvider
         return true;
     }
 
-    /**
-     * "Open Sales" and the like, for super admins (the only ones who can
-     * open more than one panel), in the user menu, except the panel on screen.
-     *
-     * @return list<Action>
-     */
-    private function panelSwitcher(): array
-    {
-        $icons = [
-            Panels::OWNER => Heroicon::OutlinedBuildingStorefront,
-            Panels::SALES => Heroicon::OutlinedBanknotes,
-            Panels::OPERATIONS => Heroicon::OutlinedViewColumns,
-            Panels::SYSTEM => Heroicon::OutlinedCog6Tooth,
-        ];
-
-        return array_map(fn (string $id) => Action::make("open-{$id}")
-            ->label('Open '.ucfirst($id))
-            ->icon($icons[$id])
-            ->url(fn () => Filament::getPanel($id)->getUrl())
-            ->visible(fn () => auth()->user()?->isOwner() && Filament::getCurrentOrDefaultPanel()->getId() !== $id),
-            PanelPages::panels());
-    }
-
     public function panel(Panel $panel): Panel
     {
         $panel = $this->configure($panel
@@ -121,6 +98,10 @@ abstract class BasePanelProvider extends PanelProvider
             ->databaseNotificationsPolling('30s')
             // Live updates from Radiance Flow: the bell, queue, bookings and inbox look again when something changes
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.live'))
+            // The panel launcher (a grid button) for people who can open more than one panel
+            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn () => view('filament.panel-launcher'))
+            // A super admin viewing as someone else: the sticky banner with "Stop"
+            ->renderHook(PanelsRenderHook::BODY_START, fn () => view('filament.impersonation-banner'))
             ->brandName($this->brandName())
             ->brandLogo(fn () => view('filament.brand'))
             ->brandLogoHeight('2.5rem')
@@ -140,7 +121,6 @@ abstract class BasePanelProvider extends PanelProvider
                 NavigationGroup::make('System'),
             ])
             ->userMenuItems([
-                ...$this->panelSwitcher(),
                 Action::make('viewSite')
                     ->label('View site')
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
@@ -151,6 +131,7 @@ abstract class BasePanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
+                ValidateImpersonation::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,

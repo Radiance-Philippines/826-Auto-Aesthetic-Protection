@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\SecuritySetting;
+use App\Support\Impersonation;
 use Closure;
 use Filament\Auth\MultiFactor\Http\Middleware\EnsureMultiFactorAuthenticationIsEnabled;
 use Illuminate\Http\Request;
@@ -24,7 +25,8 @@ class RequireTwoFactorWhenOn extends EnsureMultiFactorAuthenticationIsEnabled
     {
         $setting = SecuritySetting::current();
 
-        if (! $setting->require_two_factor) {
+        // A super admin viewing as someone is already signed in strongly; the target's 2FA is not theirs to set up
+        if (! $setting->require_two_factor || Impersonation::active()) {
             return $next($request);
         }
 

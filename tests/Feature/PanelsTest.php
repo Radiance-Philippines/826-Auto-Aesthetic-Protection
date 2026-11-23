@@ -440,16 +440,41 @@ class PanelsTest extends TestCase
         );
     }
 
-    public function test_the_user_menu_switches_panels_for_super_admins_only(): void
+    public function test_the_panel_launcher_lists_the_panels_a_person_can_open(): void
     {
         $this->actingAs($this->owner());
 
-        $this->get('/owner')->assertSee(['Open Sales', 'Open Operations', 'Open System'])->assertDontSee('Open Owner');
-        $this->get('/system')->assertSee(['Open Owner', 'Open Sales', 'Open Operations'])->assertDontSee('Open System');
+        $response = $this->get('/owner')->assertOk()->assertSee('aria-label="Switch panel"', false)->assertDontSee('Open Sales');
+        $response->assertSeeInOrder(['>Owner', '>Sales', '>Operations', '>System'], false);
 
-        $this->actingAs($this->staff('sales_admin'));
+        // The current panel is marked, the others are not
+        $this->assertSame(1, preg_match_all('~class="pl-tile"\s+role="menuitem"[^>]*aria-current="true"~s', $response->getContent()));
+        $this->assertMatchesRegularExpression('~aria-current="true"\s*>\s*<span class="pl-icon">.*?</span>\s*<span>Owner~s', $response->getContent());
+        $this->get('/system')->assertOk()->assertSee('(current panel)', false);
+    }
 
-        $this->get('/sales')->assertOk()->assertDontSee(['Open Owner', 'Open Operations', 'Open System', 'Open Sales']);
+    public function test_the_launcher_links_to_the_same_page_in_the_other_panel_else_its_home(): void
+    {
+        $this->actingAs($this->owner());
+
+        // Bookings live in /sales (not /owner or /system): from /sales, Operations has them too
+        $this->get('/sales/bookings')->assertOk()
+            ->assertSee('href="'.url('/operations/bookings').'"', false)
+            ->assertSee('href="'.url('/owner').'"', false);
+
+        // The Users page exists only in /owner: the other panels' tiles go home
+        $this->get('/owner/users')->assertOk()->assertSee('href="'.url('/sales').'"', false)->assertDontSee('href="'.url('/sales/users').'"', false);
+    }
+
+    public function test_the_launcher_is_hidden_for_people_with_one_panel_or_none(): void
+    {
+        foreach (['sales_admin', 'operations', 'branch_manager'] as $role) {
+            $this->actingAs($this->staff($role));
+            $this->get($this->panel('/bookings'))->assertOk()->assertDontSee('Switch panel')->assertDontSee('pl-grid', false);
+        }
+
+        $this->actingAs(User::factory()->create(['role' => 'customer']));
+        $this->get('/operations')->assertForbidden()->assertDontSee('Switch panel');
     }
 
     public function test_the_system_home_says_what_is_switched_on_and_never_a_secret(): void

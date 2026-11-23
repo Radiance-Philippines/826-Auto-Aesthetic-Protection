@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\MetaSetting;
 use BackedEnum;
@@ -31,7 +32,7 @@ use UnitEnum;
  */
 class MetaSettings extends Page
 {
-    use ShownInItsPanels;
+    use BlockedWhileImpersonating, ShownInItsPanels;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleOvalLeftEllipsis;
 

@@ -9,11 +9,14 @@ use App\Models\Branch;
 use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Support\Access;
+use App\Support\Impersonation;
 use App\Support\Invitations;
+use App\Support\Panels;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +28,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
@@ -137,7 +141,7 @@ class UserResource extends Resource
     {
         return $table
             ->defaultSort('name')
-            ->modifyQueryUsing(fn ($query) => $query->with('branches')->withCount('passkeys'))
+            ->modifyQueryUsing(fn ($query) => $query->with('branches')->withCount('passkeys')->withMax('impersonationEvents', 'created_at'))
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -147,6 +151,11 @@ class UserResource extends Resource
                     ->formatStateUsing(fn (string $state) => Access::ROLES[$state] ?? $state)
                     ->color(fn (string $state) => $state === Access::SUPER_ADMIN ? 'primary' : 'gray')
                     ->description(fn (User $record) => ($record->isOwner() ? 'Every branch' : ($record->branches->pluck('name')->implode(', ') ?: 'No branch yet')).(is_array($record->permissions) ? ' · own access list' : '')),
+                TextColumn::make('sample')
+                    ->label('Sample')
+                    ->state(fn (User $record) => $record->isSample() ? 'Sample' : null)
+                    ->badge()
+                    ->color('warning'),
                 TextColumn::make('two_factor')
                     ->label('2FA')
                     ->state(fn (User $record) => $record->hasTwoFactor() ? 'On' : 'Off')
@@ -161,14 +170,52 @@ class UserResource extends Resource
                     ->badge()
                     ->color(fn (string $state) => $state === 'Active' ? 'success' : 'warning')
                     ->description(fn (User $record) => $record->isPendingInvite() ? $record->invited_at->diffForHumans() : null),
+                TextColumn::make('impersonation_events_max_created_at')
+                    ->label('Last viewed as')
+                    ->since()
+                    ->placeholder('Never')
+                    ->toggleable(),
+            ])
+            ->filters([
+                Filter::make('sample')
+                    ->label('Sample accounts only')
+                    ->toggle()
+                    ->query(fn ($query) => $query->sample()),
             ])
             ->recordActions([
+                self::viewAsAction(),
                 self::resendInviteAction(),
                 self::resetTwoFactorAction(),
                 self::removePasskeysAction(),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
+    }
+
+    /**
+     * Super admins only: opens the admin as this person (their panel, areas
+     * and branches), with a banner and a Stop button on every page. The rules
+     * are in Impersonation::refusal.
+     */
+    public static function viewAsAction(): Action
+    {
+        return Action::make('viewAs')
+            ->label('View as this user')
+            ->icon(Heroicon::OutlinedEye)
+            ->color('gray')
+            ->visible(fn (User $record) => Impersonation::refusal(auth()->user(), $record) === null)
+            ->action(function (User $record, Action $action) {
+                $admin = auth()->user();
+
+                if ($reason = Impersonation::refusal($admin, $record)) {
+                    Notification::make()->danger()->title('Cannot view as this person')->body($reason)->send();
+
+                    return;
+                }
+
+                Impersonation::start($admin, $record, Filament::getCurrentOrDefaultPanel()->getId());
+                $action->redirect(Panels::homeUrl($record));
+            });
     }
 
     public static function inviteAction(): Action

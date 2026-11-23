@@ -151,6 +151,27 @@ final class Panels
         return self::elsewhereUrl($user, $request) ?? self::homeUrl($user);
     }
 
+    /**
+     * The launcher's link to one panel: the page being looked at in that
+     * panel when it has it, else that panel's home.
+     */
+    public static function switchUrl(string $panelId, Request $request): string
+    {
+        $home = Filament::getPanel($panelId)->getUrl();
+        $path = $request->hasHeader('X-Livewire') ? '' : (explode('/', trim($request->path(), '/'), 2)[1] ?? '');
+
+        if ($path === '') {
+            return $home;
+        }
+
+        $candidate = url(trim(Filament::getPanel($panelId)->getPath(), '/').'/'.$path);
+        $route = self::matchGetRoute($candidate);
+
+        return $route && (($class = self::placedClass($route)) === null || self::shows($class, $panelId))
+            ? $candidate.($request->getQueryString() ? '?'.$request->getQueryString() : '')
+            : $home;
+    }
+
     private static function matchGetRoute(string $url): ?RoutingRoute
     {
         try {

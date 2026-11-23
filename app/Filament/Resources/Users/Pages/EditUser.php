@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use App\Support\Access;
@@ -12,11 +13,14 @@ use Illuminate\Validation\ValidationException;
 
 class EditUser extends EditRecord
 {
+    use BlockedWhileImpersonating;
+
     protected static string $resource = UserResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
+            UserResource::viewAsAction(),
             UserResource::resetTwoFactorAction(),
             UserResource::removePasskeysAction(),
             DeleteAction::make(),

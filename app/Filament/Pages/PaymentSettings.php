@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\PaymentSetting;
 use BackedEnum;
@@ -30,7 +31,7 @@ use UnitEnum;
  */
 class PaymentSettings extends Page
 {
-    use ShownInItsPanels;
+    use BlockedWhileImpersonating, ShownInItsPanels;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQrCode;
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Support\ImageUpload;
 use App\Models\SiteSetting;
@@ -27,7 +28,7 @@ use UnitEnum;
  */
 class SiteSettings extends Page
 {
-    use ShownInItsPanels;
+    use BlockedWhileImpersonating, ShownInItsPanels;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 

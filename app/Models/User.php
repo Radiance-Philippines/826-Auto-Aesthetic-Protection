@@ -13,6 +13,8 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -57,6 +59,22 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         static::saving(function (User $user): void {
             $user->is_owner = $user->role === Access::SUPER_ADMIN;
         });
+    }
+
+    /**
+     * The sample team accounts DemoData makes (reserved example.com, never a super admin).
+     *
+     * @param  Builder<User>  $query
+     */
+    #[Scope]
+    protected function sample(Builder $query): void
+    {
+        $query->where('email', 'like', 'sample-%@example.com')->where('role', '!=', Access::SUPER_ADMIN);
+    }
+
+    public function isSample(): bool
+    {
+        return ! $this->isOwner() && str_starts_with($this->email, 'sample-') && str_ends_with($this->email, '@example.com');
     }
 
     /**
@@ -220,6 +238,16 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'app_authentication_recovery_codes' => null,
             'has_email_authentication' => false,
         ])->save();
+    }
+
+    /**
+     * Times a super admin started viewing as this person.
+     *
+     * @return HasMany<SecurityEvent, $this>
+     */
+    public function impersonationEvents(): HasMany
+    {
+        return $this->hasMany(SecurityEvent::class)->where('kind', SecurityEvent::IMPERSONATION_STARTED);
     }
 
     /**

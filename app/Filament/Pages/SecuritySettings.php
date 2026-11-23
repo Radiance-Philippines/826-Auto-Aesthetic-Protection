@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\SecuritySetting;
 use BackedEnum;
@@ -26,7 +27,7 @@ use UnitEnum;
  */
 class SecuritySettings extends Page
 {
-    use ShownInItsPanels;
+    use BlockedWhileImpersonating, ShownInItsPanels;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 

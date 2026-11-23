@@ -4,6 +4,8 @@ use App\Http\Middleware\AuthenticateGuestToken;
 use App\Http\Middleware\AuthenticateUserToken;
 use App\Http\Middleware\SkipForgeryCheckForBearer;
 use App\Http\Middleware\StartSessionUnlessBearer;
+use App\Http\Middleware\ValidateImpersonation;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -35,6 +37,8 @@ return Application::configure(basePath: dirname(__DIR__))
             StartSession::class => StartSessionUnlessBearer::class,
             PreventRequestForgery::class => SkipForgeryCheckForBearer::class,
         ]);
+        // After the session starts but before sign-in is checked: a deleted target must end the view, not send to the login page
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: ValidateImpersonation::class);
         $middleware->alias(['guest.token' => AuthenticateGuestToken::class, 'user.token' => AuthenticateUserToken::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

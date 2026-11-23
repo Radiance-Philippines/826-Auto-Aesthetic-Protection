@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use App\Models\User;
@@ -29,6 +30,8 @@ use Spatie\LaravelPasskeys\Support\Config;
  */
 class EditProfile extends BaseEditProfile
 {
+    use BlockedWhileImpersonating;
+
     #[Unexposed]
     public function content(Schema $schema): Schema
     {

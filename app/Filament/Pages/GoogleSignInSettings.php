@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\SiteSetting;
 use App\Support\GoogleSignIn;
@@ -27,7 +28,7 @@ use UnitEnum;
  */
 class GoogleSignInSettings extends Page
 {
-    use ShownInItsPanels;
+    use BlockedWhileImpersonating, ShownInItsPanels;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
 

@@ -14,6 +14,7 @@ use App\Models\ServiceRate;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleSize;
+use App\Support\Access;
 use App\Support\Referrals;
 use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
@@ -87,13 +88,22 @@ class DemoData extends Command
     private const SIZES = ['Small', 'Medium', 'Large', 'XL'];
 
     /**
-     * Sample staff accounts, by email: name and role.
+     * The older two sample accounts, removed by --clear so only the new set remains.
+     *
+     * @var list<string>
+     */
+    private const LEGACY_STAFF = ['sample-operations@826auto.test', 'sample-sales@826auto.test'];
+
+    /**
+     * The sample team per branch: name and role, by the email's short role.
      *
      * @var array<string, array{string, string}>
      */
-    private const STAFF = [
-        'sample-operations@826auto.test' => ['Sample operations', 'operations'],
-        'sample-sales@826auto.test' => ['Sample sales', 'sales_admin'],
+    private const TEAM = [
+        'manager' => ['Sample Branch manager', Access::BRANCH_MANAGER],
+        'detailer-1' => ['Sample Detailer 1', Access::OPERATIONS],
+        'detailer-2' => ['Sample Detailer 2', Access::OPERATIONS],
+        'sales' => ['Sample Sales admin', Access::SALES_ADMIN],
     ];
 
     public function handle(): int
@@ -107,6 +117,8 @@ class DemoData extends Command
         $this->clear();
 
         if ($this->option('clear')) {
+            // Only --clear removes the team: a plain run keeps their ids (and their activity trail)
+            User::query()->where(fn ($query) => $query->sample()->orWhereIn('email', self::LEGACY_STAFF))->where('role', '!=', Access::SUPER_ADMIN)->delete();
             $this->info('Sample bookings, units, customers and blocks removed.');
 
             return self::SUCCESS;
@@ -116,9 +128,10 @@ class DemoData extends Command
         $this->fillEstimatesAndRates();
         $this->fillWarrantyAndReferral();
         $this->bookings($branches[0]);
-        $this->sampleStaff($branches[0]);
+        $team = $this->sampleStaff($branches);
+        User::query()->whereIn('email', self::LEGACY_STAFF)->where('role', '!=', Access::SUPER_ADMIN)->delete();
 
-        $this->info('Sample data added: daily caps and hours on '.collect($branches)->pluck('name')->implode(', ').', day estimates and prices where blank, and bookings at '.$branches[0]->name.'.');
+        $this->info('Sample data added: daily caps and hours on '.collect($branches)->pluck('name')->implode(', ').', day estimates and prices where blank, and bookings at '.$branches[0]->name.'; '.$team.' sample team accounts (example.com, 2FA off, no one knows their passwords: view them with "View as this user" in Users).');
         $this->line('Remove the bookings with: php artisan 826:demo-data --clear');
 
         return self::SUCCESS;
@@ -132,23 +145,40 @@ class DemoData extends Command
         Vehicle::query()->whereIn('guest_id', (clone $guests)->select('id'))->delete();
         $guests->delete();
         BranchBlock::query()->where('title', 'like', self::BLOCK_PREFIX.'%')->delete();
-        User::query()->whereIn('email', array_keys(self::STAFF))->delete();
     }
 
     /**
-     * Two clearly marked staff accounts to see the roles with, on a local
-     * machine only. Their password is random and never shown: sign in as them
-     * by resetting it from the login page, or set one yourself in Users.
+     * Clearly marked team accounts per branch (a manager, two detailers and a
+     * sales admin) to see each role with. Never invited, never a super admin,
+     * no 2FA, and a random password that is not printed or kept anywhere: a
+     * super admin opens them with "View as this user" in Users.
+     *
+     * @param  list<Branch>  $branches  the open ones: the first two (the bookable demo branches) and Quezon City, when it exists, get a team
      */
-    private function sampleStaff(Branch $branch): void
+    private function sampleStaff(array $branches): int
     {
-        if (! app()->isLocal()) {
-            return;
+        $quezon = Branch::query()->where('slug', 'quezon-city')->first();
+        $branches = collect($branches)->take(2)->when($quezon, fn (Collection $all) => $all->push($quezon))->unique('id');
+        $count = 0;
+
+        foreach ($branches as $branch) {
+            foreach (self::TEAM as $key => [$name, $role]) {
+                $user = User::firstOrNew(['email' => "sample-{$key}-{$branch->slug}@example.com"]);
+
+                if ($user->exists && $user->isOwner()) {
+                    continue;
+                }
+
+                if (! $user->exists) {
+                    $user->forceFill(['name' => "{$name} ({$branch->city})", 'role' => $role, 'password' => Str::password(40), 'email_verified_at' => now()])->save();
+                }
+
+                $user->branches()->sync([$branch->id]);
+                $count++;
+            }
         }
 
-        foreach (self::STAFF as $email => [$name, $role]) {
-            User::firstOrCreate(['email' => $email], ['name' => $name, 'role' => $role, 'password' => Str::random(40)])->branches()->syncWithoutDetaching([$branch->id]);
-        }
+        return $count;
     }
 
     /**

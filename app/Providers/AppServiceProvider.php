@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Filament\Support\PanelDefaults;
+use App\Http\Middleware\ValidateImpersonation;
 use App\Models\MailSetting;
 use App\Support\Live\LiveEvents;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -45,6 +47,9 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(PasswordReset::class, function (PasswordReset $event) {
             $event->user->forceFill(['email_verified_at' => $event->user->email_verified_at ?? now()])->save();
         });
+
+        // Re-checked on every Livewire call too, not only on page loads
+        Livewire::addPersistentMiddleware([ValidateImpersonation::class]);
 
         // Filament's own dropdowns and date pickers, and an icon on every button
         PanelDefaults::apply();

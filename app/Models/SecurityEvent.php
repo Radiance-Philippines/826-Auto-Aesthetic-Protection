@@ -33,6 +33,10 @@ class SecurityEvent extends Model
 
     public const STAFF_APP_SIGN_OUT = 'staff_app_sign_out';
 
+    public const IMPERSONATION_STARTED = 'impersonation_started';
+
+    public const IMPERSONATION_STOPPED = 'impersonation_stopped';
+
     public const LABELS = [
         self::PASSKEY_ADDED => 'Passkey added',
         self::PASSKEY_REMOVED => 'Passkey removed',
@@ -45,6 +49,8 @@ class SecurityEvent extends Model
         self::STAFF_APP_SIGN_IN => 'Signed in to the team app',
         self::STAFF_APP_SIGN_IN_FAILED => 'Failed sign-in to the team app',
         self::STAFF_APP_SIGN_OUT => 'Signed out of the team app',
+        self::IMPERSONATION_STARTED => 'A super admin started viewing as this person',
+        self::IMPERSONATION_STOPPED => 'A super admin stopped viewing as this person',
     ];
 
     public const UPDATED_AT = null;

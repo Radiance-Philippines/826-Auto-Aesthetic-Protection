@@ -11,10 +11,14 @@ use App\Models\Guest;
 use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
+use App\Models\User;
 use App\Models\Vehicle;
+use App\Support\Access;
 use App\Support\Warranty;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
@@ -113,5 +117,74 @@ class DemoDataTest extends TestCase
         $this->assertSame(0, Backjob::count());
         $this->assertSame(0, Vehicle::count());
         $this->assertSame(0, BranchBlock::count());
+    }
+
+    public function test_it_makes_a_sample_team_per_branch_without_mail_or_invites(): void
+    {
+        config(['app.demo' => true]);
+        Mail::fake();
+        $real = User::factory()->owner()->create(['email' => 'sample-manager-cainta-real@example.com']);
+
+        $this->artisan('826:demo-data')->assertSuccessful();
+
+        // Cainta, San Mateo (the bookable ones) and Quezon City: manager, two detailers, sales admin each
+        $this->assertSame(12, User::sample()->count());
+        $cainta = User::where('email', 'sample-manager-cainta@example.com')->sole();
+        $this->assertSame('Sample Branch manager (Cainta)', $cainta->name);
+        $this->assertSame(Access::BRANCH_MANAGER, $cainta->role);
+        $this->assertSame([Branch::where('slug', 'cainta')->value('id')], $cainta->branchIds());
+        $this->assertSame(Access::OPERATIONS, User::where('email', 'sample-detailer-2-san-mateo@example.com')->value('role'));
+        $this->assertSame(Access::SALES_ADMIN, User::where('email', 'sample-sales-quezon-city@example.com')->value('role'));
+
+        User::sample()->get()->each(function (User $user) {
+            $this->assertStringStartsWith('Sample ', $user->name);
+            $this->assertStringEndsWith('@example.com', $user->email);
+            $this->assertNotSame(Access::SUPER_ADMIN, $user->role);
+            $this->assertCount(1, $user->branchIds());
+            $this->assertFalse($user->isPendingInvite());
+            $this->assertNull($user->invited_at);
+            $this->assertFalse($user->hasTwoFactor());
+            $this->assertTrue($user->isSample());
+            $this->assertTrue($user->canAccessAnyPanel());
+        });
+
+        Mail::assertNothingOutgoing();
+        $this->assertFalse($real->fresh()->isSample());
+
+        // Nobody can sign in as them: a few common passwords fail
+        foreach (['password', 'Password1', '12345678', 'sample', 'secret', 'sample-manager-cainta', 'password123'] as $guess) {
+            $this->assertFalse(Hash::check($guess, $cainta->password), $guess);
+        }
+
+        // Running it again changes nothing, and keeps the same (unknown) passwords
+        $before = User::sample()->pluck('password', 'email');
+        $this->artisan('826:demo-data')->assertSuccessful();
+        $this->assertSame(12, User::sample()->count());
+        $this->assertEquals($before, User::sample()->pluck('password', 'email'));
+
+        // --clear removes them, never a real or super admin account
+        $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
+        $this->assertSame(0, User::sample()->count());
+        $this->assertTrue($real->fresh()->exists);
+    }
+
+    public function test_it_makes_no_team_accounts_outside_local_and_demo(): void
+    {
+        $this->artisan('826:demo-data')->assertFailed();
+
+        $this->assertSame(0, User::sample()->count());
+    }
+
+    public function test_it_never_touches_a_super_admin_that_has_a_sample_address(): void
+    {
+        config(['app.demo' => true]);
+        $owner = User::factory()->owner()->create(['email' => 'sample-manager-cainta@example.com']);
+
+        $this->artisan('826:demo-data')->assertSuccessful();
+        $this->assertSame(Access::SUPER_ADMIN, $owner->fresh()->role);
+        $this->assertSame([], $owner->fresh()->branchIds());
+
+        $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
+        $this->assertTrue($owner->fresh()->exists);
     }
 }

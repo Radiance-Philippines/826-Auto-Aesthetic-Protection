@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LiveTicketController;
 use App\Http\Controllers\MetaWebhookController;
 use App\Http\Controllers\MyBookingsController;
@@ -104,6 +105,9 @@ Route::middleware('guest.token')->group(function () {
         Route::post('/{booking}/review', [ReviewController::class, 'store'])->whereNumber('booking')->middleware('throttle:reviews')->name('my-bookings.review');
     });
 });
+
+// Ends "View as this user" (super admins), from the banner on any panel
+Route::post('/impersonation/stop', [ImpersonationController::class, 'stop'])->name('impersonation.stop');
 
 // A ticket for Radiance Flow's WebSocket (team in /admin, or a signed-in customer): live updates
 Route::get('/live/ticket', LiveTicketController::class)->middleware(['guest.token', 'throttle:live-ticket'])->name('live.ticket');
