@@ -29,8 +29,9 @@ type FieldProps = {
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className'>;
 
 /**
- * A labelled text box (or a text area), its hint under the label and its
- * error under the box, both read with it.
+ * A labelled text box (or a text area), its hint and its error under the
+ * box (never between the label and the box, so boxes side by side line up),
+ * both read with it.
  */
 export function TextField({ label, value, onChange, error, hint, optional, multiline, rows = 3, className = '', id, trailing, ...rest }: FieldProps) {
     const autoId = useId();
@@ -52,11 +53,6 @@ export function TextField({ label, value, onChange, error, hint, optional, multi
                 {label}
                 {optional && <span className="ml-1.5 text-sm font-normal text-muted">({copy.book.details.optional})</span>}
             </label>
-            {hint && (
-                <p id={hintId} className="mt-1 text-sm text-muted">
-                    {hint}
-                </p>
-            )}
             <div className="relative mt-2">
                 {trailing && <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>}
                 {multiline ? (
@@ -65,6 +61,11 @@ export function TextField({ label, value, onChange, error, hint, optional, multi
                     <input {...rest} {...shared} onChange={(event) => onChange(event.target.value)} />
                 )}
             </div>
+            {hint && (
+                <p id={hintId} className="mt-2 text-sm text-muted">
+                    {hint}
+                </p>
+            )}
             {error && <ErrorText id={errorId}>{error}</ErrorText>}
         </div>
     );
