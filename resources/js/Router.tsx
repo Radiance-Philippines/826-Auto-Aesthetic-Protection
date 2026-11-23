@@ -14,6 +14,14 @@ const Bookings = lazyPage(() => import('./pages/Bookings'));
 const BranchDetail = lazyPage(() => import('./pages/BranchDetail'));
 const Branches = lazyPage(() => import('./pages/Branches'));
 const Gallery = lazyPage(() => import('./pages/Gallery'));
+const Login = lazyPage(() => import('./pages/Login'));
+const AccountShell = lazyPage(() => import('./pages/account/Shell'));
+const AccountOverview = lazyPage(() => import('./pages/account/Overview'));
+const AccountGarage = lazyPage(() => import('./pages/account/Garage'));
+const AccountGarageUnit = lazyPage(() => import('./pages/account/GarageUnit'));
+const AccountRewards = lazyPage(() => import('./pages/account/Rewards'));
+const AccountWarranty = lazyPage(() => import('./pages/account/Warranty'));
+const AccountMe = lazyPage(() => import('./pages/account/Me'));
 const HomeService = lazyPage(() => import('./pages/HomeService'));
 const NotFound = lazyPage(() => import('./pages/NotFound'));
 const ServiceDetail = lazyPage(() => import('./pages/ServiceDetail'));
@@ -79,6 +87,15 @@ export default function Router() {
                 <Route path="/home-service" element={<HomeService />} />
                 <Route path="/bookings" element={<Bookings />} />
                 <Route path="/bookings/:id" element={<BookingDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/account" element={<AccountShell />}>
+                    <Route index element={<AccountOverview />} />
+                    <Route path="garage" element={<AccountGarage />} />
+                    <Route path="garage/:id" element={<AccountGarageUnit />} />
+                    <Route path="rewards" element={<AccountRewards />} />
+                    <Route path="warranty" element={<AccountWarranty />} />
+                    <Route path="me" element={<AccountMe />} />
+                </Route>
                 <Route path="*" element={<NotFound />} />
             </Route>
         </Routes>

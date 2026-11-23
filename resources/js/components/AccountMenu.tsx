@@ -2,11 +2,11 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 're
 import { Link, useLocation } from 'react-router-dom';
 
 import useModalLayer from '../hooks/useModalLayer';
-import { afterSignOut, canSignIn, guest, signInHref, signOut } from '../lib/auth';
+import { afterSignOut, canSignIn, guest, signOut } from '../lib/auth';
 import { copy } from '../lib/copy';
 import type { Guest } from '../types';
 import Avatar from './Avatar';
-import { Calendar, SignOut, User } from './Icons';
+import { Calendar, Grid, SignOut, User } from './Icons';
 
 const item = 'press flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left font-medium text-text hover:bg-text/6 focus-visible:bg-text/6 disabled:opacity-60';
 
@@ -100,6 +100,9 @@ function GuestMenu({ guest }: { guest: Guest }) {
                         </div>
                     </div>
                     <div className="p-1.5" role="none">
+                        <Link role="menuitem" to="/account" className={item}>
+                            <Grid className="size-5 text-accent" /> {copy.account.myAccount}
+                        </Link>
                         <Link role="menuitem" to="/bookings" className={item}>
                             <Calendar className="size-5 text-accent" /> {copy.account.myBookings}
                         </Link>
@@ -129,13 +132,17 @@ export default function AccountMenu() {
         return null;
     }
 
+    // Back to the page they were on, except from the home page and the sign-in page itself: those go to the account
+    const here = `${location.pathname}${location.search}`;
+    const back = location.pathname === '/' || location.pathname === '/login' ? '' : `?return=${encodeURIComponent(here)}`;
+
     return (
-        <a
-            href={signInHref(`${location.pathname}${location.search}`)}
+        <Link
+            to={`/login${back}`}
             className="press inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-full text-[0.95rem] font-medium text-text/85 hover:bg-text/6 hover:text-text lg:w-auto lg:rounded-control lg:px-3.5"
         >
             <User className="size-5" />
             <span className="max-lg:sr-only">{copy.account.signIn}</span>
-        </a>
+        </Link>
     );
 }

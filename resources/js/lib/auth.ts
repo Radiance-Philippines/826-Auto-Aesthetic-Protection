@@ -33,6 +33,20 @@ export function signInHref(path: string): string {
 }
 
 /**
+ * A `?return=` path from the address, only if it stays on this site (the
+ * server's safeReturn rules); never the sign-in page itself. Null otherwise.
+ */
+export function safeReturn(raw: string | null): string | null {
+    const path = (raw ?? '').trim();
+
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || /[\u0000-\u001f]/.test(path) || /^\/login(?:[/?#]|$)/.test(path)) {
+        return null;
+    }
+
+    return path;
+}
+
+/**
  * Ends the session. Whatever the answer, the page is reloaded or left
  * after it, so it shows the real state.
  */
@@ -53,7 +67,7 @@ export async function signOut(): Promise<void> {
  * same page again.
  */
 export function afterSignOut(pathname: string): void {
-    if (pathname.startsWith('/bookings')) {
+    if (pathname.startsWith('/bookings') || pathname.startsWith('/account')) {
         window.location.assign(`${site.base}/`);
         return;
     }

@@ -311,3 +311,50 @@ export type MyReferral = {
     pointsEarned: number;
     pointsPending: number;
 };
+
+/** GET /api/me: the signed-in customer's own details */
+export type MyProfile = {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    avatar: string | null;
+    referralCode: string | null;
+};
+
+/** GET /api/my-vehicles/{id}: one unit and every booking made for it */
+export type UnitHistoryLine = {
+    id: number;
+    reference: string;
+    /** "2026-11-24" */
+    date: string | null;
+    branch: string | null;
+    services: string[];
+    status: Stage;
+    price: number | null;
+};
+
+export type UnitDetail = {
+    vehicle: SavedVehicle;
+    history: UnitHistoryLine[];
+};
+
+/** GET /api/my-rewards */
+export type MyRewards = {
+    enabled: boolean;
+    code: string | null;
+    discountLabel: string | null;
+    pointsBalance: number;
+    pointsEarned: number;
+    pointsSpent: number;
+    pesoPerPoint: number | null;
+    friends: { name: string; usedOn: string; status: string; points: number }[];
+    ledger: { date: string; kind: 'earned' | 'spent' | 'adjusted'; points: number; note: string }[];
+};
+
+/** One finished unit in GET /api/my-warranty */
+export type WarrantyUnit = {
+    vehicleId: number | null;
+    vehicleLabel: string;
+    services: { name: string; finishedOn: string; endsOn: string | null; status: 'active' | 'expired' | 'none'; months: number | null; backjobTypesCovered: string[] }[];
+};

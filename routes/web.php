@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminFileController;
+use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\MyRewardsController;
 use App\Http\Controllers\MyWarrantyController;
 use App\Http\Controllers\PasskeyLoginController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReferralLinkController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SeoController;
@@ -30,7 +32,13 @@ Route::controller(SiteController::class)->group(function () {
     Route::get('/home-service', 'homeService');
     Route::get('/bookings', 'myBookings');
     Route::get('/bookings/{booking}', 'myBooking')->whereNumber('booking');
+    // The customer's sign-in page and account pages
+    Route::get('/login', 'login');
+    Route::get('/account/{section?}', 'account')->where('section', 'garage|garage/[0-9]+|rewards|warranty|me');
 });
+
+// A shared referral link: the booking page with the friend's code filled in
+Route::get('/r/{code}', ReferralLinkController::class)->name('referral.link');
 
 // Sign in with Google, for customers (never the admin)
 Route::controller(GuestAuthController::class)->group(function () {
@@ -59,6 +67,11 @@ Route::middleware('guest.token')->group(function () {
 
     // The signed-in customer's referral code and what it has earned
     Route::get('/api/my-referral', [ReferralController::class, 'show'])->middleware('throttle:my-bookings')->name('my-referral.show');
+
+    // The signed-in customer's own details (same answers as the app's /api/app/me), and deleting the account
+    Route::get('/api/me', [AppAuthController::class, 'me'])->middleware(['guest.token:required', 'throttle:my-bookings'])->name('me.show');
+    Route::patch('/api/me', [AppAuthController::class, 'update'])->middleware(['guest.token:required', 'throttle:my-bookings'])->name('me.update');
+    Route::post('/api/me/delete', [AppAuthController::class, 'delete'])->middleware(['guest.token:required', 'throttle:my-bookings'])->name('me.delete');
 
     // My bookings: paying the reservation fee, cancelling, moving
     Route::prefix('api/my-bookings')->controller(MyBookingsController::class)->group(function () {

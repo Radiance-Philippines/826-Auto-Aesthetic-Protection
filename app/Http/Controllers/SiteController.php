@@ -134,6 +134,16 @@ class SiteController extends Controller
         return $this->render($request, ['title' => 'Your booking | '.self::BRAND, 'noindex' => true]);
     }
 
+    public function login(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'Sign in | '.self::BRAND, 'noindex' => true]);
+    }
+
+    public function account(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'My account | '.self::BRAND, 'noindex' => true]);
+    }
+
     public function notFound(Request $request): Response
     {
         return $this->render($request, ['title' => 'Page not found | '.self::BRAND, 'noindex' => true], 404);

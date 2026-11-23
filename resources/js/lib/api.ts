@@ -75,13 +75,13 @@ export function query(params: Record<string, string | number | null | undefined 
     return text ? `?${text}` : '';
 }
 
-async function send<T>(method: 'GET' | 'POST', path: string, payload?: unknown, signal?: AbortSignal): Promise<ApiResult<T>> {
+async function send<T>(method: 'GET' | 'POST' | 'PATCH', path: string, payload?: unknown, signal?: AbortSignal): Promise<ApiResult<T>> {
     try {
         const response = await fetch(apiUrl(path), {
             method,
             headers: {
                 Accept: 'application/json',
-                ...(method === 'POST' ? { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } : {}),
+                ...(method !== 'GET' ? { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() } : {}),
             },
             body: payload === undefined ? undefined : JSON.stringify(payload),
             credentials: 'same-origin',
@@ -109,3 +109,5 @@ async function send<T>(method: 'GET' | 'POST', path: string, payload?: unknown, 
 export const getJson = <T>(path: string, signal?: AbortSignal) => send<T>('GET', path, undefined, signal);
 
 export const postJson = <T>(path: string, payload: unknown) => send<T>('POST', path, payload);
+
+export const patchJson = <T>(path: string, payload: unknown) => send<T>('PATCH', path, payload);

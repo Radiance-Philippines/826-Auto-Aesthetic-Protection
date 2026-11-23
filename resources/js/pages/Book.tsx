@@ -125,8 +125,15 @@ function startingDraft(params: URLSearchParams): BookDraft {
         draft.branchId = bookableBranches[0].id;
     }
 
+    // A shared referral link (/r/CODE → ?ref=CODE): only a code-shaped value goes in the box; the server checks it when the booking is sent
+    const ref = params.get('ref')?.trim() ?? '';
+    // "Book again" from the garage (?unit=ID): that saved unit is picked (the page lets it go if it isn't theirs)
+    const unit = /^\d{1,9}$/.test(params.get('unit') ?? '') && guest ? Number(params.get('unit')) : null;
+
     return {
         ...draft,
+        ...(unit ? { vehicleId: unit, year: '', model: '', type: '', plate: '' } : {}),
+        ...(/^[A-Za-z0-9-]{3,40}$/.test(ref) ? { referral: ref.toUpperCase() } : {}),
         name: draft.name || guest?.name || '',
         email: draft.email || guest?.email || '',
     };

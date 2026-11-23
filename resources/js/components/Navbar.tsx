@@ -83,7 +83,7 @@ export default function Navbar() {
     const linkClass = ({ isActive }: { isActive: boolean }) =>
         `press relative rounded-control px-3.5 py-2.5 text-[0.95rem] font-medium ${isActive ? 'text-text after:absolute after:inset-x-3.5 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent' : 'text-text/75 hover:bg-text/6 hover:text-text'}`;
 
-    const menuLinks = [{ to: '/', label: copy.nav.home }, ...navLinks, ...(guest ? [{ to: '/bookings', label: copy.nav.bookings }] : [])];
+    const menuLinks = [{ to: '/', label: copy.nav.home }, ...navLinks, ...(guest ? [{ to: '/account', label: copy.nav.account }, { to: '/bookings', label: copy.nav.bookings }] : [])];
 
     return (
         <header
