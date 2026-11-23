@@ -129,9 +129,9 @@ class AppReleaseTest extends TestCase
         Livewire::test(ListAppReleases::class)->assertCanSeeTableRecords([$release])->assertActionHasIcon('create', Heroicon::OutlinedPlus);
     }
 
-    public function test_the_download_page_lists_the_team_app_too_and_its_apk_is_separate(): void
+    public function test_the_download_page_does_not_list_the_team_app_but_its_apk_is_still_served_by_link(): void
     {
-        $this->get('/download')->assertOk()->assertSee('826 Team')->assertSee('The 826 Team app isn’t ready to download yet.');
+        $this->get('/download')->assertOk()->assertDontSee('826 Team');
 
         $this->release(['version' => '0.1.0', 'version_code' => 1]);
         Storage::disk(AppRelease::DISK)->put('apks/team.apk', 'team-bytes');
@@ -140,9 +140,10 @@ class AppReleaseTest extends TestCase
         $this->get('/download')
             ->assertOk()
             ->assertSee(url('/download/826-auto-0.1.0.apk'), false)
-            ->assertSee(url('/download/826-team-0.1.0.apk'), false)
-            ->assertSee(str_repeat('d', 64))
-            ->assertSee('First team build');
+            ->assertDontSee('826-team')
+            ->assertDontSee('826 Team')
+            ->assertDontSee(str_repeat('d', 64))
+            ->assertDontSee('First team build');
 
         $this->get('/download/826-team-0.1.0.apk')->assertOk()->assertDownload('826-team-0.1.0.apk');
         // Each app's file is served under its own name only

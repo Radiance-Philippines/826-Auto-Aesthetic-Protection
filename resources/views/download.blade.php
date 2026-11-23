@@ -50,26 +50,5 @@
         <p>The Android app isn’t ready to download yet. Android only for now.</p>
     @endif
 </main>
-<main>
-    <h1>826 Team</h1>
-    @if ($staffRelease)
-        <p>For the shop’s team: the queue, today’s jobs, clients, the inbox and the numbers, by role. Sign in with your team account. Android only for now.</p>
-        <a class="button" href="{{ $staffRelease->downloadUrl() }}">Download 826 Team (version {{ $staffRelease->version }})</a>
-        <dl>
-            <dt>Version</dt><dd>{{ $staffRelease->version }}</dd>
-            @if ($staffRelease->size)
-                <dt>Size</dt><dd>{{ number_format($staffRelease->size / 1048576, 1) }} MB</dd>
-            @endif
-            @if ($staffRelease->sha256)
-                <dt>SHA-256</dt><dd><code>{{ $staffRelease->sha256 }}</code></dd>
-            @endif
-        </dl>
-        @if ($staffRelease->notes)
-            <p class="notes">{{ $staffRelease->notes }}</p>
-        @endif
-    @else
-        <p>The 826 Team app isn’t ready to download yet.</p>
-    @endif
-</main>
 </body>
 </html>
