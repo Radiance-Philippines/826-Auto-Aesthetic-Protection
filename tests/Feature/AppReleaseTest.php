@@ -80,9 +80,9 @@ class AppReleaseTest extends TestCase
 
     public function test_only_a_super_admin_opens_app_releases(): void
     {
-        $this->actingAs(User::factory()->branchManager()->create())->get('/admin/app-releases')->assertForbidden();
-        $this->actingAs(User::factory()->salesAdmin()->create())->get('/admin/app-releases')->assertForbidden();
-        $this->actingAs(User::factory()->owner()->create())->get('/admin/app-releases')->assertOk();
+        $this->actingAs(User::factory()->branchManager()->create())->get($this->panel('/app-releases'))->assertForbidden();
+        $this->actingAs(User::factory()->salesAdmin()->create())->get($this->panel('/app-releases'))->assertForbidden();
+        $this->actingAs(User::factory()->owner()->create())->get($this->panel('/app-releases'))->assertOk();
     }
 
     public function test_the_owner_uploads_a_release_and_size_and_checksum_come_from_the_file(): void

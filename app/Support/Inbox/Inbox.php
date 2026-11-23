@@ -2,12 +2,12 @@
 
 namespace App\Support\Inbox;
 
-use App\Filament\Pages\Inbox as InboxPage;
 use App\Models\Branch;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\MetaSetting;
 use App\Models\User;
+use App\Support\AdminUrl;
 use App\Support\InboxAccess;
 use App\Support\Meta\MetaClient;
 use Filament\Actions\Action;
@@ -200,7 +200,7 @@ class Inbox
             ->body(Str::limit(($by?->name ?? 'Sales').': '.Str::squish((string) $reply->body), 160))
             ->icon('heroicon-o-chat-bubble-left-right')
             ->actions(array_filter([
-                InboxAccess::allows($maker) ? Action::make('open')->label('Open thread')->url(InboxPage::getUrl(['conversation' => $conversation->getKey()], panel: 'admin'))->markAsRead() : null,
+                InboxAccess::allows($maker) ? Action::make('open')->label('Open thread')->url(AdminUrl::for($maker)->inbox(['conversation' => $conversation->getKey()]))->markAsRead() : null,
             ]))
             ->toDatabase());
     }
@@ -249,7 +249,8 @@ class Inbox
             return;
         }
 
-        Notification::make()
+        // One each: the link opens in that person's own panel
+        $recipients->each(fn (User $user) => Notification::make()
             ->title('New message: '.$conversation->displayName())
             ->body(Str::limit(self::preview($message), 120).' · '.$conversation->branch?->name)
             ->icon('heroicon-o-chat-bubble-left-right')
@@ -257,10 +258,10 @@ class Inbox
                 Action::make('open')
                     ->label('Open chat')
                     ->icon('heroicon-m-chat-bubble-left-right')
-                    ->url(InboxPage::getUrl(['conversation' => $conversation->getKey()]))
+                    ->url(AdminUrl::for($user)->inbox(['conversation' => $conversation->getKey()]))
                     ->markAsRead(),
             ])
-            ->sendToDatabase($recipients);
+            ->sendToDatabase($user));
     }
 
     /**

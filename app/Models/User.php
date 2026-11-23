@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\Access;
+use App\Support\Panels;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
@@ -65,11 +66,19 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
 
     /**
      * Only 826's team has accounts (there is no public sign-up): owners
-     * invite team members from /admin → Users.
+     * invite team members from Users. Strict per panel: a super admin opens
+     * all three, a sales admin /sales, detailers and branch managers
+     * /operations. /admin is only the shared sign-in and old links, open to
+     * anyone with a panel.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return $panel->getId() === Panels::GATEWAY ? $this->canAccessAnyPanel() : Panels::canOpen($this, $panel->getId());
+    }
+
+    public function canAccessAnyPanel(): bool
+    {
+        return Panels::idsFor($this) !== [];
     }
 
     /**

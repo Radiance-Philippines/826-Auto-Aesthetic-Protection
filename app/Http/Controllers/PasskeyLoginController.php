@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
+use App\Models\User;
+use App\Support\Panels;
 use Filament\Facades\Filament;
-use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -15,12 +16,12 @@ use Spatie\LaravelPasskeys\Actions\GeneratePasskeyAuthenticationOptionsAction;
 use Spatie\LaravelPasskeys\Support\Config;
 
 /**
- * Sign in to /admin with a passkey instead of a password: no email needed
+ * Sign in to the admin with a passkey instead of a password: no email needed
  * (the passkey says who it is). The browser proves it with a signature over
  * a one-time challenge and the user verification our options require, so
  * this counts as strong sign-in and skips the 2FA code. The cryptography is
  * spatie/laravel-passkeys' (web-auth/webauthn-lib); this controller only
- * decides what happens after it passes.
+ * decides what happens after it passes: the person lands in their own panel.
  */
 class PasskeyLoginController extends Controller
 {
@@ -38,8 +39,8 @@ class PasskeyLoginController extends Controller
         abort_unless(SecuritySetting::passkeysAllowed(), 404);
 
         // Already signed in (the autofill and the button can both answer): nothing more to do
-        if (Filament::auth()->check()) {
-            return response()->json(['redirect' => Filament::getUrl()]);
+        if (Filament::auth()->user() instanceof User) {
+            return response()->json(['redirect' => Panels::homeUrl(Filament::auth()->user())]);
         }
 
         $request->validate([
@@ -60,7 +61,7 @@ class PasskeyLoginController extends Controller
 
         $user = $passkey?->authenticatable;
 
-        if (! $user || ($user instanceof FilamentUser && ! $user->canAccessPanel(Filament::getCurrentOrDefaultPanel()))) {
+        if (! $user instanceof User || ! $user->canAccessAnyPanel()) {
             return $failed;
         }
 
@@ -71,6 +72,6 @@ class PasskeyLoginController extends Controller
 
         SecurityEvent::record(SecurityEvent::PASSKEY_SIGN_IN, $user, $passkey->name);
 
-        return response()->json(['redirect' => redirect()->intended(Filament::getUrl())->getTargetUrl()]);
+        return response()->json(['redirect' => redirect()->intended(Panels::homeUrl($user))->getTargetUrl()]);
     }
 }

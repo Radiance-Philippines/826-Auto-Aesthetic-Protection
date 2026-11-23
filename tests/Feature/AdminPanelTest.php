@@ -55,6 +55,7 @@ class AdminPanelTest extends TestCase
     public function test_visitors_are_sent_to_the_login_page(): void
     {
         $this->get('/admin')->assertRedirect('/admin/login');
+        $this->get($this->inPanel('owner'))->assertRedirect('/owner/login');
         $this->get('/admin/login')->assertOk();
     }
 
@@ -68,33 +69,33 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->owner);
 
         foreach ([
-            '/admin',
-            '/admin/queue',
-            "/admin/queue?branch={$this->branch->id}&date=2026-11-17",
-            '/admin/bookings',
-            '/admin/bookings?activeTab=action',
-            '/admin/bookings?activeTab=size',
-            '/admin/bookings/create',
-            "/admin/bookings/{$booking->id}",
-            "/admin/bookings/{$booking->id}/edit",
-            "/admin/bookings/{$home->id}",
-            '/admin/branch-blocks',
-            '/admin/branches',
-            '/admin/branches/create',
-            "/admin/branches/{$this->branch->id}/edit",
-            '/admin/services',
-            '/admin/services/create',
-            "/admin/services/{$this->detail->id}/edit",
-            '/admin/service-categories',
-            '/admin/vehicle-sizes',
-            '/admin/photos',
-            "/admin/photos/{$photo->id}/edit",
-            '/admin/site-settings',
-            '/admin/booking-rules',
-            '/admin/payment-settings',
-            '/admin/email-settings',
-            '/admin/google-sign-in',
-            '/admin/users',
+            $this->panel(),
+            $this->panel('/queue'),
+            $this->panel("/queue?branch={$this->branch->id}&date=2026-11-17"),
+            $this->panel('/bookings'),
+            $this->panel('/bookings?activeTab=action'),
+            $this->panel('/bookings?activeTab=size'),
+            $this->panel('/bookings/create'),
+            $this->panel("/bookings/{$booking->id}"),
+            $this->panel("/bookings/{$booking->id}/edit"),
+            $this->panel("/bookings/{$home->id}"),
+            $this->panel('/branch-blocks'),
+            $this->panel('/branches'),
+            $this->panel('/branches/create'),
+            $this->panel("/branches/{$this->branch->id}/edit"),
+            $this->panel('/services'),
+            $this->panel('/services/create'),
+            $this->panel("/services/{$this->detail->id}/edit"),
+            $this->panel('/service-categories'),
+            $this->panel('/vehicle-sizes'),
+            $this->panel('/photos'),
+            $this->panel("/photos/{$photo->id}/edit"),
+            $this->panel('/site-settings'),
+            $this->panel('/booking-rules'),
+            $this->panel('/payment-settings'),
+            $this->panel('/email-settings'),
+            $this->panel('/google-sign-in'),
+            $this->panel('/users'),
         ] as $url) {
             $this->get($url)->assertOk();
         }
@@ -105,7 +106,7 @@ class AdminPanelTest extends TestCase
         $booking = Booking::factory()->create(['branch_id' => $this->branch->id]);
         $this->assertNull($booking->read_at);
 
-        $this->actingAs($this->owner)->get("/admin/bookings/{$booking->id}")->assertOk();
+        $this->actingAs($this->owner)->get($this->panel("/bookings/{$booking->id}"))->assertOk();
 
         $this->assertNotNull($booking->refresh()->read_at);
     }

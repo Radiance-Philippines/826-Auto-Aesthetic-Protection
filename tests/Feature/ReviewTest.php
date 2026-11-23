@@ -184,7 +184,7 @@ class ReviewTest extends TestCase
 
         Mail::assertSent(TeamBookingAlert::class, fn (TeamBookingAlert $mail) => $mail->kind === 'review'
             && str_contains($mail->envelope()->subject, 'New review waiting for approval')
-            && str_contains($mail->render(), ReviewResource::getUrl('index', panel: 'admin')));
+            && str_contains($mail->render(), '/admin/reviews'));
         Mail::assertNotSent(CustomerBookingUpdate::class);
     }
 
@@ -275,7 +275,7 @@ class ReviewTest extends TestCase
         Livewire::test(ListReviews::class, ['activeTab' => 'all'])
             ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs]);
         $this->assertSame('1', ReviewResource::getNavigationBadge());
-        $this->get(ReviewResource::getUrl('view', ['record' => $theirs], panel: 'admin'))->assertNotFound();
+        $this->get($this->panel('/reviews/'.$theirs->id))->assertNotFound();
 
         $this->assertFalse($staff->can('delete', $mine));
         $this->assertTrue($staff->can('update', $mine));

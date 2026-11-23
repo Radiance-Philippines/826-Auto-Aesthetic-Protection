@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
@@ -36,21 +35,18 @@ final class HeadsUp
 
         $change = trim(($from ?: 'nothing').' → '.($to ?: 'nothing'));
         $text = "{$actor->name} changed {$what}: {$change}";
-        $url = BookingResource::getUrl('view', ['record' => $booking], panel: 'admin');
-
         $sales = User::query()->get()->filter(fn (User $user) => $user->isNot($actor)
             && $user->canAccessArea('bookings.sales')
             && $user->canManageBranch($booking->branch_id));
 
-        $bell = Notification::make()
+        // Now, not queued: nothing here runs a queue worker. Each link opens in the recipient's own panel.
+        $sales->each(fn (User $user) => $user->notifyNow(Notification::make()
             ->title("Heads-up: {$booking->name} ({$booking->reference})")
             ->body($text)
             ->icon('heroicon-o-bell-alert')
             ->warning()
-            ->actions([Action::make('open')->label('Open booking')->url($url)->markAsRead()]);
-
-        // Now, not queued: nothing here runs a queue worker
-        $sales->each(fn (User $user) => $user->notifyNow($bell->toDatabase()));
+            ->actions([Action::make('open')->label('Open booking')->url(AdminUrl::for($user)->booking($booking))->markAsRead()])
+            ->toDatabase()));
 
         Notifier::team($booking, 'heads_up', $text);
 

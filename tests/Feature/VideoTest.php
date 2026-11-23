@@ -56,7 +56,7 @@ class VideoTest extends TestCase
 
     public function test_branch_staff_cannot_open_the_videos_page(): void
     {
-        $this->actingAs(User::factory()->create())->get('/admin/videos')->assertForbidden();
-        $this->actingAs(User::factory()->owner()->create())->get('/admin/videos')->assertOk();
+        $this->actingAs(User::factory()->create())->get($this->panel('/videos'))->assertForbidden();
+        $this->actingAs(User::factory()->owner()->create())->get($this->panel('/videos'))->assertOk();
     }
 }

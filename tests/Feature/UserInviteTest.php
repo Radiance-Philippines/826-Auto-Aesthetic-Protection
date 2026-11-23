@@ -22,14 +22,14 @@ class UserInviteTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
-        $this->get('/admin/users')->assertForbidden();
-        $this->get('/admin/email-settings')->assertForbidden();
-        $this->get('/admin/bookings')->assertOk();
+        $this->get($this->panel('/users'))->assertForbidden();
+        $this->get($this->panel('/email-settings'))->assertForbidden();
+        $this->get($this->panel('/bookings'))->assertOk();
 
         $this->actingAs(User::factory()->owner()->create());
 
-        $this->get('/admin/users')->assertOk();
-        $this->get('/admin/email-settings')->assertOk();
+        $this->get($this->panel('/users'))->assertOk();
+        $this->get($this->panel('/email-settings'))->assertOk();
     }
 
     public function test_an_owner_invites_branch_staff_by_email(): void
@@ -53,7 +53,7 @@ class UserInviteTest extends TestCase
 
         Mail::assertSent(Invitation::class, fn (Invitation $mail) => $mail->hasTo('mate@example.com')
             && $mail->invitedBy === 'Dran'
-            && str_contains($mail->setPasswordUrl, '/admin/password-reset/reset')
+            && str_contains($mail->setPasswordUrl, '/operations/password-reset/reset')
             && $mail->expiresInHours === 24);
     }
 

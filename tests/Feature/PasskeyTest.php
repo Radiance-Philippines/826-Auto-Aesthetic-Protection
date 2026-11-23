@@ -10,6 +10,7 @@ use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use App\Models\User;
+use App\Support\Panels;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
@@ -157,7 +158,7 @@ class PasskeyTest extends TestCase
         $this->addPasskey($other, 'Other');
         auth()->logout();
 
-        $this->get('/admin/bookings')->assertRedirect();
+        $this->get($this->panel('/bookings'))->assertRedirect();
 
         $options = $this->signInOptions();
         $this->assertSame('required', $options['userVerification']);
@@ -167,7 +168,7 @@ class PasskeyTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
         $this->assertTrue(session(RequireTwoFactorWhenOn::VIA_PASSKEY));
-        $this->get('/admin/bookings')->assertOk();
+        $this->get($this->panel('/bookings'))->assertOk();
         $this->assertNotNull($user->passkeys()->sole()->last_used_at);
         $this->assertDatabaseHas('security_events', ['user_id' => $user->id, 'kind' => 'passkey_sign_in', 'note' => 'Work laptop']);
         $this->assertDatabaseMissing('security_events', ['user_id' => $other->id, 'kind' => 'passkey_sign_in']);
@@ -183,6 +184,18 @@ class PasskeyTest extends TestCase
         $this->signIn($device->assert($this->signInOptions(), $user->id))->assertOk()->assertJsonStructure(['redirect']);
 
         $this->assertSame(1, SecurityEvent::where('kind', 'passkey_sign_in')->count());
+    }
+
+    public function test_a_passkey_lands_each_role_in_its_own_panel(): void
+    {
+        foreach (['super_admin' => '/owner', 'sales_admin' => '/sales', 'operations' => '/operations', 'branch_manager' => '/operations'] as $role => $home) {
+            $user = User::factory()->create(['role' => $role]);
+            [$device] = $this->addPasskey($user, $role);
+            auth()->forgetGuards();
+            session()->flush();
+
+            $this->signIn($device->assert($this->signInOptions(), $user->id))->assertOk()->assertJsonPath('redirect', url($home));
+        }
     }
 
     public function test_a_password_sign_in_still_asks_for_the_2fa_code(): void
@@ -311,20 +324,20 @@ class PasskeyTest extends TestCase
         $user = User::factory()->create();
         SecuritySetting::instance()->update(['require_two_factor' => true]);
         $this->actingAs($user);
-        $setUp = Filament::getPanel('admin')->getSetUpRequiredMultiFactorAuthenticationUrl();
+        $setUp = Filament::getPanel(Panels::homeId($user))->getSetUpRequiredMultiFactorAuthenticationUrl();
 
-        $this->get('/admin/bookings')->assertRedirect($setUp);
+        $this->get($this->panel('/bookings'))->assertRedirect($setUp);
 
         // Owning a passkey is not enough: this session was not started with it
         $this->addPasskey($user);
-        $this->get('/admin/bookings')->assertRedirect($setUp);
+        $this->get($this->panel('/bookings'))->assertRedirect($setUp);
 
         // A session started with the passkey counts
-        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get('/admin/bookings')->assertOk();
+        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get($this->panel('/bookings'))->assertOk();
 
         // Not while passkeys are switched off: then it is not a way to sign in
         SecuritySetting::instance()->update(['allow_passkeys' => false]);
-        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get('/admin/bookings')->assertRedirect($setUp);
+        $this->withSession([RequireTwoFactorWhenOn::VIA_PASSKEY => true])->get($this->panel('/bookings'))->assertRedirect($setUp);
     }
 
     // Who can touch what
@@ -385,7 +398,7 @@ class PasskeyTest extends TestCase
         $this->addPasskey($member);
 
         $this->actingAs(User::factory()->salesAdmin()->create());
-        $this->get('/admin/users')->assertForbidden();
+        $this->get($this->panel('/users'))->assertForbidden();
         $this->assertSame(1, $member->passkeys()->count());
     }
 
@@ -400,7 +413,7 @@ class PasskeyTest extends TestCase
         auth()->logout();
         $this->signIn($device->assert($this->signInOptions(), $user->id))->assertOk();
 
-        $this->get('/admin/profile')->assertOk()
+        $this->get($this->panel('/profile'))->assertOk()
             ->assertSee('Work laptop')
             ->assertSee('Passkey added')
             ->assertSee('Signed in with a passkey')

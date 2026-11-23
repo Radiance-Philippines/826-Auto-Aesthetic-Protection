@@ -167,9 +167,9 @@ class CustomerTest extends TestCase
             ->assertCanSeeTableRecords([$booked, $home])
             ->assertCanNotSeeTableRecords([$elsewhere, $nobody]);
 
-        $this->get("/admin/customers/{$booked->id}")->assertOk();
-        $this->get("/admin/customers/{$elsewhere->id}")->assertNotFound();
-        $this->get("/admin/customers/{$elsewhere->id}/edit")->assertNotFound();
+        $this->get($this->panel("/customers/{$booked->id}"))->assertOk();
+        $this->get($this->panel("/customers/{$elsewhere->id}"))->assertNotFound();
+        $this->get($this->panel("/customers/{$elsewhere->id}/edit"))->assertNotFound();
 
         $this->actingAs(User::factory()->owner()->create());
         Livewire::test(ListCustomers::class)->assertCanSeeTableRecords([$booked, $home, $elsewhere, $nobody]);
@@ -233,7 +233,7 @@ class CustomerTest extends TestCase
         $guest = Guest::factory()->create();
         $booking = Booking::factory()->create(['guest_id' => $guest->id, 'branch_id' => $this->branch->id]);
 
-        $this->actingAs($this->staff)->get("/admin/bookings/{$booking->id}")->assertOk()->assertSee("/admin/customers/{$guest->id}", escape: false);
+        $this->actingAs($this->staff)->get($this->panel("/bookings/{$booking->id}"))->assertOk()->assertSee($this->panel("/customers/{$guest->id}"), escape: false);
     }
 
     public function test_only_owners_delete_and_never_a_customer_with_bookings(): void
@@ -261,11 +261,11 @@ class CustomerTest extends TestCase
 
         $this->actingAs($this->staff);
 
-        foreach (['/admin/customers', '/admin/customers/create', "/admin/customers/{$guest->id}/edit", '/admin/warranty', '/admin/manual-transaction'] as $url) {
+        foreach ([$this->panel('/customers'), $this->panel('/customers/create'), $this->panel("/customers/{$guest->id}/edit"), $this->panel('/warranty'), $this->panel('/manual-transaction')] as $url) {
             $this->get($url)->assertOk();
         }
 
-        $this->get("/admin/customers/{$guest->id}")->assertOk()->assertSee('MARIA-7K3Q')->assertSee('services are covered now');
+        $this->get($this->panel("/customers/{$guest->id}"))->assertOk()->assertSee('MARIA-7K3Q')->assertSee('services are covered now');
     }
 
     public function test_a_unit_shows_its_jobs_last_service_and_history_at_the_branches_you_see(): void
@@ -305,7 +305,7 @@ class CustomerTest extends TestCase
             ->assertMountedActionModalSee('₱18,000')
             ->assertMountedActionModalSee('Size needed')
             ->assertMountedActionModalSee('Cainta')
-            ->assertMountedActionModalSee('/admin/bookings/'.$second->id, escape: false)
+            ->assertMountedActionModalSee($this->inPanel('owner', '/bookings/').$second->id, escape: false)
             ->assertMountedActionModalDontSee('San Mateo wash')
             ->assertMountedActionModalDontSee('₱999');
 

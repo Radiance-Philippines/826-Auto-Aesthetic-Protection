@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\User;
+use App\Support\AdminUrl;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -27,7 +28,7 @@ class Invitation extends Mailable
     public function content(): Content
     {
         return new Content(markdown: 'mail.invitation', with: [
-            'adminUrl' => url('/admin'),
+            'adminUrl' => AdminUrl::for($this->user)->home(),
             'studio' => config('app.name'),
         ]);
     }

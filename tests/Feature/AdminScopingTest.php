@@ -50,9 +50,9 @@ class AdminScopingTest extends TestCase
             ->assertCanSeeTableRecords([$mine])
             ->assertCanNotSeeTableRecords([$theirs]);
 
-        $this->get("/admin/bookings/{$mine->id}")->assertOk();
-        $this->get("/admin/bookings/{$theirs->id}")->assertNotFound();
-        $this->get("/admin/bookings/{$theirs->id}/edit")->assertNotFound();
+        $this->get($this->panel("/bookings/{$mine->id}"))->assertOk();
+        $this->get($this->panel("/bookings/{$theirs->id}"))->assertNotFound();
+        $this->get($this->panel("/bookings/{$theirs->id}/edit"))->assertNotFound();
     }
 
     public function test_the_badge_counts_only_their_branch(): void
@@ -71,11 +71,11 @@ class AdminScopingTest extends TestCase
     {
         $this->actingAs($this->staff);
 
-        foreach (['/admin/branches', '/admin/services', '/admin/service-categories', '/admin/vehicle-sizes', '/admin/photos', '/admin/site-settings', '/admin/booking-rules', '/admin/payment-settings', '/admin/email-settings', '/admin/google-sign-in', '/admin/users'] as $url) {
+        foreach ([$this->panel('/branches'), $this->panel('/services'), $this->panel('/service-categories'), $this->panel('/vehicle-sizes'), $this->panel('/photos'), $this->panel('/site-settings'), $this->panel('/booking-rules'), $this->panel('/payment-settings'), $this->panel('/email-settings'), $this->panel('/google-sign-in'), $this->panel('/users')] as $url) {
             $this->get($url)->assertForbidden();
         }
 
-        foreach (['/admin', '/admin/queue', '/admin/bookings', '/admin/bookings/create', '/admin/branch-blocks'] as $url) {
+        foreach ([$this->dashboard(), $this->panel('/queue'), $this->panel('/bookings'), $this->panel('/bookings/create'), $this->panel('/branch-blocks')] as $url) {
             $this->get($url)->assertOk();
         }
     }
@@ -110,8 +110,8 @@ class AdminScopingTest extends TestCase
     {
         $this->actingAs($this->staff);
 
-        $this->get('/admin/queue?branch='.$this->sanMateo->id)->assertForbidden();
-        $this->get('/admin/queue')->assertOk()->assertSee('Cainta');
+        $this->get($this->panel('/queue?branch=').$this->sanMateo->id)->assertForbidden();
+        $this->get($this->panel('/queue'))->assertOk()->assertSee('Cainta');
     }
 
     public function test_staff_without_a_branch_see_nothing(): void
@@ -122,7 +122,7 @@ class AdminScopingTest extends TestCase
         $this->actingAs($nobody);
 
         Livewire::test(ListBookings::class, ['activeTab' => 'all'])->assertCountTableRecords(0);
-        $this->get('/admin/queue')->assertOk()->assertSee('not assigned to a branch');
+        $this->get($this->panel('/queue'))->assertOk()->assertSee('not assigned to a branch');
     }
 
     public function test_owners_see_every_branch(): void

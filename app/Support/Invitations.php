@@ -47,7 +47,7 @@ class Invitations
     {
         $this->ensureEmailIsSetUp();
 
-        $panel = Filament::getPanel('admin');
+        $panel = Filament::getPanel(Panels::homeId($user) ?? Panels::OWNER);
         $broker = $panel->getAuthPasswordBroker() ?? config('auth.defaults.passwords');
         $hours = (int) ceil(config("auth.passwords.{$broker}.expire", 60) / 60);
 

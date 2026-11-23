@@ -42,7 +42,7 @@ class QueueTest extends TestCase
         Booking::factory()->on('2026-11-18')->create(['branch_id' => $this->branch->id, 'name' => 'Another Day']);
 
         $this->actingAs(User::factory()->owner()->create())
-            ->get("/admin/queue?branch={$this->branch->id}&date=2026-11-17")
+            ->get($this->panel("/queue?branch={$this->branch->id}&date=2026-11-17"))
             ->assertOk()
             ->assertSee('Dropping off on Tuesday, Nov 17, 2026: 2 of 3')
             ->assertSee('1 place left')
@@ -66,9 +66,9 @@ class QueueTest extends TestCase
 
         $this->actingAs(User::factory()->owner()->create());
 
-        $this->get("/admin/queue?branch={$this->branch->id}&date=2026-11-17")->assertSee('3 of 3')->assertSee('Full');
-        $this->get("/admin/queue?branch={$this->branch->id}&date=2026-11-18")->assertSee('Closed day');
-        $this->get("/admin/queue?branch={$this->branch->id}&date=2026-11-22")->assertSee('Closed day');
+        $this->get($this->panel("/queue?branch={$this->branch->id}&date=2026-11-17"))->assertSee('3 of 3')->assertSee('Full');
+        $this->get($this->panel("/queue?branch={$this->branch->id}&date=2026-11-18"))->assertSee('Closed day');
+        $this->get($this->panel("/queue?branch={$this->branch->id}&date=2026-11-22"))->assertSee('Closed day');
     }
 
     public function test_a_card_s_button_moves_the_unit_to_the_next_step_and_records_the_times(): void

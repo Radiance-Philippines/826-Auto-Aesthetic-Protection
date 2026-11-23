@@ -2,22 +2,17 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\BookingStats;
-use App\Filament\Widgets\BranchesInsight;
-use App\Filament\Widgets\CustomersInsight;
-use App\Filament\Widgets\NeedsAttention;
-use App\Filament\Widgets\OperationsInsight;
-use App\Filament\Widgets\SalesChart;
-use App\Filament\Widgets\SalesOverview;
-use App\Filament\Widgets\ServicesInsight;
-use App\Filament\Widgets\StaffInsight;
+use App\Providers\Filament\PanelPages;
 use App\Support\Dashboard\Insights;
 use App\Support\Dashboard\Period;
+use App\Support\Panels;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
+use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -25,7 +20,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The home page, for accounts with the dashboard area: today at the
+ * The dashboard (the home page of /owner and /sales), for accounts with the dashboard area: today at the
  * branches, then sales, services, branches, operations, customers and
  * staff for the chosen period and branch. A widget only shows to the
  * roles that may see its numbers. The filters stay in the address.
@@ -45,21 +40,27 @@ class Dashboard extends BaseDashboard
     }
 
     /**
+     * The queue is the operations home, so its dashboard has its own address.
+     */
+    public static function getRoutePath(Panel $panel): string
+    {
+        return $panel->getId() === Panels::OPERATIONS ? '/dashboard' : '/';
+    }
+
+    /**
+     * The widgets of the panel on screen: the master set in /owner, the
+     * sales side in /sales, the day-to-day numbers in /operations. Each
+     * widget still shows only to the accounts that may see its numbers.
+     *
      * @return array<class-string>
      */
     public function getWidgets(): array
     {
-        return [
-            BookingStats::class,
-            NeedsAttention::class,
-            SalesOverview::class,
-            SalesChart::class,
-            ServicesInsight::class,
-            BranchesInsight::class,
-            OperationsInsight::class,
-            CustomersInsight::class,
-            StaffInsight::class,
-        ];
+        return match (Filament::getCurrentOrDefaultPanel()->getId()) {
+            Panels::SALES => PanelPages::salesWidgets(),
+            Panels::OPERATIONS => PanelPages::operationsWidgets(),
+            default => PanelPages::ownerWidgets(),
+        };
     }
 
     public function filtersForm(Schema $schema): Schema

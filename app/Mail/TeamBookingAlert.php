@@ -2,9 +2,8 @@
 
 namespace App\Mail;
 
-use App\Filament\Resources\Bookings\BookingResource;
-use App\Filament\Resources\Reviews\ReviewResource;
 use App\Models\Booking;
+use App\Support\AdminUrl;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
@@ -15,7 +14,8 @@ use Illuminate\Mail\Mailables\Envelope;
  * reservation or hold, a unit that needs its size, a payment screenshot to check, a home-service
  * request, a customer cancelling or moving one, or operations changing a
  * unit's ready date or details (a heads-up for sales). Replying answers the
- * customer when they left an email.
+ * customer when they left an email. It goes to an address, not an account,
+ * so its link is the old /admin one, which lands in the opener's own panel.
  */
 class TeamBookingAlert extends Mailable
 {
@@ -49,8 +49,8 @@ class TeamBookingAlert extends Mailable
     {
         return new Content(markdown: 'mail.team-booking-alert', with: [
             'adminUrl' => $this->kind === 'review'
-                ? ReviewResource::getUrl('index', panel: 'admin')
-                : BookingResource::getUrl('view', ['record' => $this->booking], panel: 'admin'),
+                ? AdminUrl::legacy('reviews')
+                : AdminUrl::legacyBooking($this->booking),
         ]);
     }
 }

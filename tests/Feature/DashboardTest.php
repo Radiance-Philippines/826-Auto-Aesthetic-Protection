@@ -675,7 +675,7 @@ class DashboardTest extends TestCase
     {
         $this->actingAs(User::factory()->owner()->create());
 
-        $this->get('/admin?filters[period]=this_month')->assertSuccessful();
+        $this->get($this->panel('?filters[period]=this_month'))->assertSuccessful();
 
         Livewire::withQueryParams(['filters' => ['period' => 'last_7']])
             ->test(Dashboard::class)
@@ -687,7 +687,7 @@ class DashboardTest extends TestCase
         $this->fixture();
 
         foreach ([User::factory()->owner()->create(), $this->staff('branch_manager'), $this->staff('operations'), $this->staff('sales_admin')] as $user) {
-            $this->actingAs($user)->get('/admin')->assertSuccessful();
+            $this->actingAs($user)->get($this->dashboard())->assertSuccessful();
         }
     }
 

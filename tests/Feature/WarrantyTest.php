@@ -122,8 +122,8 @@ class WarrantyTest extends TestCase
         $this->assertSame(0, BackjobType::count());
         $this->assertSame(0, Service::whereNotNull('warranty_months')->count());
 
-        $this->actingAs($this->staff)->get('/admin/backjob-types')->assertForbidden();
-        $this->actingAs(User::factory()->owner()->create())->get('/admin/backjob-types')->assertOk();
+        $this->actingAs($this->staff)->get($this->panel('/backjob-types'))->assertForbidden();
+        $this->actingAs(User::factory()->owner()->create())->get($this->panel('/backjob-types'))->assertOk();
     }
 
     public function test_the_checker_finds_a_job_by_plate_name_phone_or_reference(): void
@@ -180,7 +180,7 @@ class WarrantyTest extends TestCase
             ->assertSee($mine->reference)
             ->assertDontSee($other->reference);
 
-        $this->get('/admin/warranty?customer='.$elsewhere->id)->assertNotFound();
+        $this->get($this->panel('/warranty?customer=').$elsewhere->id)->assertNotFound();
     }
 
     public function test_logging_a_backjob_with_a_type_the_service_covers_or_other(): void

@@ -21,6 +21,9 @@ class SeoController extends Controller
         $lines = [
             'User-agent: *',
             'Disallow: /admin',
+            'Disallow: /owner',
+            'Disallow: /sales',
+            'Disallow: /operations',
             '',
             'Sitemap: '.SiteController::pageUrl('sitemap.xml'),
         ];

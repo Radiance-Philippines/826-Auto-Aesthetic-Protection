@@ -174,7 +174,7 @@ class ManualTransactionTest extends TestCase
 
         Livewire::test(ManualTransactionPage::class)->fillForm($this->form(['services' => [$this->detail->id], 'amount_paid' => 2500, 'payment_method' => 'cash']))->call('save');
 
-        $this->get('/admin/bookings/'.Booking::sole()->id)->assertOk()->assertSee('Came in by manual entry')->assertSee('Cash')->assertDontSee('Reservation fee');
+        $this->get($this->panel('/bookings/').Booking::sole()->id)->assertOk()->assertSee('Came in by manual entry')->assertSee('Cash')->assertDontSee('Reservation fee');
     }
 
     private function referral(string $type = 'fixed', int $value = 500, int $points = 100, bool $enabled = true): Guest

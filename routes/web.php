@@ -18,6 +18,10 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SiteController;
+use App\Models\User;
+use App\Support\Panels;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // Site pages: one React shell, with per-page meta tags
@@ -98,6 +102,14 @@ Route::prefix('admin-passkeys')->controller(PasskeyLoginController::class)->grou
     Route::get('/options', 'options')->middleware('throttle:passkey-options')->name('passkeys.options');
     Route::post('/login', 'login')->middleware('throttle:passkey-login')->name('passkeys.login');
 });
+
+// The old single admin: any other /admin address (an emailed link, a bookmark) goes to the same page in the
+// signed-in person's own panel, or to sign-in first (the sign-in page, password reset and /admin itself are the panel's)
+Route::get('/admin/{path}', function (Request $request) {
+    $user = Auth::user();
+
+    return $user instanceof User ? redirect(Panels::equivalentUrl($user, $request)) : redirect()->guest(url('/admin/login'));
+})->where('path', '.*')->fallback();
 
 // The Android app: its page, and the APK of a published release
 Route::get('/download', [DownloadController::class, 'page'])->name('download');

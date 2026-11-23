@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\UserToken;
 use App\Support\Staff\StaffViews;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
-use Filament\Facades\Filament;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -58,7 +57,7 @@ class StaffAuthController extends StaffController
         // Always one password check, so a missing account takes as long as a wrong password
         $matches = Hash::check($data['password'], $user?->password ?? Hash::make(Str::random(16)));
 
-        if (! $user || ! $matches || $user->isPendingInvite() || ! $user->canAccessPanel(Filament::getPanel('admin'))) {
+        if (! $user || ! $matches || $user->isPendingInvite() || ! $user->canAccessAnyPanel()) {
             RateLimiter::hit($limiter, 60);
 
             if ($user) {

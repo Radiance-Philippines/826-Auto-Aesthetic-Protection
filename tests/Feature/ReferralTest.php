@@ -231,7 +231,7 @@ class ReferralTest extends TestCase
     {
         $staff = User::factory()->create();
         $staff->branches()->attach($this->branch);
-        $this->actingAs($staff)->get('/admin/referral')->assertForbidden();
+        $this->actingAs($staff)->get($this->panel('/referral'))->assertForbidden();
 
         $this->actingAs(User::factory()->owner()->create());
         Livewire::test(ReferralSettings::class)

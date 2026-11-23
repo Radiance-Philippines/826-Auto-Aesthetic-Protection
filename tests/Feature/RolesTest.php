@@ -25,6 +25,7 @@ use App\Models\Review;
 use App\Models\SecuritySetting;
 use App\Models\User;
 use App\Support\Access;
+use App\Support\Panels;
 use App\Support\Rewards;
 use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
@@ -114,20 +115,24 @@ class RolesTest extends TestCase
     public function test_pages_per_role(): void
     {
         $matrix = [
-            'branch_manager' => ['allowed' => ['/admin', '/admin/queue', '/admin/bookings', '/admin/customers', '/admin/warranty', '/admin/reviews', '/admin/manual-transaction', '/admin/branch-blocks'], 'denied' => ['/admin/branches', '/admin/services', '/admin/photos', '/admin/videos', '/admin/vehicle-sizes', '/admin/backjob-types', '/admin/users', '/admin/booking-rules', '/admin/security']],
-            'operations' => ['allowed' => ['/admin', '/admin/queue', '/admin/bookings', '/admin/customers', '/admin/warranty'], 'denied' => ['/admin/bookings/create', '/admin/customers/create', '/admin/reviews', '/admin/manual-transaction', '/admin/branch-blocks', '/admin/branches', '/admin/photos', '/admin/users', '/admin/security']],
-            'sales_admin' => ['allowed' => ['/admin', '/admin/queue', '/admin/bookings', '/admin/bookings/create', '/admin/customers', '/admin/customers/create', '/admin/warranty', '/admin/reviews', '/admin/manual-transaction'], 'denied' => ['/admin/branch-blocks', '/admin/branches', '/admin/photos', '/admin/users', '/admin/security', '/admin/referral']],
-            'super_admin' => ['allowed' => ['/admin', '/admin/queue', '/admin/branches', '/admin/services', '/admin/photos', '/admin/videos', '/admin/users', '/admin/security', '/admin/referral', '/admin/branch-blocks', '/admin/vehicle-sizes'], 'denied' => []],
+            'branch_manager' => ['allowed' => ['', '/queue', '/bookings', '/customers', '/warranty', '/reviews', '/manual-transaction', '/branch-blocks'], 'denied' => ['/branches', '/services', '/photos', '/videos', '/vehicle-sizes', '/backjob-types', '/users', '/booking-rules', '/security']],
+            'operations' => ['allowed' => ['', '/queue', '/bookings', '/customers', '/warranty'], 'denied' => ['/bookings/create', '/customers/create', '/reviews', '/manual-transaction', '/branch-blocks', '/branches', '/photos', '/users', '/security']],
+            'sales_admin' => ['allowed' => ['', '/queue', '/bookings', '/bookings/create', '/customers', '/customers/create', '/warranty', '/reviews', '/manual-transaction'], 'denied' => ['/branch-blocks', '/branches', '/photos', '/users', '/security', '/referral']],
+            'super_admin' => ['allowed' => ['', '/queue', '/branches', '/services', '/photos', '/videos', '/users', '/security', '/referral', '/branch-blocks', '/vehicle-sizes'], 'denied' => []],
         ];
 
         foreach ($matrix as $role => $urls) {
-            $this->actingAs($this->staff($role));
+            $user = $this->staff($role);
+            $this->actingAs($user);
 
-            foreach ($urls['allowed'] as $url) {
+            foreach ($urls['allowed'] as $path) {
+                // The operations home is a redirect to the queue; its dashboard is a page of its own
+                $url = $path === '' ? $this->dashboard($user) : $this->panel($path, $user);
                 $this->get($url)->assertOk("{$role} should open {$url}");
             }
 
-            foreach ($urls['denied'] as $url) {
+            foreach ($urls['denied'] as $path) {
+                $url = $this->panel($path, $user);
                 $this->get($url)->assertForbidden("{$role} should not open {$url}");
             }
         }
@@ -280,7 +285,7 @@ class RolesTest extends TestCase
         $event = BookingEvent::sole();
         $this->assertSame([$booking->id, $operations->id, 'status', 'Booked', 'Arrived'], [$event->booking_id, $event->user_id, $event->kind, $event->from, $event->to]);
 
-        $this->get("/admin/bookings/{$booking->id}")->assertOk()->assertSee('History')->assertSee("{$operations->name}: Status: Booked → Arrived");
+        $this->get($this->panel("/bookings/{$booking->id}"))->assertOk()->assertSee('History')->assertSee("{$operations->name}: Status: Booked → Arrived");
     }
 
     public function test_changing_the_ready_date_tells_sales_by_bell_and_one_email_and_not_the_customer(): void
@@ -352,7 +357,7 @@ class RolesTest extends TestCase
 
     public function test_the_users_page_is_for_super_admins_and_saves_an_override_only_when_it_differs(): void
     {
-        $this->actingAs($this->staff('operations'))->get('/admin/users')->assertForbidden();
+        $this->actingAs($this->staff('operations'))->get($this->panel('/users'))->assertForbidden();
 
         $owner = User::factory()->owner()->create();
         $member = $this->staff('operations');
@@ -418,14 +423,14 @@ class RolesTest extends TestCase
         $user = $this->staff('branch_manager');
         $this->actingAs($user);
 
-        $this->get('/admin/bookings')->assertOk();
+        $this->get($this->panel('/bookings'))->assertOk();
 
         SecuritySetting::instance()->update(['require_two_factor' => true]);
 
-        $this->get('/admin/bookings')->assertRedirect(Filament::getPanel('admin')->getSetUpRequiredMultiFactorAuthenticationUrl());
+        $this->get($this->panel('/bookings'))->assertRedirect(Filament::getPanel(Panels::homeId($user))->getSetUpRequiredMultiFactorAuthenticationUrl());
 
         $user->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
-        $this->get('/admin/bookings')->assertOk();
+        $this->get($this->panel('/bookings'))->assertOk();
     }
 
     public function test_a_super_admin_resets_someones_two_factor(): void
@@ -437,7 +442,7 @@ class RolesTest extends TestCase
         $this->assertTrue($member->fresh()->hasTwoFactor());
 
         $this->actingAs($this->staff('sales_admin'));
-        $this->get('/admin/users')->assertForbidden();
+        $this->get($this->panel('/users'))->assertForbidden();
 
         $this->actingAs(User::factory()->owner()->create());
         Livewire::test(ListUsers::class)->callTableAction('resetTwoFactor', $member);
@@ -460,8 +465,8 @@ class RolesTest extends TestCase
 
     public function test_only_the_settings_area_opens_security(): void
     {
-        $this->actingAs($this->staff('branch_manager'))->get('/admin/security')->assertForbidden();
-        $this->actingAs(User::factory()->owner()->create())->get('/admin/security')->assertOk()->assertSee('Require two-factor sign-in for everyone');
+        $this->actingAs($this->staff('branch_manager'))->get($this->panel('/security'))->assertForbidden();
+        $this->actingAs(User::factory()->owner()->create())->get($this->panel('/security'))->assertOk()->assertSee('Require two-factor sign-in for everyone');
     }
 
     // Points
@@ -575,7 +580,7 @@ class RolesTest extends TestCase
         $this->actingAs($this->staff('sales_admin'));
         Livewire::test(ViewCustomer::class, ['record' => $guest->getRouteKey()])->callAction('redeemPoints', data: ['points' => 5, 'note' => 'Counter wash']);
 
-        $this->get("/admin/customers/{$guest->id}")->assertOk()->assertSee('Points balance');
+        $this->get($this->panel("/customers/{$guest->id}"))->assertOk()->assertSee('Points balance');
 
         $ledger = Rewards::ledger($guest);
         $this->assertSame([-5, 50], $ledger->pluck('points')->sort()->values()->all());

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Filament\Support\PanelDefaults;
 use App\Models\MailSetting;
 use App\Support\Live\LiveEvents;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Sign-in lands in the person's own panel (owner, sales or operations)
+        $this->app->bind(LoginResponse::class, \App\Http\Responses\LoginResponse::class);
     }
 
     /**

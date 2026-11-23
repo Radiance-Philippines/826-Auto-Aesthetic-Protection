@@ -196,7 +196,7 @@ class InboxHeadsUpTest extends TestCase
         $this->assertStringNotContainsString('ABC1234', $this->getJson('/api/staff/inbox', $this->bearer($outsider))->getContent());
 
         // Operations has no inbox area by default
-        $this->actingAs($noInbox)->get('/admin/inbox')->assertForbidden();
+        $this->actingAs($noInbox)->get($this->panel('/inbox'))->assertForbidden();
     }
 
     public function test_a_headsup_reply_never_calls_meta_even_when_everything_is_connected(): void
