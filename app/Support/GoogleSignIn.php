@@ -20,6 +20,39 @@ class GoogleSignIn
     }
 
     /**
+     * The customer app's Google sign-in is on when any client id is set: the
+     * ID token's audience may be the Android, iOS or web client.
+     */
+    public static function appEnabled(): bool
+    {
+        return self::appClientIds() !== [];
+    }
+
+    /**
+     * The client ids an ID token from the app may be issued to.
+     *
+     * @return list<string>
+     */
+    public static function appClientIds(): array
+    {
+        $settings = SiteSetting::current();
+
+        return array_values(array_unique(array_filter([
+            $settings->google_android_client_id,
+            $settings->google_ios_client_id,
+            self::client()[0],
+        ], fn ($id) => filled($id))));
+    }
+
+    /**
+     * Sign in with Apple in the app, once the Apple client id is saved.
+     */
+    public static function appleEnabled(): bool
+    {
+        return filled(SiteSetting::current()->apple_client_id);
+    }
+
+    /**
      * The URL to register as an authorised redirect URI in Google Cloud.
      */
     public static function redirectUrl(): string

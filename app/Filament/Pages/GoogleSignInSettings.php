@@ -50,7 +50,20 @@ class GoogleSignInSettings extends Page
 
     public function mount(): void
     {
-        $this->form->fill(['google_client_id' => SiteSetting::instance()->google_client_id, 'google_client_secret' => null]);
+        $this->form->fill($this->values());
+    }
+
+    /**
+     * The saved ids (the secret is never filled back in).
+     *
+     * @return array<string, mixed>
+     */
+    private function values(): array
+    {
+        return [
+            ...SiteSetting::instance()->only(['google_client_id', 'google_android_client_id', 'google_ios_client_id', 'apple_client_id']),
+            'google_client_secret' => null,
+        ];
     }
 
     public function form(Schema $schema): Schema
@@ -79,6 +92,25 @@ class GoogleSignInSettings extends Page
                                 ? 'Saved (hidden). Leave blank to keep it, or paste a new one.'
                                 : 'Stored encrypted. Never shown again after saving.'),
                     ]),
+                Section::make(GoogleSignIn::appEnabled() || GoogleSignIn::appleEnabled() ? 'Customer app sign-in: on' : 'Customer app sign-in: off')
+                    ->description('The 826 app signs customers in with their Google or Apple account. Each button shows in the app only once its client ID is saved here. The app checks these IDs, so they must match the ones the app was built with.')
+                    ->components([
+                        TextInput::make('google_android_client_id')
+                            ->label('Google Android client ID')
+                            ->maxLength(255)
+                            ->placeholder('…apps.googleusercontent.com')
+                            ->helperText('Google Cloud Console → Credentials → OAuth client ID → Android (package ph.radianceph.aap826 and the app’s signing certificate SHA-1).'),
+                        TextInput::make('google_ios_client_id')
+                            ->label('Google iOS client ID')
+                            ->maxLength(255)
+                            ->placeholder('…apps.googleusercontent.com')
+                            ->helperText('OAuth client ID → iOS (bundle ID ph.radianceph.aap826). Needed once the iPhone app exists.'),
+                        TextInput::make('apple_client_id')
+                            ->label('Apple client ID')
+                            ->maxLength(255)
+                            ->placeholder('ph.radianceph.aap826')
+                            ->helperText('For Sign in with Apple: the app’s bundle ID (from your Apple Developer account). Needed for the iPhone app.'),
+                    ]),
             ]);
     }
 
@@ -106,8 +138,8 @@ class GoogleSignInSettings extends Page
                         ->modalDescription('Customers can’t reserve online until it’s set up again. Their accounts and bookings stay.')
                         ->visible(fn () => GoogleSignIn::enabled())
                         ->action(function () {
-                            SiteSetting::instance()->update(['google_client_id' => null, 'google_client_secret' => null]);
-                            $this->form->fill(['google_client_id' => null, 'google_client_secret' => null]);
+                            SiteSetting::instance()->update(['google_client_id' => null, 'google_client_secret' => null, 'google_android_client_id' => null, 'google_ios_client_id' => null]);
+                            $this->form->fill($this->values());
                             Notification::make()->success()->title('Google sign-in is off')->send();
                         }),
                 ]),
@@ -123,7 +155,7 @@ class GoogleSignInSettings extends Page
         }
 
         SiteSetting::instance()->update($data);
-        $this->form->fill(['google_client_id' => SiteSetting::instance()->google_client_id, 'google_client_secret' => null]);
+        $this->form->fill($this->values());
 
         Notification::make()->success()
             ->title(GoogleSignIn::enabled() ? 'Google sign-in is on' : 'Saved')

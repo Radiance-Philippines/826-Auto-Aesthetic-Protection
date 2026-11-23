@@ -123,6 +123,25 @@ class GuestSignInTest extends TestCase
         $this->get('/auth/local')->assertNotFound();
     }
 
+    public function test_the_demo_signs_in_the_sample_customer_without_google_and_production_does_not(): void
+    {
+        $this->assertNull($this->get('/')->viewData('app')['auth']['localSignInUrl']);
+        $this->get('/auth/local')->assertNotFound();
+
+        config(['app.demo' => true]);
+        $this->assertSame(url('/auth/local'), $this->get('/')->viewData('app')['auth']['localSignInUrl']);
+
+        $this->get('/auth/local?return=/book')->assertRedirect(url('/book'));
+        $this->assertAuthenticatedAs(Guest::sole(), 'guest');
+        $this->assertSame(Guest::DEMO_GOOGLE_ID, Guest::sole()->google_id);
+        $this->assertSame('Demo Customer', Guest::sole()->name);
+
+        // With Google set up the demo uses it like everyone else
+        $this->turnOnGoogle();
+        $this->assertNull($this->get('/')->viewData('app')['auth']['localSignInUrl']);
+        $this->get('/auth/local')->assertNotFound();
+    }
+
     public function test_signing_out(): void
     {
         $guest = Guest::factory()->create();

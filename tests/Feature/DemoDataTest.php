@@ -12,6 +12,7 @@ use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\Vehicle;
+use App\Support\Warranty;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -55,7 +56,7 @@ class DemoDataTest extends TestCase
 
         // One booking in every working status, one waiting for its size review
         $demo = Booking::where('source', 'demo')->get();
-        $this->assertSame(11, $demo->count());
+        $this->assertSame(14, $demo->count());
         $this->assertEqualsCanonicalizing(
             ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready', 'exited', 'payment_review', 'awaiting_payment', 'requested'],
             $demo->pluck('status')->unique()->values()->all(),
@@ -73,6 +74,22 @@ class DemoDataTest extends TestCase
         $this->assertSame(3, BackjobType::where('name', 'like', 'Sample:%')->count());
         $this->assertSame(1, Backjob::count());
         $this->assertSame('₱500 off', ReferralSetting::current()->label());
+
+        // The sign-in button's customer: 2 units, one in the shop, one booked, one finished and under warranty, a code and two friends
+        $demoCustomer = Guest::where('google_id', Guest::DEMO_GOOGLE_ID)->sole();
+        $this->assertSame(2, $demoCustomer->vehicles()->count());
+        $this->assertSame(['confirmed', 'exited', 'in_progress'], $demoCustomer->bookings->pluck('status')->sort()->values()->all());
+        $this->assertSame('cainta', $demoCustomer->bookings->first()->branch->slug);
+        $this->assertNotNull($demoCustomer->referral_code);
+        $this->assertSame(['awarded', 'pending'], $demoCustomer->referralRedemptions->map->status()->sort()->values()->all());
+        $this->assertSame(100, $demoCustomer->pointsBalance());
+        $exited = $demoCustomer->bookings->firstWhere('status', 'exited');
+        $this->assertSame('active', Warranty::status($exited, $exited->items->first()));
+
+        // Running it again leaves one demo customer, not two
+        $this->artisan('826:demo-data')->assertSuccessful();
+        $this->assertSame(1, Guest::where('google_id', Guest::DEMO_GOOGLE_ID)->count());
+        $this->assertSame(14, Booking::where('source', 'demo')->count());
 
         $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
 

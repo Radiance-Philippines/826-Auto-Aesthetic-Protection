@@ -177,13 +177,33 @@ class SiteController extends Controller
     }
 
     /**
+     * The booking rules the site and the app show: cancel and reschedule
+     * limits, the reservation fee, time windows and the referral discount.
+     *
+     * @return array<string, mixed>
+     */
+    public static function bookingRules(): array
+    {
+        $payments = PaymentSetting::instance();
+
+        return [
+            ...BookingSetting::current()->toSite(),
+            'fee' => [
+                'enabled' => $payments->feeEnabled(),
+                'label' => $payments->feeLabel(),
+                'holdMinutes' => $payments->holdMinutes(),
+            ],
+            'windows' => Booking::WINDOWS,
+            'referral' => ReferralSetting::current()->toSite(),
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $meta
      */
     protected function render(Request $request, array $meta, int $status = 200): Response
     {
         $settings = SiteSetting::current();
-        $payments = PaymentSetting::instance();
-
         $meta = array_merge([
             'description' => Str::limit((string) $settings->intro, 155) ?: self::BRAND.'.',
             'image' => null,
@@ -222,22 +242,13 @@ class SiteController extends Controller
                     'guest' => $guest instanceof Guest ? $guest->toSite() : null,
                     'signInUrl' => url('/auth/google'),
                     'signOutUrl' => url('/auth/logout'),
-                    // Local development only: sign in as a test customer without Google
-                    'localSignInUrl' => app()->isLocal() && ! GoogleSignIn::enabled() ? url('/auth/local') : null,
+                    // Local development and the demo: sign in as the sample customer without Google
+                    'localSignInUrl' => Guest::demoSignInAllowed() && ! GoogleSignIn::enabled() ? url('/auth/local') : null,
                 ],
                 'catalog' => self::catalog(),
                 'vehicleTypes' => collect(Booking::VEHICLE_TYPES)->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])->values()->all(),
                 'branches' => Branch::query()->listed()->ordered()->get()->map->toSite()->values(),
-                'booking' => [
-                    ...BookingSetting::current()->toSite(),
-                    'fee' => [
-                        'enabled' => $payments->feeEnabled(),
-                        'label' => $payments->feeLabel(),
-                        'holdMinutes' => $payments->holdMinutes(),
-                    ],
-                    'windows' => Booking::WINDOWS,
-                    'referral' => ReferralSetting::current()->toSite(),
-                ],
+                'booking' => self::bookingRules(),
                 'photos' => Photo::ordered()->get()->map->toSite()->values(),
                 'videos' => Video::published()->ordered()->get()->map->toSite()->values(),
                 'reviews' => Review::forSite(),

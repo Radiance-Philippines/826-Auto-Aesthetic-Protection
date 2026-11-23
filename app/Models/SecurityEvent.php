@@ -19,11 +19,14 @@ class SecurityEvent extends Model
 
     public const PASSKEYS_CLEARED = 'passkeys_cleared';
 
+    public const GUEST_ACCOUNT_DELETED = 'guest_account_deleted';
+
     public const LABELS = [
         self::PASSKEY_ADDED => 'Passkey added',
         self::PASSKEY_REMOVED => 'Passkey removed',
         self::PASSKEY_SIGN_IN => 'Signed in with a passkey',
         self::PASSKEYS_CLEARED => 'Passkeys removed by a super admin',
+        self::GUEST_ACCOUNT_DELETED => 'Customer deleted their account in the app',
     ];
 
     public const UPDATED_AT = null;
@@ -43,6 +46,21 @@ class SecurityEvent extends Model
         return static::create([
             'user_id' => $user->getKey(),
             'actor_id' => $actor?->getKey(),
+            'kind' => $kind,
+            'note' => $note !== null ? mb_substr($note, 0, 255) : null,
+            'ip' => request()->ip(),
+            'user_agent' => mb_substr((string) request()->userAgent(), 0, 255) ?: null,
+        ]);
+    }
+
+    /**
+     * Writes a row about a customer (no admin user behind it). Keep the note
+     * free of their personal details: the account is being erased.
+     */
+    public static function recordForGuest(string $kind, Guest $guest, ?string $note = null): self
+    {
+        return static::create([
+            'guest_id' => $guest->getKey(),
             'kind' => $kind,
             'note' => $note !== null ? mb_substr($note, 0, 255) : null,
             'ip' => request()->ip(),

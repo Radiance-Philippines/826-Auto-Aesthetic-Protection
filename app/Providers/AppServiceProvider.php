@@ -72,6 +72,8 @@ class AppServiceProvider extends ServiceProvider
         // Like the password form (5 a minute), counting every try; the one-time challenge fetch is cheaper
         RateLimiter::for('passkey-login', fn (Request $request) => Limit::perMinute(5)->by('passkey-login|'.$request->ip()));
         RateLimiter::for('passkey-options', fn (Request $request) => Limit::perMinute(20)->by('passkey-options|'.$request->ip()));
+        // Each try counts, like the other sign-ins
+        RateLimiter::for('app-sign-in', fn (Request $request) => Limit::perMinute(10)->by('app-sign-in|'.$request->ip()));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }

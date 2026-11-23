@@ -391,6 +391,8 @@ class DemoData extends Command
             $booking->items()->create(['service_id' => $home->id, 'service_name' => $home->name, 'category_name' => $home->category?->name, 'duration_days' => (int) $home->estimate_days]);
         }
 
+        $this->demoCustomer($branch, $services, $sizes, $dropOff);
+
         $day = $dropOff(6);
         BranchBlock::create([
             'branch_id' => $branch->id,
@@ -399,6 +401,92 @@ class DemoData extends Command
             'ends_at' => $day->addDay()->startOfDay(),
             'title' => self::BLOCK_PREFIX.' a big job that day',
         ]);
+    }
+
+    /**
+     * The customer the demo and local "Sign in" buttons use (website and
+     * app): two saved units, one unit in the shop, one booked ahead, one
+     * finished job under warranty (not yet reviewed), a referral code, and
+     * two friends who used it (one already awarded). Prices come from the
+     * sample rates above.
+     *
+     * @param  Collection<string, Service>  $services
+     * @param  Collection<int, VehicleSize>  $sizes
+     */
+    private function demoCustomer(Branch $branch, Collection $services, Collection $sizes, \Closure $dropOff): void
+    {
+        $size = $sizes->get(1) ?? $sizes->first();
+        $branch = Branch::query()->where('slug', 'cainta')->first() ?? $branch;
+        $customer = Guest::demoCustomer();
+        $customer->update(['branch_id' => $branch->id, 'phone' => '0900 000 7777']);
+        Referrals::codeFor($customer);
+
+        $units = [
+            ['year' => 2021, 'model' => 'Toyota Vios', 'type' => 'sedan'],
+            ['year' => 2023, 'model' => 'Honda City', 'type' => 'sedan'],
+        ];
+        $vehicles = collect($units)->map(fn (array $unit) => Vehicle::create([
+            ...$unit,
+            'guest_id' => $customer->id,
+            'plate_number' => 'SMP'.random_int(1000, 9999),
+            'vehicle_size_id' => $size?->id,
+            'size_reviewed_at' => $size ? now() : null,
+        ]))->values();
+
+        // status, service, drop-off, exited, unit
+        $jobs = [
+            ['in_progress', 'graphene-coating', $dropOff(0)->subDay(), null, 0],
+            ['confirmed', 'exterior-detailing', $dropOff(2), null, 1],
+            ['exited', 'graphene-coating', $dropOff(0)->subDays(7), today()->toImmutable()->subDays(4)->setTime(12, 0), 1],
+        ];
+
+        foreach ($jobs as [$status, $slug, $day, $exited, $unit]) {
+            $service = $services->get($slug);
+
+            if (! $service || ! $size) {
+                continue;
+            }
+
+            $vehicle = $vehicles[$unit];
+            $price = (int) ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $size->id)->value('price');
+
+            $booking = Booking::create([
+                'kind' => 'onsite',
+                'source' => self::SOURCE,
+                'status' => $status,
+                'branch_id' => $branch->id,
+                'guest_id' => $customer->id,
+                'vehicle_id' => $vehicle->id,
+                'drop_off_on' => $day,
+                'ready_on' => OpenCalendar::for($branch, $day, $day)->readyOn($day, max(1, (int) $service->estimate_days)) ?? $day,
+                'vehicle_year' => $vehicle->year,
+                'vehicle_model' => $vehicle->model,
+                'vehicle_type' => $vehicle->type,
+                'plate_number' => $vehicle->plate_number,
+                'vehicle_size_id' => $size->id,
+                'vehicle_size_name' => $size->name,
+                'size_reviewed_at' => now(),
+                'priced_at' => now(),
+                'total_price' => $price,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'email' => $customer->email,
+                'total_days' => (int) $service->estimate_days,
+                'arrived_at' => $status === 'confirmed' ? null : $day,
+                'exited_at' => $exited,
+            ]);
+            $booking->items()->create(['service_id' => $service->id, 'service_name' => $service->name, 'category_name' => $service->category?->name, 'price' => $price, 'duration_days' => (int) $service->estimate_days, 'warranty_months' => $service->warranty_months]);
+        }
+
+        // Two friends used the code: the finished job earned its points, the booked one is pending
+        foreach (['Sample Customer F', 'Sample Customer A'] as $friend) {
+            $booking = Booking::query()->where('source', self::SOURCE)->where('name', $friend)->first();
+
+            if ($booking) {
+                Referrals::redeem($booking, $customer);
+                Referrals::syncStatus($booking);
+            }
+        }
     }
 
     /**

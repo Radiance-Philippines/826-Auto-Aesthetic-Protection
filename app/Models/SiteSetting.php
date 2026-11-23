@@ -31,6 +31,9 @@ class SiteSetting extends Model
         'messenger_url',
         'google_client_id',
         'google_client_secret',
+        'google_android_client_id',
+        'google_ios_client_id',
+        'apple_client_id',
     ];
 
     /**

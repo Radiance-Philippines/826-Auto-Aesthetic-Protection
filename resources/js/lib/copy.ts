@@ -45,7 +45,7 @@ export const copy = {
         menu: (name: string) => `Account: ${name}`,
         myBookings: 'My bookings',
         google: 'Continue with Google',
-        localNote: 'Local test copy: this signs you in as a test customer, not with Google.',
+        localNote: 'Test copy: this signs you in as a sample customer, not with Google.',
     },
     cta: {
         reserve: 'Reserve a drop-off date',

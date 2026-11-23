@@ -41,6 +41,36 @@ class MyBookingsController extends Controller
     }
 
     /**
+     * GET /api/my-vehicles/{vehicle}: one of the customer's units and every
+     * booking made for it. Another customer's unit is a 404.
+     */
+    public function vehicle(int $vehicle): JsonResponse
+    {
+        $guest = $this->guest();
+        abort_unless($guest, 401);
+
+        $unit = $guest->vehicles()->findOrFail($vehicle);
+
+        $history = $guest->bookings()
+            ->where('vehicle_id', $unit->id)
+            ->with(['items', 'branch'])
+            ->orderByRaw('coalesce(drop_off_on, preferred_date) desc')
+            ->latest('id')
+            ->get()
+            ->map(fn (Booking $booking) => [
+                'id' => $booking->id,
+                'reference' => $booking->reference,
+                'date' => ($booking->drop_off_on ?? $booking->preferred_date)?->toDateString(),
+                'branch' => $booking->branch?->name,
+                'services' => $booking->items->pluck('service_name')->values(),
+                'status' => $booking->stage(),
+                'price' => $booking->priceForCustomer()['total'],
+            ]);
+
+        return response()->json(['vehicle' => $unit->toCustomer(), 'history' => $history])->header('Cache-Control', 'no-store');
+    }
+
+    /**
      * GET /api/my-bookings: the signed-in customer's bookings, soonest first.
      */
     public function index(): JsonResponse

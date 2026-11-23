@@ -23,13 +23,22 @@ class Guest extends Authenticatable
 
     public const SOURCES = [
         'google' => 'Signed in with Google',
+        'apple' => 'Signed in with Apple',
         'walk_in' => 'Walk-in',
         'phone' => 'Call or message',
         'admin' => 'Added in the admin',
     ];
 
+    /**
+     * The sample customer the demo and local sign-in buttons use (website
+     * and app). Its google_id starts with "demo-", so `826:demo-data --clear`
+     * removes it with the other samples.
+     */
+    public const DEMO_GOOGLE_ID = 'demo-customer';
+
     protected $fillable = [
         'google_id',
+        'apple_id',
         'name',
         'email',
         'avatar_url',
@@ -44,6 +53,7 @@ class Guest extends Authenticatable
 
     protected $hidden = [
         'google_id',
+        'apple_id',
         'remember_token',
     ];
 
@@ -63,6 +73,25 @@ class Guest extends Authenticatable
         static::saving(function (Guest $guest) {
             $guest->phone_key = self::phoneKey($guest->phone);
         });
+    }
+
+    /**
+     * The shared sample customer, made on first use.
+     */
+    public static function demoCustomer(): self
+    {
+        return static::firstOrCreate(
+            ['google_id' => self::DEMO_GOOGLE_ID],
+            ['name' => 'Demo Customer', 'email' => 'demo-customer@example.com', 'last_signed_in_at' => now()],
+        );
+    }
+
+    /**
+     * Sample-customer sign-in is offered on the demo and on a local machine only.
+     */
+    public static function demoSignInAllowed(): bool
+    {
+        return (bool) config('app.demo') || app()->isLocal();
     }
 
     /**
@@ -154,6 +183,24 @@ class Guest extends Authenticatable
     }
 
     /**
+     * The customer app's sign-ins, one per device.
+     *
+     * @return HasMany<GuestToken, $this>
+     */
+    public function tokens(): HasMany
+    {
+        return $this->hasMany(GuestToken::class);
+    }
+
+    /**
+     * @return HasMany<DeviceToken, $this>
+     */
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
+    /**
      * Bookings that used this customer's referral code.
      *
      * @return HasMany<ReferralRedemption, $this>
@@ -184,6 +231,38 @@ class Guest extends Authenticatable
     public function isSignedUpWithGoogle(): bool
     {
         return filled($this->google_id);
+    }
+
+    /**
+     * "Maria Santos" → "Maria S.": all a friend may see of another customer.
+     */
+    public function shortName(): string
+    {
+        $parts = preg_split('/\s+/', trim((string) $this->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return match (count($parts)) {
+            0 => 'A friend',
+            1 => $parts[0],
+            default => $parts[0].' '.mb_strtoupper(mb_substr(end($parts), 0, 1)).'.',
+        };
+    }
+
+    /**
+     * Shape used by the customer app (GET /api/app/me and the sign-in reply).
+     *
+     * @return array{id: int, name: string, email: string|null, phone: string|null, avatar: string|null, referralCode: string|null, source: string}
+     */
+    public function toApp(): array
+    {
+        return [
+            'id' => $this->getKey(),
+            'name' => $this->name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'avatar' => $this->avatar_url,
+            'referralCode' => $this->referral_code,
+            'source' => $this->source,
+        ];
     }
 
     /**

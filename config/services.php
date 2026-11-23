@@ -36,6 +36,13 @@ return [
         'redirect' => null,
     ],
 
+    // Push notifications for the customer app, through Expo's push service
+    // (which holds the FCM and APNs credentials). Off until PUSH_ENABLED=true.
+    'push' => [
+        'enabled' => (bool) env('PUSH_ENABLED', false),
+        'expo_access_token' => env('EXPO_ACCESS_TOKEN'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

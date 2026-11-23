@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Guest;
 use App\Support\GoogleSignIn;
+use App\Support\GuestIdentity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -62,24 +63,12 @@ class GuestAuthController extends Controller
             return redirect(url($return).(str_contains($return, '?') ? '&' : '?').'signin=failed');
         }
 
-        // A customer the team added earlier (same email, no Google account yet) keeps their history,
-        // but only when Google says the email is verified: the team typed that email in, so it
-        // proves nothing by itself.
-        $verified = filter_var(data_get($profile->getRaw(), 'email_verified', false), FILTER_VALIDATE_BOOL);
-
-        if ($verified && ! Guest::query()->where('google_id', (string) $profile->getId())->exists()) {
-            Guest::query()->whereNull('google_id')->whereRaw('lower(email) = ?', [mb_strtolower($profile->getEmail())])->oldest('id')->first()
-                ?->update(['google_id' => (string) $profile->getId()]);
-        }
-
-        $guest = Guest::updateOrCreate(
-            ['google_id' => (string) $profile->getId()],
-            [
-                'name' => $profile->getName() ?: $profile->getEmail(),
-                'email' => $profile->getEmail(),
-                'avatar_url' => $profile->getAvatar(),
-                'last_signed_in_at' => now(),
-            ],
+        $guest = GuestIdentity::fromGoogle(
+            (string) $profile->getId(),
+            $profile->getEmail(),
+            $profile->getName(),
+            $profile->getAvatar(),
+            filter_var(data_get($profile->getRaw(), 'email_verified', false), FILTER_VALIDATE_BOOL),
         );
 
         Auth::guard('guest')->login($guest, remember: true);
@@ -89,19 +78,15 @@ class GuestAuthController extends Controller
     }
 
     /**
-     * GET /auth/local: local development only, while Google sign-in isn't
-     * set up. Signs in a test customer so the booking flow can be tried.
+     * GET /auth/local: local development and the demo only, while Google
+     * sign-in isn't set up. Signs in the sample customer so the booking flow
+     * can be tried.
      */
     public function local(Request $request): RedirectResponse
     {
-        abort_unless(app()->isLocal() && ! GoogleSignIn::enabled(), 404);
+        abort_unless(Guest::demoSignInAllowed() && ! GoogleSignIn::enabled(), 404);
 
-        $guest = Guest::firstOrCreate(
-            ['google_id' => 'local-tester'],
-            ['name' => 'Local Tester', 'email' => 'tester@826auto.test', 'last_signed_in_at' => now()],
-        );
-
-        Auth::guard('guest')->login($guest, remember: true);
+        Auth::guard('guest')->login(Guest::demoCustomer(), remember: true);
         $request->session()->regenerate();
 
         return redirect(url(self::safeReturn($request->query('return'))));
