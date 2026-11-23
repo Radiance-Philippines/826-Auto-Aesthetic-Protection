@@ -26,9 +26,18 @@ class AppRelease extends Model
     public const STAFF = 'staff';
 
     /**
-     * @var array<string, string>
+     * The legacy team app (0.1.x, no X-Team-App header); the per-panel team apps are in config/team_apps.php.
+     *
+     * @return array<string, string>
      */
-    public const APPS = [self::CUSTOMER => 'Customer app', self::STAFF => '826 Team (staff app)'];
+    public static function apps(): array
+    {
+        return [
+            self::CUSTOMER => 'Customer app',
+            ...array_map(fn (array $app) => $app['label'], config('team_apps')),
+            self::STAFF => '826 Team (legacy staff app)',
+        ];
+    }
 
     protected $attributes = ['app' => self::CUSTOMER];
 
@@ -77,9 +86,11 @@ class AppRelease extends Model
      */
     public function downloadUrl(): string
     {
-        return $this->app === self::STAFF
-            ? route('download.staff-apk', ['version' => $this->version])
-            : route('download.apk', ['version' => $this->version]);
+        return match (true) {
+            $this->app === self::STAFF => route('download.staff-apk', ['version' => $this->version]),
+            $this->app === self::CUSTOMER => route('download.apk', ['version' => $this->version]),
+            default => route('download.team-apk', ['app' => $this->app, 'version' => $this->version]),
+        };
     }
 
     /**

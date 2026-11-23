@@ -9,6 +9,7 @@ use App\Http\Controllers\StaffInboxController;
 use App\Http\Controllers\StaffOverviewController;
 use App\Http\Controllers\StaffQueueController;
 use App\Http\Controllers\StaffSalesController;
+use App\Http\Controllers\StaffSystemController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -84,5 +85,6 @@ Route::prefix('staff')->name('staff.')->group(function () {
         Route::post('inbox/{id}/done', [StaffInboxController::class, 'done'])->whereNumber('id')->name('inbox.done');
 
         Route::get('overview', [StaffOverviewController::class, 'show'])->name('overview');
+        Route::get('system', [StaffSystemController::class, 'show'])->name('system');
     });
 });

@@ -55,7 +55,7 @@ class AppReleaseResource extends Resource
             Section::make()->columns(2)->components([
                 Select::make('app')
                     ->label('App')
-                    ->options(AppRelease::APPS)
+                    ->options(AppRelease::apps())
                     ->default(AppRelease::CUSTOMER)
                     ->required()
                     ->native(false)
@@ -105,7 +105,7 @@ class AppReleaseResource extends Resource
         return $table
             ->defaultSort('version_code', 'desc')
             ->columns([
-                TextColumn::make('app')->label('App')->badge()->formatStateUsing(fn (string $state) => AppRelease::APPS[$state] ?? $state),
+                TextColumn::make('app')->label('App')->badge()->formatStateUsing(fn (string $state) => AppRelease::apps()[$state] ?? $state),
                 TextColumn::make('version')->searchable()->description(fn (AppRelease $record) => 'Code '.$record->version_code),
                 TextColumn::make('size')->formatStateUsing(fn ($state) => number_format($state / 1048576, 1).' MB'),
                 IconColumn::make('is_published')->label('Published')->boolean(),

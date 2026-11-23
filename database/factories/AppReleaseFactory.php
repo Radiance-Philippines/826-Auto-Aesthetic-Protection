@@ -36,6 +36,11 @@ class AppReleaseFactory extends Factory
         return $this->state(fn () => ['app' => 'staff']);
     }
 
+    public function forApp(string $app): static
+    {
+        return $this->state(fn () => ['app' => $app]);
+    }
+
     public function draft(): static
     {
         return $this->state(fn () => ['is_published' => false]);

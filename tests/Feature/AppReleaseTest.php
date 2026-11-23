@@ -172,4 +172,47 @@ class AppReleaseTest extends TestCase
             ->call('create')
             ->assertHasFormErrors(['version', 'version_code']);
     }
+
+    public function test_the_release_form_lists_every_app_and_saves_a_per_panel_team_release(): void
+    {
+        $this->actingAs(User::factory()->owner()->create());
+
+        $this->assertSame(
+            ['customer' => 'Customer app', 'owner' => '826 Owner', 'sales' => '826 Sales', 'operations' => '826 Operations', 'system' => '826 System', 'staff' => '826 Team (legacy staff app)'],
+            AppRelease::apps(),
+        );
+
+        Livewire::test(CreateAppRelease::class)
+            ->fillForm(['app' => 'owner', 'version' => '0.1.0', 'version_code' => 1, 'apk_path' => UploadedFile::fake()->create('owner.apk', 5, 'application/vnd.android.package-archive'), 'is_published' => true])
+            ->call('create')
+            ->assertHasNoFormErrors();
+        $this->assertSame('owner', AppRelease::sole()->app);
+
+        // An app that is not in the list is refused
+        Livewire::test(CreateAppRelease::class)
+            ->fillForm(['app' => 'payroll', 'version' => '0.2.0', 'version_code' => 2, 'apk_path' => UploadedFile::fake()->create('x.apk', 5, 'application/vnd.android.package-archive')])
+            ->call('create')
+            ->assertHasFormErrors(['app']);
+    }
+
+    public function test_each_team_app_has_its_own_apk_route_and_the_download_page_lists_only_the_customer_app(): void
+    {
+        $this->release();
+        foreach (['owner', 'sales', 'operations', 'system'] as $i => $app) {
+            Storage::disk(AppRelease::DISK)->put("apks/{$app}.apk", "{$app}-bytes");
+            AppRelease::factory()->forApp($app)->create(['apk_path' => "apks/{$app}.apk", 'version' => '0.1.0', 'version_code' => $i + 1]);
+
+            $this->get("/download/826-{$app}-0.1.0.apk")->assertOk()->assertDownload("826-{$app}-0.1.0.apk");
+        }
+
+        $this->assertSame(url('/download/826-owner-0.1.0.apk'), AppRelease::where('app', 'owner')->first()->downloadUrl());
+        // An app that is not configured, a missing version and a draft are 404s
+        $this->get('/download/826-payroll-0.1.0.apk')->assertNotFound();
+        $this->get('/download/826-owner-9.9.9.apk')->assertNotFound();
+        AppRelease::where('app', 'owner')->update(['is_published' => false]);
+        $this->get('/download/826-owner-0.1.0.apk')->assertNotFound();
+        // The customer file is not served as a team app, and the page lists the customer app only
+        $this->get('/download/826-sales-0.1.0.apk')->assertOk();
+        $this->get('/download')->assertOk()->assertSee('826-auto-0.1.0.apk', false)->assertDontSee('826-sales')->assertDontSee('826 Sales')->assertDontSee('826-owner');
+    }
 }

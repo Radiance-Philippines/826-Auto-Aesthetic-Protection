@@ -50,11 +50,13 @@ final class StaffViews
     private const MONEY_EVENTS = ['paid', 'payment', 'payment_rejected', 'discount'];
 
     /**
-     * @return array{id: int, name: string, email: string, role: string, roleLabel: string, isOwner: bool, areas: list<string>, branches: list<array{id: int, name: string}>, tabs: list<string>, overflow: list<string>}
+     * `app` (the team app's key) is only there for the new apps: the legacy app's answer is unchanged.
+     *
+     * @return array{id: int, name: string, email: string, role: string, roleLabel: string, isOwner: bool, areas: list<string>, branches: list<array{id: int, name: string}>, tabs: list<string>, overflow: list<string>, app?: string}
      */
-    public static function me(User $user): array
+    public static function me(User $user, ?string $app = null): array
     {
-        ['tabs' => $tabs, 'overflow' => $overflow] = self::tabs($user);
+        ['tabs' => $tabs, 'overflow' => $overflow] = self::tabs($user, $app);
 
         return [
             'id' => $user->getKey(),
@@ -67,18 +69,22 @@ final class StaffViews
             'branches' => Branch::query()->visibleTo($user)->ordered()->get()->map(fn (Branch $branch) => ['id' => $branch->getKey(), 'name' => $branch->name])->values()->all(),
             'tabs' => $tabs,
             'overflow' => $overflow,
+            ...($app !== null ? ['app' => $app] : []),
         ];
     }
 
     /**
      * Queue: queue.update or bookings.view. Today: bookings.sales. Clients:
      * customers.view. Inbox: the inbox area at a branch. Overview: the
-     * dashboard area. Me: always. Over five, Clients moves to `overflow`
-     * (the app reaches it from Me).
+     * dashboard area. System: the settings area (only the system app has
+     * it). Me: always. Over five, Clients moves to `overflow` (the app
+     * reaches it from Me). A team app (config/team_apps.php) shows only its
+     * own tabs, in its order, and never has an overflow; no app is the
+     * legacy app.
      *
      * @return array{tabs: list<string>, overflow: list<string>}
      */
-    public static function tabs(User $user): array
+    public static function tabs(User $user, ?string $app = null): array
     {
         $allowed = [
             'queue' => $user->canAccessAnyArea('queue.update', 'bookings.view'),
@@ -86,8 +92,15 @@ final class StaffViews
             'clients' => $user->canAccessArea('customers.view'),
             'inbox' => InboxAccess::allows($user),
             'overview' => $user->canAccessArea('dashboard'),
+            'system' => $user->canAccessArea('settings'),
             'me' => true,
         ];
+
+        if ($app !== null) {
+            $own = array_filter(config("team_apps.{$app}.tabs"), fn (string $tab) => $allowed[$tab] ?? false);
+
+            return ['tabs' => [...$own, 'me'], 'overflow' => []];
+        }
 
         $tabs = array_values(array_filter(self::TABS, fn (string $tab) => $allowed[$tab]));
         $overflow = [];

@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
 /**
  * The staff app's sign-in on one device. The token itself (40 random
  * characters) is shown once, when it is issued; only its sha256 is kept.
- * It lasts 30 days from the last time it was used.
+ * It lasts 30 days from the last time it was used. `app` is the team app
+ * it was issued for (null = the legacy app) and it only works for that one.
  *
  * @property CarbonImmutable|null $last_used_at
  * @property CarbonImmutable|null $expires_at
@@ -22,7 +23,7 @@ class UserToken extends Model
     /** A token that isn't used for this many days stops working. */
     public const LIFETIME_DAYS = 30;
 
-    protected $fillable = ['user_id', 'name', 'token_hash', 'last_used_at', 'expires_at'];
+    protected $fillable = ['user_id', 'name', 'app', 'token_hash', 'last_used_at', 'expires_at'];
 
     protected function casts(): array
     {
@@ -37,7 +38,7 @@ class UserToken extends Model
      *
      * @return array{0: string, 1: self}
      */
-    public static function issue(User $user, ?string $device): array
+    public static function issue(User $user, ?string $device, ?string $app = null): array
     {
         $user->tokens()->where('expires_at', '<', now())->delete();
 
@@ -45,6 +46,7 @@ class UserToken extends Model
 
         $token = $user->tokens()->create([
             'name' => filled($device) ? mb_substr(trim($device), 0, 120) : null,
+            'app' => $app,
             'token_hash' => self::hash($plain),
             'expires_at' => now()->addDays(self::LIFETIME_DAYS),
         ]);

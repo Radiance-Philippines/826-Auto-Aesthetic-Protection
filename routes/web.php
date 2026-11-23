@@ -135,6 +135,7 @@ Route::get('/admin/{path}', function (Request $request) {
 Route::get('/download', [DownloadController::class, 'page'])->name('download');
 Route::get('/download/826-auto-{version}.apk', [DownloadController::class, 'apk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.apk');
 Route::get('/download/826-team-{version}.apk', [DownloadController::class, 'staffApk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.staff-apk');
+Route::get('/download/826-{app}-{version}.apk', [DownloadController::class, 'teamApk'])->where(['app' => '[a-z]+', 'version' => '[0-9][0-9A-Za-z.]*'])->name('download.team-apk');
 
 Route::permanentRedirect('/booking', '/book');
 Route::permanentRedirect('/reserve', '/book');

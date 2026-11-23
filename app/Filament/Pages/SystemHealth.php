@@ -50,17 +50,34 @@ class SystemHealth extends Page
     }
 
     /**
+     * What is switched on: shared with the team app's System tab.
+     *
+     * @return array{email: bool, meta: bool, google: bool, flow: bool}
+     */
+    public static function health(): array
+    {
+        return [
+            'email' => MailSetting::instance()->isConfigured(),
+            'meta' => MetaSetting::instance()->isReady(),
+            'google' => GoogleSignIn::enabled(),
+            'flow' => FlowLive::enabled(),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function getViewData(): array
     {
+        $health = self::health();
+
         return [
             'version' => AppRelease::latestPublished()?->version,
             'checks' => [
-                ['label' => 'Email is set up', 'on' => MailSetting::instance()->isConfigured()],
-                ['label' => 'Meta (Messenger) is connected', 'on' => MetaSetting::instance()->isReady()],
-                ['label' => 'Google sign-in is set up', 'on' => GoogleSignIn::enabled()],
-                ['label' => 'Live updates (Radiance Flow) are on', 'on' => FlowLive::enabled()],
+                ['label' => 'Email is set up', 'on' => $health['email']],
+                ['label' => 'Meta (Messenger) is connected', 'on' => $health['meta']],
+                ['label' => 'Google sign-in is set up', 'on' => $health['google']],
+                ['label' => 'Live updates (Radiance Flow) are on', 'on' => $health['flow']],
             ],
         ];
     }

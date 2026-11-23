@@ -26,11 +26,11 @@ trait StaffApi
     /**
      * @return array<string, string>
      */
-    private function bearer(User $user): array
+    private function bearer(User $user, ?string $app = null): array
     {
-        [$plain] = UserToken::issue($user, 'Test phone');
+        [$plain] = UserToken::issue($user, 'Test phone', $app);
 
-        return ['Authorization' => 'Bearer '.$plain];
+        return ['Authorization' => 'Bearer '.$plain, ...($app ? ['X-Team-App' => $app] : [])];
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\SecuritySetting;
 use App\Models\User;
 use App\Models\UserToken;
 use App\Support\Staff\StaffViews;
+use App\Support\Staff\TeamApps;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,6 +47,7 @@ class StaffAuthController extends StaffController
             'device_name' => ['nullable', 'string', 'max:120'],
         ]);
 
+        $app = TeamApps::fromRequest($request);
         $limiter = 'staff-email|'.sha1(Str::lower($data['email']));
 
         if (RateLimiter::tooManyAttempts($limiter, self::PASSWORD_TRIES)) {
@@ -71,9 +73,13 @@ class StaffAuthController extends StaffController
 
         if (filled($user->app_authentication_secret)) {
             $challenge = Str::random(40);
-            Cache::put($this->challengeKey($challenge), ['user' => $user->getKey(), 'device' => $data['device_name'] ?? null, 'tries' => 0], now()->addMinutes(self::CHALLENGE_MINUTES));
+            Cache::put($this->challengeKey($challenge), ['user' => $user->getKey(), 'device' => $data['device_name'] ?? null, 'app' => $app, 'tries' => 0], now()->addMinutes(self::CHALLENGE_MINUTES));
 
             return response()->json(['twoFactor' => ['challenge' => $challenge, 'expiresInSeconds' => self::CHALLENGE_MINUTES * 60]]);
+        }
+
+        if ($denied = $this->deniedApp($user, $app)) {
+            return $denied;
         }
 
         if ($user->has_email_authentication) {
@@ -84,7 +90,7 @@ class StaffAuthController extends StaffController
             return response()->json(['message' => 'Two-factor sign-in is required for the team. On the website, open your profile and set up an authenticator app first, then sign in here again.'], 403);
         }
 
-        return $this->signedIn($user, $data['device_name'] ?? null);
+        return $this->signedIn($user, $data['device_name'] ?? null, $app);
     }
 
     /**
@@ -123,7 +129,8 @@ class StaffAuthController extends StaffController
 
         Cache::forget($key);
 
-        return $this->signedIn($user, $challenge['device']);
+        // The password and the code are right: only now say the app is not for this account
+        return $this->deniedApp($user, $challenge['app'] ?? null) ?? $this->signedIn($user, $challenge['device'], $challenge['app'] ?? null);
     }
 
     /**
@@ -142,16 +149,17 @@ class StaffAuthController extends StaffController
      */
     public function me(): JsonResponse
     {
-        return response()->json(StaffViews::me($this->user()))->header('Cache-Control', 'no-store');
+        return response()->json(StaffViews::me($this->user(), $this->teamApp(request())))->header('Cache-Control', 'no-store');
     }
 
     /**
-     * GET /api/staff/latest: the newest published 826 Team build, or
-     * versionCode 0 when there is none yet.
+     * GET /api/staff/latest: the newest published build of the app asking
+     * (X-Team-App; none = the legacy 826 Team app), or versionCode 0 when
+     * there is none yet.
      */
-    public function latest(): JsonResponse
+    public function latest(Request $request): JsonResponse
     {
-        return app(AppController::class)->latest(AppRelease::STAFF);
+        return app(AppController::class)->latest(TeamApps::fromRequest($request) ?? AppRelease::STAFF);
     }
 
     private function codeIsValid(User $user, string $code): bool
@@ -171,11 +179,29 @@ class StaffAuthController extends StaffController
         return 'staff-2fa:'.hash('sha256', $challenge);
     }
 
-    private function signedIn(User $user, ?string $device): JsonResponse
+    /**
+     * 403 when this account may not open the team app's panel, naming the app that fits it.
+     */
+    private function deniedApp(User $user, ?string $app): ?JsonResponse
     {
-        [$plain, $token] = UserToken::issue($user, $device);
+        if ($app === null || TeamApps::allows($user, $app)) {
+            return null;
+        }
+
+        $suggest = TeamApps::suggestFor($user);
+
+        return response()->json([
+            'message' => 'This app is for '.TeamApps::label($app).'. Use '.TeamApps::label($suggest).'.',
+            'code' => 'app_not_for_role',
+            'suggestApp' => $suggest,
+        ], 403);
+    }
+
+    private function signedIn(User $user, ?string $device, ?string $app): JsonResponse
+    {
+        [$plain, $token] = UserToken::issue($user, $device, $app);
         SecurityEvent::record(SecurityEvent::STAFF_APP_SIGN_IN, $user, $token->name);
 
-        return response()->json(['token' => $plain, 'expiresAt' => $token->expires_at->toIso8601String(), 'user' => StaffViews::me($user)]);
+        return response()->json(['token' => $plain, 'expiresAt' => $token->expires_at->toIso8601String(), 'user' => StaffViews::me($user, $app)]);
     }
 }

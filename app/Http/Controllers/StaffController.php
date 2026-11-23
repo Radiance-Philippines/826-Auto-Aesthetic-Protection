@@ -24,6 +24,14 @@ abstract class StaffController extends Controller
     }
 
     /**
+     * The team app this call is from (null = the legacy app).
+     */
+    protected function teamApp(Request $request): ?string
+    {
+        return $request->attributes->get('team_app');
+    }
+
+    /**
      * 403 unless the user has at least one of these areas.
      */
     protected function requireArea(string ...$areas): void

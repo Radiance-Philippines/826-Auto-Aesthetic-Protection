@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppRelease;
+use App\Support\Staff\TeamApps;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -27,6 +28,13 @@ class DownloadController extends Controller
     public function staffApk(string $version): StreamedResponse
     {
         return $this->download(AppRelease::STAFF, $version, '826-team');
+    }
+
+    public function teamApk(string $app, string $version): StreamedResponse
+    {
+        abort_unless(in_array($app, TeamApps::keys(), true), 404);
+
+        return $this->download($app, $version, "826-{$app}");
     }
 
     private function download(string $app, string $version, string $name): StreamedResponse
