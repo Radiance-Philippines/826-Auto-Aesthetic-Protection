@@ -7,7 +7,7 @@ import { useLoad, longDate, manilaToday, peso, c, Card, Screen, Skeleton, ErrorS
 import { canSeeMoney } from '../lib/access';
 import { initials } from '../lib/unit';
 import { BranchBar } from '../ui/Branches';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 import { Avatar, Pills } from '../ui/Pills';
 
 const PERIODS: { key: Period; label: string }[] = [
@@ -40,7 +40,7 @@ export function OverviewScreen() {
     const attention = Object.entries({ 'late units': data?.attention.late, 'payment screenshots to check': data?.attention.screenshots, 'units to size': data?.attention.size, 'home requests': data?.attention.home, 'unread chats': data?.attention.chats, 'reviews to approve': data?.attention.reviews }).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && entry[1] > 0);
 
     return (
-        <Screen tabs top={<RoleChip user={user} />} title="Overview" subtitle={`${branch === null ? (user.branches.length > 1 ? 'All branches' : (user.branches[0]?.name ?? '')) : (user.branches.find((b) => b.id === branch)?.name ?? '')} · ${longDate(manilaToday())}`} onRefresh={reload}>
+        <Screen tabs top={<TeamTop user={user} />} title="Overview" subtitle={`${branch === null ? (user.branches.length > 1 ? 'All branches' : (user.branches[0]?.name ?? '')) : (user.branches.find((b) => b.id === branch)?.name ?? '')} · ${longDate(manilaToday())}`} onRefresh={reload}>
             <Pills label="Period" items={PERIODS} value={period} onChange={setPeriod} />
             <BranchBar all branches={user.branches} value={branch} onChange={setBranch} />
             {loading ? (

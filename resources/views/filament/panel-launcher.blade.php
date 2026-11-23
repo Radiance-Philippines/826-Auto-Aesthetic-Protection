@@ -1,17 +1,12 @@
 {{-- Panel launcher: a grid button in the top bar that opens a card of tiles, one per panel this person can open, plus disabled "Soon" tiles for planned apps (super admin only). Hidden with a single panel. --}}
 @php
     $user = auth()->user();
-    $ids = $user instanceof \App\Models\User ? \App\Support\Panels::idsFor($user) : [];
     $current = \Filament\Facades\Filament::getCurrentOrDefaultPanel()?->getId();
-    $icons = [
-        \App\Support\Panels::OWNER => \Filament\Support\Icons\Heroicon::OutlinedBuildingStorefront,
-        \App\Support\Panels::SALES => \Filament\Support\Icons\Heroicon::OutlinedBanknotes,
-        \App\Support\Panels::OPERATIONS => \Filament\Support\Icons\Heroicon::OutlinedViewColumns,
-        \App\Support\Panels::SYSTEM => \Filament\Support\Icons\Heroicon::OutlinedCog6Tooth,
-    ];
+    $tiles = $user instanceof \App\Models\User ? \App\Support\AppLauncher::tiles($user, $current) : [];
+    $icon = fn (array $tile) => \Filament\Support\generate_icon_html(constant(\Filament\Support\Icons\Heroicon::class.'::'.$tile['icon']));
 @endphp
 
-@if (count($ids) > 1)
+@if (\App\Support\AppLauncher::worthShowing($tiles))
     <style>
         [x-cloak] { display: none !important; }
         .pl { position: relative; display: flex; align-items: center; }
@@ -79,30 +74,30 @@
             x-on:keydown.arrow-up.prevent="move(-3)"
         >
             <ul class="pl-grid" role="none">
-                @foreach ($ids as $id)
-                    <li role="none">
-                        <a
-                            class="pl-tile"
-                            role="menuitem"
-                            href="{{ $id === $current ? \Filament\Facades\Filament::getPanel($id)->getUrl() : \App\Support\Panels::switchUrl($id, request()) }}"
-                            @if ($id === $current) aria-current="true" @endif
-                        >
-                            <span class="pl-icon">{{ \Filament\Support\generate_icon_html($icons[$id]) }}</span>
-                            <span>{{ ucfirst($id) }}@if ($id === $current)<span class="pl-sr"> (current panel)</span>@endif</span>
-                        </a>
-                    </li>
-                @endforeach
-                @if ($user instanceof \App\Models\User && $user->isOwner())
-                    @foreach (config('apps.coming', []) as $app)
+                @foreach ($tiles as $tile)
+                    @if ($tile['state'] === \App\Support\AppLauncher::SOON)
                         <li role="none">
                             <span class="pl-tile pl-soon" role="menuitem" aria-disabled="true" tabindex="-1">
-                                <span class="pl-icon">{{ \Filament\Support\generate_icon_html(constant(\Filament\Support\Icons\Heroicon::class.'::'.$app['icon'])) }}</span>
-                                <span>{{ $app['label'] }}<span class="pl-sr"> (coming soon)</span></span>
+                                <span class="pl-icon">{{ $icon($tile) }}</span>
+                                <span>{{ $tile['label'] }}<span class="pl-sr"> (coming soon)</span></span>
                                 <span class="pl-tag" aria-hidden="true">Soon</span>
                             </span>
                         </li>
-                    @endforeach
-                @endif
+                    @else
+                        @php($isCurrent = $tile['state'] === \App\Support\AppLauncher::CURRENT)
+                        <li role="none">
+                            <a
+                                class="pl-tile"
+                                role="menuitem"
+                                href="{{ $isCurrent ? \Filament\Facades\Filament::getPanel($tile['key'])->getUrl() : \App\Support\Panels::switchUrl($tile['key'], request()) }}"
+                                @if ($isCurrent) aria-current="true" @endif
+                            >
+                                <span class="pl-icon">{{ $icon($tile) }}</span>
+                                <span>{{ $tile['label'] }}@if ($isCurrent)<span class="pl-sr"> (current panel)</span>@endif</span>
+                            </a>
+                        </li>
+                    @endif
+                @endforeach
             </ul>
         </div>
     </div>

@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import type { StaffUser } from '../api/types';
 import { roleChip } from '../lib/access';
 import { c, radius, Text } from '@826/core';
+import { AppsButton } from './AppDrawer';
 
 /** The teal chip at the top of a tab: "Head detailer · Cainta" (design S2) */
 export function RoleChip({ user }: { user: StaffUser }) {
@@ -12,6 +13,16 @@ export function RoleChip({ user }: { user: StaffUser }) {
             <Text weight="semi" color={c.accent} style={{ fontSize: 13 }}>
                 {roleChip(user)}
             </Text>
+        </View>
+    );
+}
+
+/** The top of a tab: the role chip, and the app drawer button at the right (when there is more than one app) */
+export function TeamTop({ user }: { user: StaffUser }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <RoleChip user={user} />
+            <AppsButton user={user} />
         </View>
     );
 }

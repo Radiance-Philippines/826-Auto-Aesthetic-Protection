@@ -3,6 +3,7 @@
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\CustomerAuthController;
+use App\Http\Controllers\StaffAppsController;
 use App\Http\Controllers\StaffAuthController;
 use App\Http\Controllers\StaffCustomerController;
 use App\Http\Controllers\StaffInboxController;
@@ -87,5 +88,6 @@ Route::prefix('staff')->name('staff.')->group(function () {
 
         Route::get('overview', [StaffOverviewController::class, 'show'])->name('overview');
         Route::get('system', [StaffSystemController::class, 'show'])->name('system');
+        Route::get('apps', [StaffAppsController::class, 'index'])->name('apps');
     });
 });

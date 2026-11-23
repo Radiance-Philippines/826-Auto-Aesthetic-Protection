@@ -1,6 +1,6 @@
 import { type Client, query } from '@826/core';
 import type {
-    AppRelease, SystemInfo, CustomerDetail, CustomerPage, Inbox, MoveTo, Overview, Period, QuickReply, Queue, ReplyResult, ConversationRow, SignInResponse, SignedIn, Thread, Today, UnitDetail, UploadFile, StaffUser, VehicleSize,
+    AppRelease, AppTile, SystemInfo, CustomerDetail, CustomerPage, Inbox, MoveTo, Overview, Period, QuickReply, Queue, ReplyResult, ConversationRow, SignInResponse, SignedIn, Thread, Today, UnitDetail, UploadFile, StaffUser, VehicleSize,
 } from './types';
 
 /** Every endpoint the app uses, in one place. Paths are relative to `<base>/api`. */
@@ -49,6 +49,9 @@ export function createApi(client: Client) {
 
         // System (826 System app)
         system: () => client.get<SystemInfo>('/staff/system'),
+
+        // App drawer
+        apps: () => client.get<{ apps: AppTile[] }>('/staff/apps'),
 
         // Overview
         overview: (period: Period, branch: number | null) => client.get<Overview>(`/staff/overview${query({ period, branch })}`),

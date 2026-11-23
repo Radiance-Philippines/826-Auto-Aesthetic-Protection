@@ -193,3 +193,6 @@ export type SystemInfo = {
     teamApps: { app: string; label: string; version: string | null }[];
     security: { requireTwoFactor: boolean; passkeysAllowed: boolean };
 };
+
+/** One tile of GET /api/staff/apps (the app drawer): `url` is the app's published download, left out when there is none */
+export type AppTile = { key: string; label: string; icon: string; state: 'current' | 'available' | 'soon'; url?: string };

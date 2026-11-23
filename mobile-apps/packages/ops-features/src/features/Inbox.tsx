@@ -7,7 +7,7 @@ import { useUser } from '../context/auth';
 import { useLoad, shortStamp, c, fonts, radius, target, Button, Card, Chip, Field, Screen, Skeleton, EmptyState, ErrorState, FormError, Text } from '@826/core';
 import { usableQuickReplies } from '../lib/quick';
 import { initials } from '../lib/unit';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 import { Avatar, Pills } from '../ui/Pills';
 
 const FILTERS = [
@@ -40,7 +40,7 @@ export function InboxScreen() {
     const active = branch ?? data?.branch ?? 'all';
 
     return (
-        <Screen tabs top={<RoleChip user={user} />} title="Inbox" onRefresh={reload}>
+        <Screen tabs top={<TeamTop user={user} />} title="Inbox" onRefresh={reload}>
             {data?.notice ? <Text color={c.gold}>{data.notice}</Text> : null}
             {tabs.length > 1 ? <Pills label="Branch" items={tabs.map((tab) => ({ key: tab.key, label: tab.label, count: tab.unread }))} value={active} onChange={setBranch} /> : null}
             <Pills label="Filter" items={FILTERS} value={filter} onChange={setFilter} />

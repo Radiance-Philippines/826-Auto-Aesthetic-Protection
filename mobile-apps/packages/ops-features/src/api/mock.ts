@@ -222,6 +222,15 @@ export function createMockFetch(): typeof fetch {
         }
         if (path === '/staff/sign-out') return reply(200, { ok: true });
         if (path === '/staff/me') return reply(200, userFor(role, app));
+        if (path === '/staff/apps') {
+            // The same rule as the server's AppLauncher: the role's panels, then the planned apps for the owner
+            const mine: string[] = { super_admin: ['owner', 'sales', 'operations', 'system'], sales_admin: ['sales'], operations: ['operations'], branch_manager: ['operations'] }[role];
+            const glyphs: Record<string, string> = { owner: 'store', sales: 'banknote', operations: 'columns', system: 'settings' };
+            const panels = mine.map((key) => ({ key, label: APP_LABELS[key], icon: glyphs[key], state: key === app ? 'current' : 'available', ...(key === app ? {} : { url: `https://example.test/download/826-${key}-0.1.0.apk` }) }));
+            const soon = role === 'super_admin' ? [['hr', 'HR', 'users'], ['payroll', 'Payroll', 'wallet'], ['accounting', 'Accounting', 'calculator'], ['inventory', 'Inventory', 'archive']].map(([key, label, icon]) => ({ key, label, icon, state: 'soon' })) : [];
+
+            return reply(200, { apps: [...panels, ...soon] });
+        }
         if (path === '/staff/system') {
             return app === 'system'
                 ? reply(200, { health: { email: true, meta: true, google: false, flow: true }, customerApp: { version: '0.3.0', versionCode: 3, publishedAt: at(-2, '09:00:00') }, teamApps: Object.keys(APP_LABELS).map((key) => ({ app: key, label: APP_LABELS[key], version: key === 'operations' ? '0.2.0' : null })), security: { requireTwoFactor: true, passkeysAllowed: false } })

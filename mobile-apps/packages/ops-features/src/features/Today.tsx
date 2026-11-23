@@ -10,7 +10,7 @@ import { getToken } from '../lib/storage';
 import { stageChip } from '../lib/stage';
 import { unitName, unitSub } from '../lib/unit';
 import { BranchBar } from '../ui/Branches';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 import { API_URL } from '../lib/config';
 
 function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
@@ -89,7 +89,7 @@ export function TodayScreen() {
     const all = data ? data.dropOffsToday.length + data.needsSizeReview.length + data.paymentsToCheck.length + data.homeRequests.length : 0;
 
     return (
-        <Screen tabs top={<RoleChip user={user} />} title="Today" subtitle={longDate(manilaToday())} onRefresh={reload}>
+        <Screen tabs top={<TeamTop user={user} />} title="Today" subtitle={longDate(manilaToday())} onRefresh={reload}>
             <BranchBar branches={user.branches} value={branch} onChange={setBranch} />
             <FormError>{sizing || rejecting ? null : problem}</FormError>
             {notice ? <Text color={c.gold}>{notice}</Text> : null}

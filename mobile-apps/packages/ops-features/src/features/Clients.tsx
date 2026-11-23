@@ -9,7 +9,7 @@ import { canSeeContact, canSeeMoney } from '../lib/access';
 import { stageChip } from '../lib/stage';
 import { initials } from '../lib/unit';
 import { Avatar } from '../ui/Pills';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 
 /** S4: customers of the person's branches, searchable by name, phone or plate */
 export function ClientsScreen() {
@@ -52,7 +52,7 @@ export function ClientsScreen() {
     };
 
     return (
-        <Screen tabs top={<RoleChip user={user} />} title="Clients" onRefresh={reload}>
+        <Screen tabs top={<TeamTop user={user} />} title="Clients" onRefresh={reload}>
             <Field label="Search" icon={Search} value={text} onChangeText={setText} placeholder="Name, phone or plate" autoCapitalize="none" autoCorrect={false} returnKeyType="search" />
             {loading ? (
                 <>

@@ -9,7 +9,7 @@ import { buttonFor, dayLine, filterCards, QUEUE_ORDER, queueFilters, STAGES, ste
 import { unitName, unitSub } from '../lib/unit';
 import { BranchBar } from '../ui/Branches';
 import { Confirm } from '../ui/Confirm';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 import { Pills } from '../ui/Pills';
 
 /** One unit in the queue, with the one button that moves it on */
@@ -87,7 +87,7 @@ export function QueueScreen() {
     return (
         <Screen
             tabs
-            top={<RoleChip user={user} />}
+            top={<TeamTop user={user} />}
             title="Today’s queue"
             subtitle={data ? `${data.heading} · ${cards.length} ${cards.length === 1 ? 'unit' : 'units'}` : undefined}
             onRefresh={reload}

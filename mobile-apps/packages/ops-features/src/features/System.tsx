@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { api } from '../api';
 import { useUser } from '../context/auth';
 import { stamp, useLoad, c, Card, ErrorState, Screen, Skeleton, Text } from '@826/core';
-import { RoleChip } from '../ui/Header';
+import { TeamTop } from '../ui/Header';
 
 const HEALTH_LABELS: Record<string, string> = { email: 'Email', meta: 'Facebook and Instagram', google: 'Google sign-in', flow: 'Radiance Flow' };
 
@@ -30,7 +30,7 @@ export function SystemScreen() {
     const { data, error, loading, reload } = useLoad(() => api.system());
 
     return (
-        <Screen tabs top={<RoleChip user={user} />} title="System" onRefresh={reload}>
+        <Screen tabs top={<TeamTop user={user} />} title="System" onRefresh={reload}>
             {loading ? (
                 <>
                     <Skeleton height={140} style={{ borderRadius: 16 }} />
