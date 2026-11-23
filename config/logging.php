@@ -65,6 +65,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Where the browser tests (tests/e2e) read the emails the app "sent" (MAIL_LOG_CHANNEL=mail_capture)
+        'mail_capture' => [
+            'driver' => 'single',
+            'path' => env('MAIL_CAPTURE_PATH', storage_path('logs/mail.log')),
+            'level' => 'debug',
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

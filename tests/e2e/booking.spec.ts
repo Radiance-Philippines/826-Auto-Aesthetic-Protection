@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 import { expectNoHorizontalOverflow, signIn, watchProblems } from './support';
 
 const main = (page: Page) => page.locator('main#main');
-const next = (page: Page) => main(page).getByRole('button', { name: 'Next', exact: true }).first();
+const next = (page: Page) => main(page).getByRole('button', { name: 'Next', exact: true });
 const heading = (page: Page, name: string | RegExp) => main(page).getByRole('heading', { level: 2, name });
 
 /** A unit and contact details no other test uses */

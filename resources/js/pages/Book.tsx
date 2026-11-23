@@ -170,10 +170,10 @@ function Summary({ draft, unit, estimate, ready, onEdit, compact = false }: { dr
 
     const row = (label: string, step: StepKey, body: ReactNode) => (
         <div className="border-b border-line py-4 first:pt-0 last:border-b-0 last:pb-0">
-            <div className="flex min-h-6 items-center justify-between gap-4">
-                <dt className="eyebrow text-[0.68rem] text-muted">{label}</dt>
+            <dt className="flex min-h-6 items-center justify-between gap-4">
+                <span className="eyebrow text-[0.68rem] text-muted">{label}</span>
                 {edit(label, step)}
-            </div>
+            </dt>
             <dd className="mt-1.5">{body}</dd>
         </div>
     );
