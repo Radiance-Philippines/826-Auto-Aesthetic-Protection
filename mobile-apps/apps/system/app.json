@@ -1,0 +1,100 @@
+{
+  "expo": {
+    "name": "826 System",
+    "slug": "826-system",
+    "scheme": "aap826system",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0C0E",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#0B0C0E",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "826 System opens your photos so you can add a picture to a unit.",
+          "cameraPermission": "826 System uses the camera so you can take a photo of a unit.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "android": {
+      "package": "ph.radianceph.aap826.system",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#8B7CF6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "ph.radianceph.aap826.system",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "826 System uses the camera so you can take a photo of a unit.",
+        "NSPhotoLibraryUsageDescription": "826 System opens your photos so you can add a picture to a unit."
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
+          }
+        ]
+      }
+    },
+    "extra": {
+      "team": {
+        "appKey": "system",
+        "label": "826 System",
+        "accent": "#8B7CF6"
+      }
+    },
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

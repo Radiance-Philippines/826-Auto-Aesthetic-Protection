@@ -1,0 +1,24 @@
+{
+  "name": "@826/ops-features",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "The 826 team screens (Queue, Unit, Today, Clients, Inbox, Overview, System, Me, sign-in) and their expo-router routes, mounted by the four team apps.",
+  "dependencies": {
+    "@826/core": "*"
+  },
+  "peerDependencies": {
+    "expo-constants": "*",
+    "expo-image-manipulator": "*",
+    "expo-image-picker": "*",
+    "expo-router": "*",
+    "lucide-react-native": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  }
+}
