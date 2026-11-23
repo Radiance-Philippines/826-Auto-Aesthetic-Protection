@@ -161,7 +161,7 @@ final class Insights
             'home' => $sales ? (int) $counts->home : null,
             'reviews' => $this->can('reviews') ? $this->reviews()->pending()->count() : null,
             'chats' => InboxAccess::allows($this->user)
-                ? Conversation::query()->visibleTo($this->user)->unread()->when($this->branchId, fn (Builder $query) => $query->where('conversations.branch_id', $this->branchId))->count()
+                ? Conversation::query()->visibleTo($this->user)->unread($this->user)->when($this->branchId, fn (Builder $query) => $query->where('conversations.branch_id', $this->branchId))->count()
                 : null,
             'late' => $this->can('queue.update')
                 ? $this->bookings()->whereIn('status', Booking::IN_SHOP)->whereNotNull('ready_on')->where('ready_on', '<', today()->toDateString())->count()

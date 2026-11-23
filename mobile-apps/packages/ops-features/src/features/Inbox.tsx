@@ -17,6 +17,8 @@ const FILTERS = [
     { key: 'all', label: 'All' },
 ];
 
+const CHANNEL_LABELS: Record<string, string> = { headsup: 'Heads-up', internal: 'Team thread' };
+
 /** The inbox: one tab per branch the person may see, newest first. Privacy is the server's: another branch's chats never arrive. */
 export function InboxScreen() {
     const user = useUser();
@@ -132,7 +134,7 @@ export function ThreadScreen({ id }: { id: number }) {
         <Screen
             back="Inbox"
             title={conversation.name}
-            subtitle={[conversation.branch?.name, conversation.sample ? 'Sample chat' : 'Messenger'].filter(Boolean).join(' · ')}
+            subtitle={[conversation.branch?.name, conversation.sample ? 'Sample chat' : (CHANNEL_LABELS[conversation.channel ?? ''] ?? 'Messenger')].filter(Boolean).join(' · ')}
             onRefresh={async () => {
                 setSent([]);
                 setRow(null);
@@ -170,7 +172,7 @@ export function ThreadScreen({ id }: { id: number }) {
                 </View>
             }
         >
-            {conversation.savesLocallyOnly ? <Chip label="Sample chat: replies are saved here only" tone="gold" /> : null}
+            {conversation.savesLocallyOnly && !conversation.internal ? <Chip label="Sample chat: replies are saved here only" tone="gold" /> : null}
             {conversation.pastReplyWindow ? <Text color={c.gold}>It has been over {conversation.windowHours} hours since this customer wrote. Messenger may not deliver a reply.</Text> : null}
             <Button small kind="secondary" icon={conversation.done ? RotateCcw : Check} label={conversation.done ? 'Reopen' : 'Mark done'} loading={busy} onPress={toggleDone} />
             {data.hasOlder ? <Text v="small">Older messages are not shown here.</Text> : null}

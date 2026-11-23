@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * The staff app's Inbox: the same Messenger chats and heads-up threads the
- * admin Inbox page shows (a heads-up reply is an internal note, never sent), a branch's only to that branch's staff (Conversation::visibleTo
+ * admin Inbox page shows (a heads-up or internal-thread reply is a team
+ * note, never sent), a branch's only to that branch's staff (Conversation::visibleTo
  * and ConversationPolicy; another branch's chat is a 404). Replies go
  * through App\Support\Inbox\Inbox, which saves only locally on demo and
  * sample chats and sends for real only when Meta is connected.
@@ -30,7 +31,7 @@ class StaffInboxController extends StaffController
     private const MESSAGE_PAGE = 50;
 
     /**
-     * GET /api/staff/inbox?branch=&filter=open|unread|done|all&channel=all|messenger|headsup&q=
+     * GET /api/staff/inbox?branch=&filter=open|unread|done|all&channel=all|messenger|headsup|internal&q=
      */
     public function index(Request $request): JsonResponse
     {
@@ -74,8 +75,8 @@ class StaffInboxController extends StaffController
     {
         $conversation = $this->visibleConversation($id, 'view');
 
-        app(Inbox::class)->markRead($conversation);
-        $conversation->refresh()->load(['branch', 'guest', 'assignee', 'booking']);
+        app(Inbox::class)->markRead($conversation, $this->user());
+        $conversation->refresh()->load(['branch', 'guest', 'assignee', 'booking', 'linkedBooking']);
 
         $limit = min(max((int) $request->query('limit', self::MESSAGE_PAGE), 1), 100);
         $messages = $conversation->messages()
@@ -97,7 +98,7 @@ class StaffInboxController extends StaffController
                 'windowHours' => Inbox::WINDOW_HOURS,
                 'savesLocallyOnly' => Inbox::sendsNothing($conversation),
             ],
-            'messages' => $messages->take($limit)->reverse()->values()->map(fn (ConversationMessage $message) => $this->message($message, $conversation->isHeadsUp()))->all(),
+            'messages' => $messages->take($limit)->reverse()->values()->map(fn (ConversationMessage $message) => $this->message($message, $conversation))->all(),
             'hasOlder' => $messages->count() > $limit,
         ])->header('Cache-Control', 'no-store');
     }
@@ -121,9 +122,39 @@ class StaffInboxController extends StaffController
         }
 
         return response()->json([
-            'message' => $this->message($message->load('sender:id,name'), $conversation->isHeadsUp()),
-            'conversation' => $this->row($conversation->refresh()->load(['branch', 'booking:id,reference'])),
+            'message' => $this->message($message->load('sender:id,name'), $conversation),
+            'conversation' => $this->row($conversation->refresh()->load(['branch', 'booking:id,reference', 'linkedBooking:id,reference'])),
             'savedOnly' => Inbox::sendsNothing($conversation),
+        ], 201);
+    }
+
+    /**
+     * POST /api/staff/inbox {branch, subject, body, booking?}: a new internal (team) thread in one of the person's branches.
+     */
+    public function start(Request $request): JsonResponse
+    {
+        $this->requireInbox();
+
+        $data = $request->validate([
+            'branch' => ['required', 'integer'],
+            'subject' => ['required', 'string', 'max:120'],
+            'body' => ['required', 'string', 'max:'.InboxPage::MAX_REPLY_LENGTH],
+            'booking' => ['nullable', 'string', 'max:40'],
+        ], [
+            'subject.required' => 'Write a subject first.',
+            'body.required' => 'Write a message first.',
+            'body.max' => 'Keep the message under '.number_format(InboxPage::MAX_REPLY_LENGTH).' characters.',
+        ]);
+
+        try {
+            $conversation = app(Inbox::class)->startInternal($this->user(), (int) $data['branch'], $data['subject'], $data['body'], $data['booking'] ?? null);
+        } catch (InboxException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'errors' => ['body' => [$exception->getMessage()]]], 422);
+        }
+
+        return response()->json([
+            'conversation' => $this->row($conversation->load(['branch', 'booking:id,reference', 'linkedBooking:id,reference'])),
+            'message' => $this->message($conversation->messages()->with('sender:id,name')->first(), $conversation),
         ], 201);
     }
 
@@ -137,7 +168,7 @@ class StaffInboxController extends StaffController
         $data = $request->validate(['done' => ['required', 'boolean']]);
         $conversation->forceFill(['status' => $data['done'] ? Conversation::DONE : Conversation::OPEN])->save();
 
-        return response()->json($this->row($conversation->load(['branch', 'booking:id,reference'])));
+        return response()->json($this->row($conversation->load(['branch', 'booking:id,reference', 'linkedBooking:id,reference'])));
     }
 
     /**
@@ -150,6 +181,12 @@ class StaffInboxController extends StaffController
         $this->requireInbox();
 
         $conversation = $request->query('conversation') ? $this->visibleConversation((int) $request->query('conversation'), 'view') : null;
+
+        // Canned customer texts make no sense in a team thread
+        if ($conversation?->isInternal()) {
+            return response()->json(['branch' => null, 'replies' => []]);
+        }
+
         $branch = $conversation?->branch ?? $this->pickedBranch($request) ?? Branch::query()->visibleTo($this->user())->ordered()->first();
         $name = $conversation?->customer_name ? explode(' ', trim($conversation->customer_name))[0] : null;
         $map = $branch?->map()['google'] ?? null;
@@ -185,7 +222,7 @@ class StaffInboxController extends StaffController
     {
         $this->requireInbox();
 
-        $conversation = Conversation::visibleTo($this->user())->with(['branch', 'booking:id,reference'])->find($id);
+        $conversation = Conversation::visibleTo($this->user())->with(['branch', 'booking:id,reference', 'linkedBooking:id,reference'])->find($id);
         abort_unless($conversation, 404, 'Chat not found.');
         Gate::forUser($this->user())->authorize($ability, $conversation);
 
@@ -204,32 +241,33 @@ class StaffInboxController extends StaffController
             'branch' => $conversation->branch ? ['id' => $conversation->branch->getKey(), 'name' => $conversation->branch->name] : null,
             'preview' => $conversation->last_message_preview,
             'lastMessageAt' => $conversation->last_message_at?->toIso8601String(),
-            'unread' => $conversation->unread_count,
+            'unread' => $conversation->unreadFor($this->user()),
             'done' => $conversation->isDone(),
             'sample' => (bool) $conversation->is_sample,
             'linkedCustomer' => $conversation->guest_id !== null,
-        ] + ($conversation->isHeadsUp() ? [
-            // Only heads-up rows carry these: a Messenger row keeps the shape the app 0.1.1 knows
-            'channel' => Conversation::HEADSUP,
+        ] + ($conversation->isTeamOnly() ? [
+            // Only heads-up and internal rows carry these: a Messenger row keeps the shape the app 0.1.1 knows
+            'channel' => $conversation->channel,
             'internal' => true,
-            'booking' => $conversation->booking ? ['id' => $conversation->booking->getKey(), 'reference' => $conversation->booking->reference] : null,
+            'booking' => ($booking = $conversation->aboutBooking()) ? ['id' => $booking->getKey(), 'reference' => $booking->reference] : null,
         ] : []);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function message(ConversationMessage $message, bool $internal): array
+    private function message(ConversationMessage $message, Conversation $conversation): array
     {
         return [
             'id' => $message->getKey(),
-            'direction' => $message->direction,
+            // In a team thread "out" is the viewer's own post, so the app can keep drawing its side
+            'direction' => $conversation->isInternal() ? ((int) $message->sent_by === (int) $this->user()->getKey() ? ConversationMessage::OUT : ConversationMessage::IN) : $message->direction,
             'body' => $message->body,
             'attachments' => $message->attachmentList(),
             'senderName' => $message->sender?->name ?? $message->sender_name,
             'failed' => (bool) $message->failed,
             'error' => $message->error,
             'sentAt' => $message->sent_at->toIso8601String(),
-        ] + ($internal ? ['internal' => true] : []);
+        ] + ($conversation->isTeamOnly() ? ['internal' => true] : []);
     }
 }

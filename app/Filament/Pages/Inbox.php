@@ -19,6 +19,8 @@ use App\Support\InboxAccess;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -31,10 +33,11 @@ use Livewire\Attributes\Url;
 use UnitEnum;
 
 /**
- * Every customer's Messenger chat with the branches' Facebook Pages, and
- * operations' heads-ups about changed bookings, in one place: a tab per
- * branch (and All), a channel filter, a list on the left, the thread and a
- * composer on the right. Staff only see their own branches' threads.
+ * Every customer's Messenger chat with the branches' Facebook Pages,
+ * operations' heads-ups about changed bookings and each branch team's own
+ * internal threads, in one place: a tab per branch (and All), a channel
+ * filter, a list on the left, the thread and a composer on the right. Staff
+ * only see their own branches' threads.
  */
 class Inbox extends Page
 {
@@ -93,7 +96,7 @@ class Inbox extends Page
     public string $filter = 'open';
 
     /**
-     * all, messenger or headsup.
+     * all, messenger, headsup or internal.
      */
     #[Url]
     public string $channel = 'all';
@@ -114,7 +117,7 @@ class Inbox extends Page
     public static function getNavigationBadge(): ?string
     {
         $user = auth()->user();
-        $unread = $user instanceof User ? Conversation::visibleTo($user)->unread()->count() : 0;
+        $unread = $user instanceof User ? Conversation::visibleTo($user)->unread($user)->count() : 0;
 
         return $unread > 0 ? (string) $unread : null;
     }
@@ -185,7 +188,7 @@ class Inbox extends Page
         unset($this->conversations, $this->activeConversation, $this->messages, $this->unreadByBranch);
 
         if ($this->activeConversation?->unread_count > 0) {
-            app(InboxService::class)->markRead($this->activeConversation);
+            app(InboxService::class)->markRead($this->activeConversation, auth()->user());
         }
     }
 
@@ -201,7 +204,7 @@ class Inbox extends Page
         $this->messageLimit = self::PAGE_SIZE;
         unset($this->activeConversation, $this->messages, $this->conversations, $this->unreadByBranch);
 
-        app(InboxService::class)->markRead($conversation);
+        app(InboxService::class)->markRead($conversation, auth()->user());
     }
 
     public function close(): void
@@ -237,7 +240,7 @@ class Inbox extends Page
             return;
         }
 
-        if (! $conversation->isHeadsUp() && InboxService::sendsNothing($conversation)) {
+        if (! $conversation->isTeamOnly() && InboxService::sendsNothing($conversation)) {
             Notification::make()->warning()->title('Saved here only')->body('This is a demo: nothing was sent to Messenger.')->send();
         }
 
@@ -272,7 +275,7 @@ class Inbox extends Page
     public function activeConversation(): ?Conversation
     {
         return $this->conversation
-            ? Conversation::visibleTo(auth()->user())->with(['branch', 'guest', 'assignee', 'booking'])->find($this->conversation)
+            ? Conversation::visibleTo(auth()->user())->with(['branch', 'guest', 'assignee', 'booking', 'linkedBooking'])->find($this->conversation)
             : null;
     }
 
@@ -335,18 +338,19 @@ class Inbox extends Page
      */
     public function channels(): array
     {
-        return ['all' => 'All', Conversation::MESSENGER => 'Messenger', Conversation::HEADSUP => 'Heads-up'];
+        return ['all' => 'All', Conversation::MESSENGER => 'Messenger', Conversation::HEADSUP => 'Heads-up', Conversation::INTERNAL => 'Internal'];
     }
 
     /**
-     * The booking a heads-up thread is about, when this user may open it.
+     * The booking a heads-up or internal thread is about, when this user may open it.
      */
     public function bookingUrl(Conversation $conversation): ?string
     {
         $user = auth()->user();
+        $booking = $conversation->aboutBooking();
 
-        return $conversation->booking && $user instanceof User && $user->canAccessArea('bookings.view')
-            ? BookingResource::getUrl('view', ['record' => $conversation->booking])
+        return $booking && $user instanceof User && $user->canAccessArea('bookings.view')
+            ? BookingResource::getUrl('view', ['record' => $booking])
             : null;
     }
 
@@ -367,6 +371,63 @@ class Inbox extends Page
     public function setupNotice(): ?string
     {
         return InboxList::setupNotice(auth()->user(), $this->branchTabs, $this->branch);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [$this->startThreadAction()];
+    }
+
+    /**
+     * "New team thread": a subject and first message for one of the user's
+     * branches, optionally about a booking. Stays inside the system.
+     */
+    public function startThreadAction(): Action
+    {
+        return Action::make('startThread')
+            ->label('New team thread')
+            ->icon(Heroicon::OutlinedPencilSquare)
+            ->slideOver()
+            ->modalHeading('New team thread')
+            ->modalDescription('Only your branch’s team sees this. It is never sent to a customer or to Messenger.')
+            ->modalSubmitActionLabel('Start thread')
+            ->modalSubmitAction(fn (Action $action): Action => $action->icon(Heroicon::OutlinedPaperAirplane))
+            ->fillForm(fn (): array => ['branch_id' => ctype_digit($this->branch) ? (int) $this->branch : ($this->branchTabs->count() === 1 ? (int) $this->branchTabs->keys()->first() : null)])
+            ->schema([
+                Select::make('branch_id')
+                    ->label('Branch')
+                    ->options(fn (): array => $this->branchTabs->map(fn (Branch $branch): string => $branch->name)->all())
+                    ->required(),
+                TextInput::make('subject')
+                    ->label('Subject')
+                    ->required()
+                    ->maxLength(120),
+                Textarea::make('body')
+                    ->label('Message')
+                    ->required()
+                    ->rows(5)
+                    ->maxLength(self::MAX_REPLY_LENGTH),
+                TextInput::make('booking_reference')
+                    ->label('Booking reference (optional)')
+                    ->helperText('Links the thread to a booking of that branch, like 826-2YD8F.')
+                    ->maxLength(40),
+            ])
+            ->action(function (array $data, Action $action): void {
+                $user = auth()->user();
+
+                try {
+                    $conversation = app(InboxService::class)->startInternal($user, (int) $data['branch_id'], (string) $data['subject'], (string) $data['body'], $data['booking_reference'] ?? null);
+                } catch (InboxException $exception) {
+                    Notification::make()->danger()->title('Thread not started')->body($exception->getMessage())->send();
+                    $action->halt();
+
+                    return;
+                }
+
+                $this->channel = 'internal';
+                $this->filter = 'open';
+                $this->open($conversation->getKey());
+            });
     }
 
     public function assignAction(): Action
@@ -420,7 +481,7 @@ class Inbox extends Page
     public function linkCustomerAction(): Action
     {
         return Action::make('linkCustomer')
-            ->hidden(fn (): bool => (bool) $this->activeConversation?->isHeadsUp())
+            ->hidden(fn (): bool => (bool) $this->activeConversation?->isTeamOnly())
             ->label(fn (): string => $this->activeConversation?->guest_id ? 'Change customer' : 'Link customer')
             ->icon(Heroicon::OutlinedUserCircle)
             ->color('gray')

@@ -79,6 +79,7 @@ Route::prefix('staff')->name('staff.')->group(function () {
         Route::patch('customers/{id}', [StaffCustomerController::class, 'update'])->whereNumber('id')->name('customers.update');
 
         Route::get('inbox', [StaffInboxController::class, 'index'])->name('inbox');
+        Route::post('inbox', [StaffInboxController::class, 'start'])->name('inbox.start');
         Route::get('inbox/quick-replies', [StaffInboxController::class, 'quickReplies'])->name('inbox.quick-replies');
         Route::get('inbox/{id}', [StaffInboxController::class, 'show'])->whereNumber('id')->name('inbox.show');
         Route::post('inbox/{id}/reply', [StaffInboxController::class, 'reply'])->whereNumber('id')->name('inbox.reply');

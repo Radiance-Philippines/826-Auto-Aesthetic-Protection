@@ -155,7 +155,7 @@ export type CustomerDetail = {
 
 /** key is a branch id as text, or "all" */
 export type InboxTab = { key: string; label: string; unread: number };
-export type ConversationRow = { id: number; name: string; avatar: string | null; branch: Branch | null; preview: string | null; lastMessageAt: string | null; unread: number; done: boolean; sample: boolean; linkedCustomer: boolean };
+export type ConversationRow = { id: number; name: string; avatar: string | null; branch: Branch | null; preview: string | null; lastMessageAt: string | null; unread: number; done: boolean; sample: boolean; linkedCustomer: boolean; /** Only heads-up and team (internal) threads carry these */ channel?: 'headsup' | 'internal'; internal?: boolean; booking?: { id: number; reference: string | null } | null };
 export type Inbox = { branch: string; filter: string; showsAll: boolean; tabs: InboxTab[]; totalUnread: number; notice: string | null; conversations: ConversationRow[] };
 export type Message = { id: number; direction: 'in' | 'out'; body: string | null; attachments: unknown[]; senderName: string | null; failed: boolean; error: string | null; sentAt: string };
 export type Thread = {

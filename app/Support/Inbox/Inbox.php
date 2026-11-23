@@ -2,6 +2,7 @@
 
 namespace App\Support\Inbox;
 
+use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
@@ -44,13 +45,13 @@ class Inbox
 
     /**
      * Nothing goes to Meta: on a demo (APP_DEMO) site, on a sample chat and
-     * always on a heads-up thread (its replies are internal notes, kept in
-     * the thread only). reply() and markRead() both go through this, so
-     * Meta can never be called for a heads-up thread.
+     * always on a heads-up or internal thread (their replies are internal
+     * notes, kept in the thread only). reply() and markRead() both go through
+     * this, so Meta can never be called for either.
      */
     public static function sendsNothing(Conversation $conversation): bool
     {
-        return (bool) config('app.demo') || $conversation->is_sample || $conversation->isHeadsUp();
+        return (bool) config('app.demo') || $conversation->is_sample || $conversation->isTeamOnly();
     }
 
     /**
@@ -133,6 +134,10 @@ class Inbox
             throw new InboxException('Write a message first.');
         }
 
+        if ($conversation->isInternal()) {
+            return $this->post($conversation, $text, $by);
+        }
+
         $localOnly = self::sendsNothing($conversation);
         $branch = $conversation->branch;
 
@@ -181,6 +186,99 @@ class Inbox
     }
 
     /**
+     * A team member starts an internal thread in one of their branches: a
+     * subject and a first message, optionally about a booking (by reference,
+     * at that branch). Nothing here is ever sent outside the system.
+     *
+     * @throws InboxException
+     */
+    public function startInternal(User $by, int $branchId, string $subject, string $text, ?string $bookingReference = null): Conversation
+    {
+        if (! InboxAccess::allows($by) || ! $by->canManageBranch($branchId) || ! Branch::query()->whereKey($branchId)->exists()) {
+            throw new InboxException('Pick one of your branches.');
+        }
+
+        $subject = Str::limit(Str::squish($subject), 120, '');
+
+        if ($subject === '' || trim($text) === '') {
+            throw new InboxException('Write a subject and a message first.');
+        }
+
+        $reference = trim((string) $bookingReference);
+        $booking = $reference === '' ? null : Booking::query()->where('branch_id', $branchId)->where('reference', $reference)->first();
+
+        if ($reference !== '' && ! $booking) {
+            throw new InboxException("There is no booking {$reference} at this branch.");
+        }
+
+        $conversation = Conversation::create([
+            'branch_id' => $branchId,
+            'channel' => Conversation::INTERNAL,
+            'external_id' => 'internal-'.Str::ulid(),
+            'customer_name' => $subject,
+            'linked_booking_id' => $booking?->getKey(),
+        ]);
+
+        $this->post($conversation, $text, $by);
+
+        return $conversation->refresh();
+    }
+
+    /**
+     * One post in an internal thread: any teammate's, shown by name. It
+     * reopens a done thread and is unread for everyone but its author.
+     */
+    private function post(Conversation $conversation, string $text, ?User $by): ConversationMessage
+    {
+        $message = ConversationMessage::create([
+            'conversation_id' => $conversation->getKey(),
+            'direction' => ConversationMessage::IN,
+            'body' => $text,
+            'sent_by' => $by?->getKey(),
+            'sent_at' => now(),
+        ]);
+
+        $conversation->forceFill([
+            'last_message_preview' => Str::limit(($by?->name ?? 'Team').': '.Str::squish($text), 250, ''),
+            'last_message_at' => $message->sent_at,
+            'last_sent_by' => $by?->getKey(),
+            'unread_count' => $conversation->unread_count + 1,
+            'status' => Conversation::OPEN,
+        ])->save();
+
+        $this->notifyTeammates($conversation, $message, $by);
+
+        return $message;
+    }
+
+    /**
+     * The branch's other inbox users get a bell: one per author and thread
+     * in a few minutes, however many posts. Never the author, never anyone
+     * outside the branch (a super admin only when assigned to it).
+     */
+    private function notifyTeammates(Conversation $conversation, ConversationMessage $message, ?User $by): void
+    {
+        if (! Schema::hasTable('notifications') || ! Cache::add("inbox-internal-notified:{$conversation->getKey()}:{$by?->getKey()}", true, now()->addMinutes(self::NOTIFY_EVERY_MINUTES))) {
+            return;
+        }
+
+        $first = $conversation->messages()->count() === 1;
+
+        User::query()
+            ->whereHas('branches', fn ($branches) => $branches->whereKey($conversation->branch_id))
+            ->when($by, fn ($query) => $query->whereKeyNot($by->getKey()))
+            ->get()
+            ->filter(fn (User $user) => InboxAccess::allows($user))
+            // Now, not queued: nothing here runs a queue worker
+            ->each(fn (User $user) => $user->notifyNow(Notification::make()
+                ->title(($first ? 'New team thread: ' : 'Team reply: ').$conversation->displayName())
+                ->body(Str::limit(($by?->name ?? 'Team').': '.Str::squish((string) $message->body), 160).' · '.$conversation->branch?->name)
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->actions([Action::make('open')->label('Open thread')->url(AdminUrl::for($user)->inbox(['conversation' => $conversation->getKey()]))->markAsRead()])
+                ->toDatabase()));
+    }
+
+    /**
      * Sales answered a heads-up: the team member who made the latest change
      * gets a bell notification (never the one answering).
      */
@@ -207,10 +305,11 @@ class Inbox
 
     /**
      * A team member opened the conversation. Meta is told after the response.
+     * An internal thread's author opening their own latest post clears nothing.
      */
-    public function markRead(Conversation $conversation): void
+    public function markRead(Conversation $conversation, ?User $by = null): void
     {
-        if ($conversation->unread_count === 0) {
+        if ($conversation->unread_count === 0 || $conversation->unreadFor($by) === 0) {
             return;
         }
 

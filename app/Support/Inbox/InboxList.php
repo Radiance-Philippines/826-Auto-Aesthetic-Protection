@@ -24,7 +24,7 @@ final class InboxList
     /**
      * @var list<string>
      */
-    public const CHANNELS = ['all', Conversation::MESSENGER, Conversation::HEADSUP];
+    public const CHANNELS = ['all', Conversation::MESSENGER, Conversation::HEADSUP, Conversation::INTERNAL];
 
     /**
      * The branches this user may see: the tabs (after "All").
@@ -72,9 +72,9 @@ final class InboxList
         return Conversation::query()
             ->visibleTo($user)
             ->ofChannel($channel)
-            ->with(['branch:id,name', 'booking:id,reference'])
+            ->with(['branch:id,name', 'booking:id,reference', 'linkedBooking:id,reference'])
             ->when($branch !== 'all' && $tabs->has($branch), fn ($query) => $query->where('branch_id', (int) $branch))
-            ->when($filter === 'unread', fn ($query) => $query->unread())
+            ->when($filter === 'unread', fn ($query) => $query->unread($user))
             ->when($filter === 'open', fn ($query) => $query->where('status', Conversation::OPEN))
             ->when($filter === 'done', fn ($query) => $query->where('status', Conversation::DONE))
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
@@ -114,7 +114,7 @@ final class InboxList
      */
     public static function unreadByBranch(User $user): array
     {
-        return Conversation::visibleTo($user)->unread()
+        return Conversation::visibleTo($user)->unread($user)
             ->selectRaw('branch_id, count(*) as total')
             ->groupBy('branch_id')
             ->pluck('total', 'branch_id')

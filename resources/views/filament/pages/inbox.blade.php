@@ -3,6 +3,7 @@
     $active = $this->activeConversation;
     $notice = $this->setupNotice();
     $unreadByBranch = $this->unreadByBranch;
+    $me = auth()->user();
 @endphp
 
 <x-filament-panels::page>
@@ -78,19 +79,21 @@
                                 wire:click="open({{ $item->id }})"
                                 @class(['flex w-full items-start gap-3 px-3 py-3 text-start hover:bg-gray-50 dark:hover:bg-white/5', 'bg-primary-50 dark:bg-primary-500/10' => $active?->id === $item->id])
                             >
-                                @if ($item->avatar)
+                                @if ($item->isInternal())
+                                    <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300"><x-filament::icon icon="heroicon-m-user-group" class="size-5" /></span>
+                                @elseif ($item->avatar)
                                     <img src="{{ $item->avatar }}" alt="" class="size-10 shrink-0 rounded-full object-cover" loading="lazy" referrerpolicy="no-referrer">
                                 @else
                                     <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-600 dark:bg-white/10 dark:text-gray-300">{{ mb_strtoupper(mb_substr($item->displayName(), 0, 1)) }}</span>
                                 @endif
                                 <span class="min-w-0 flex-1">
                                     <span class="flex items-baseline justify-between gap-2">
-                                        <span @class(['truncate text-sm', 'font-semibold text-gray-950 dark:text-white' => $item->unread_count > 0, 'font-medium text-gray-700 dark:text-gray-200' => $item->unread_count === 0])>{{ $item->displayName() }}</span>
+                                        <span @class(['truncate text-sm', 'font-semibold text-gray-950 dark:text-white' => $item->unreadFor($me) > 0, 'font-medium text-gray-700 dark:text-gray-200' => $item->unreadFor($me) === 0])>{{ $item->displayName() }}</span>
                                         <span class="shrink-0 text-xs text-gray-500 dark:text-gray-400">{{ $item->last_message_at?->diffForHumans(short: true) }}</span>
                                     </span>
                                     <span class="flex items-center justify-between gap-2">
-                                        <span @class(['truncate text-xs', 'text-gray-900 dark:text-gray-100' => $item->unread_count > 0, 'text-gray-500 dark:text-gray-400' => $item->unread_count === 0])>{{ $item->last_message_preview }}</span>
-                                        @if ($item->unread_count > 0)
+                                        <span @class(['truncate text-xs', 'text-gray-900 dark:text-gray-100' => $item->unreadFor($me) > 0, 'text-gray-500 dark:text-gray-400' => $item->unreadFor($me) === 0])>{{ $item->last_message_preview }}</span>
+                                        @if ($item->unreadFor($me) > 0)
                                             <span class="shrink-0 rounded-full bg-primary-600 px-1.5 text-[10px] font-bold leading-4 text-white">{{ $item->unread_count }}</span>
                                         @endif
                                     </span>
@@ -100,6 +103,9 @@
                                         @endif
                                         @if ($item->channel === 'headsup')
                                             <span class="rounded bg-primary-600 px-1.5 py-0.5 font-semibold text-white">Heads-up{{ $item->booking ? ' · '.$item->booking->reference : '' }}</span>
+                                        @endif
+                                        @if ($item->isInternal())
+                                            <span class="rounded bg-gray-700 px-1.5 py-0.5 font-semibold text-white dark:bg-gray-200 dark:text-gray-900">Internal{{ $item->linkedBooking ? ' · '.$item->linkedBooking->reference : '' }}</span>
                                         @endif
                                         @if ($item->is_sample)
                                             <span class="rounded bg-warning-100 px-1.5 py-0.5 font-semibold text-warning-800 dark:bg-warning-400/10 dark:text-warning-300">Sample</span>
@@ -113,7 +119,7 @@
                         </li>
                     @empty
                         <li class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                            {{ $search !== '' || $filter !== 'open' ? 'No chats match.' : ($channel === 'headsup' ? 'No open heads-ups. They show up here when operations changes a booking’s ready date or unit.' : 'No open chats. They show up here as soon as a customer messages a branch’s Facebook Page, or operations changes a booking.') }}
+                            {{ $search !== '' || $filter !== 'open' ? 'No chats match.' : ($channel === 'headsup' ? 'No open heads-ups. They show up here when operations changes a booking’s ready date or unit.' : ($channel === 'internal' ? 'No open team threads. Start one with New team thread.' : 'No open chats. They show up here as soon as a customer messages a branch’s Facebook Page, or operations changes a booking.')) }}
                         </li>
                     @endforelse
                 </ul>
@@ -142,6 +148,14 @@
                                         <a href="{{ $bookingUrl }}" class="text-primary-700 underline dark:text-primary-400">Booking {{ $active->booking->reference }}</a> ·
                                     @endif
                                     {{ $active->branch?->name }}
+                                @elseif ($active->isInternal())
+                                    <span class="rounded bg-gray-700 px-1.5 py-0.5 font-semibold text-white dark:bg-gray-200 dark:text-gray-900">Internal</span>
+                                    @if ($bookingUrl = $this->bookingUrl($active))
+                                        <a href="{{ $bookingUrl }}" class="text-primary-700 underline dark:text-primary-400">Booking {{ $active->aboutBooking()->reference }}</a> ·
+                                    @elseif ($active->aboutBooking())
+                                        Booking {{ $active->aboutBooking()->reference }} ·
+                                    @endif
+                                    {{ $active->branch?->name }} team
                                 @else
                                     Messenger · {{ $active->branch?->name }}
                                 @endif
@@ -155,7 +169,7 @@
                             </p>
                         </div>
                         {{ $this->assignAction }}
-                        @unless ($active->isHeadsUp())
+                        @unless ($active->isTeamOnly())
                             {{ $this->linkCustomerAction }}
                         @endunless
                         <x-filament::button size="sm" color="gray" :icon="$active->isDone() ? 'heroicon-m-arrow-uturn-left' : 'heroicon-m-check'" wire:click="toggleDone">
@@ -177,11 +191,12 @@
                         @endif
 
                         @foreach ($this->messages->take(-$messageLimit) as $message)
-                            <div wire:key="message-{{ $message->id }}" @class(['flex flex-col max-w-[80%] gap-1', 'self-start items-start' => $message->isInbound(), 'self-end items-end' => ! $message->isInbound()])>
+                            @php($onTheRight = $active->isInternal() ? (int) $message->sent_by === (int) $me->getKey() : ! $message->isInbound())
+                            <div wire:key="message-{{ $message->id }}" @class(['flex flex-col max-w-[80%] gap-1', 'self-start items-start' => ! $onTheRight, 'self-end items-end' => $onTheRight])>
                                 <div @class([
                                     'rounded-2xl px-3 py-2 text-sm break-words',
-                                    'rounded-bl-sm bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-gray-100' => $message->isInbound(),
-                                    'rounded-br-sm bg-primary-600 text-white' => ! $message->isInbound() && ! $message->failed,
+                                    'rounded-bl-sm bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-gray-100' => ! $onTheRight,
+                                    'rounded-br-sm bg-primary-600 text-white' => $onTheRight && ! $message->failed,
                                     'rounded-br-sm bg-danger-50 text-danger-900 ring-1 ring-danger-500 dark:bg-danger-500/10 dark:text-danger-200' => $message->failed,
                                 ])>
                                     @foreach ($message->attachmentList() as $attachment)
@@ -200,7 +215,9 @@
                                     @endif
                                 </div>
                                 <span class="text-[11px] text-gray-500 dark:text-gray-400">
-                                    @if ($active->isHeadsUp())
+                                    @if ($active->isInternal())
+                                        {{ $message->sender?->name ?? 'Team' }} ·
+                                    @elseif ($active->isHeadsUp())
                                         {{ $message->isInbound() ? 'Change' : 'Internal note' }} · {{ $message->sender?->name ?? 'Team' }} ·
                                     @elseif (! $message->isInbound())
                                         {{ $message->sender?->name ?? ($message->sender_name ? 'via '.$message->sender_name : 'Shop') }} ·
@@ -208,7 +225,7 @@
                                     {{ $message->sent_at->format('M j, g:i A') }}
                                     @if ($message->failed)
                                         · <span class="text-danger-600 dark:text-danger-400">Not sent: {{ $message->error }}</span>
-                                    @elseif (! $message->isInbound() && $message->external_id === null && ! $active->isHeadsUp())
+                                    @elseif (! $message->isInbound() && $message->external_id === null && ! $active->isTeamOnly())
                                         · Saved here only, not sent
                                     @endif
                                 </span>
@@ -217,10 +234,10 @@
                     </div>
 
                     <footer class="space-y-2 border-t border-gray-200 p-3 dark:border-white/10">
-                        @if ($active->isHeadsUp())
+                        @if ($active->isHeadsUp() || $active->isInternal())
                             <p class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                                 <x-filament::icon icon="heroicon-m-lock-closed" class="size-4" />
-                                Internal note to operations. It stays in the system and is never sent to the customer.
+                                {{ $active->isInternal() ? 'Team thread. Only '.$active->branch?->name.' staff see it; it is never sent to a customer or to Messenger.' : 'Internal note to operations. It stays in the system and is never sent to the customer.' }}
                             </p>
                         @endif
 
@@ -235,7 +252,7 @@
                                         wire:model="reply"
                                         rows="2"
                                         maxlength="{{ \App\Filament\Pages\Inbox::MAX_REPLY_LENGTH }}"
-                                        placeholder="{{ $active->isHeadsUp() ? 'Internal note to operations… (Ctrl+Enter to send)' : 'Reply on Messenger… (Ctrl+Enter to send)' }}"
+                                        placeholder="{{ $active->isInternal() ? 'Reply to the team… (Ctrl+Enter to send)' : ($active->isHeadsUp() ? 'Internal note to operations… (Ctrl+Enter to send)' : 'Reply on Messenger… (Ctrl+Enter to send)') }}"
                                         aria-label="Reply"
                                         x-on:keydown.ctrl.enter.prevent="$wire.send()"
                                         x-on:keydown.meta.enter.prevent="$wire.send()"
