@@ -15,15 +15,19 @@ export type ApiResult<T> =
     /** 409: busy, the hold ran out, can't cancel anymore */
     | { kind: 'conflict'; message: string | null }
     | { kind: 'notFound' }
-    | { kind: 'tooMany' }
+    /** 403 that carries a `code` (email_unverified): the server says why and what is possible */
+    | { kind: 'blocked'; code: string; message: string | null; email: string | null; canResend: boolean }
+    /** 429; `retryAfter` (seconds) and `code: 'locked'` come with a sign-in lock */
+    | { kind: 'tooMany'; code?: string | null; retryAfter?: number | null; message?: string | null }
     /** The phone has no connection or the server did not answer */
     | { kind: 'offline' }
-    | { kind: 'failed'; message: string | null };
+    | { kind: 'failed'; message: string | null; code?: string | null };
 
 type Body = Record<string, unknown> & { message?: string; errors?: FieldErrors };
 
 export function sortResponse<T>(status: number, body: Body | null): ApiResult<T> {
     const message = typeof body?.message === 'string' ? body.message : null;
+    const code = typeof body?.code === 'string' ? body.code : null;
 
     if (status >= 200 && status < 300) {
         return { kind: 'ok', data: (body ?? {}) as T };
@@ -32,10 +36,11 @@ export function sortResponse<T>(status: number, body: Body | null): ApiResult<T>
     if (status === 401) return { kind: 'signIn', message };
     if (status === 422) return { kind: 'invalid', errors: body?.errors ?? {}, message };
     if (status === 409) return { kind: 'conflict', message };
+    if (status === 403 && code) return { kind: 'blocked', code, message, email: typeof body?.email === 'string' ? body.email : null, canResend: body?.canResend === true };
     if (status === 404 || status === 403) return { kind: 'notFound' };
-    if (status === 429) return { kind: 'tooMany' };
+    if (status === 429) return { kind: 'tooMany', code, message, retryAfter: typeof body?.retryAfter === 'number' ? body.retryAfter : null };
 
-    return { kind: 'failed', message };
+    return { kind: 'failed', message, code };
 }
 
 /** "?a=1&b[]=2&b[]=3" from a flat object; empty values are left out */
@@ -125,7 +130,9 @@ export function problemText(result: ApiResult<unknown>): string {
         case 'offline':
             return 'No connection. Check your internet and try again.';
         case 'tooMany':
-            return 'Too many tries in a row. Wait a minute, then try again.';
+            return result.code === 'locked' && result.message ? result.message : 'Too many tries in a row. Wait a minute, then try again.';
+        case 'blocked':
+            return result.message ?? 'That isn’t allowed right now.';
         case 'notFound':
             return 'We couldn’t find that.';
         case 'signIn':

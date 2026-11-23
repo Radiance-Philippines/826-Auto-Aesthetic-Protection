@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '@/context/auth';
 import { CatalogProvider } from '@/context/catalog';
 import { ThemeProvider, useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
+import { IntroGate } from '@/ui/Intro';
 import { useReducedMotion } from '@/ui/motion';
 import { Text } from '@/ui/Text';
 
@@ -28,12 +29,16 @@ function Shell() {
         if (ready) void SplashScreen.hideAsync().catch(() => {});
     }, [ready]);
 
+    // The opening animation is an overlay above everything; the app loads behind it
+    const intro = <IntroGate ready={!!ready} signedIn={status === 'in'} offline={status === 'offline'} />;
+
     if (!ready) {
-        return null;
+        return intro;
     }
 
     if (status === 'offline') {
         return (
+            <>
             <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 }}>
                 <Text v="title" style={{ textAlign: 'center' }}>
                     No connection
@@ -43,15 +48,20 @@ function Shell() {
                 </Text>
                 <Button icon={RefreshCw} label="Try again" onPress={() => void retry()} />
             </View>
+            {intro}
+            </>
         );
     }
 
     const signedIn = status === 'in';
 
     return (
+        <>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg }, animation: motion ? 'none' : 'fade_from_bottom', animationDuration: 220 }}>
             <Stack.Protected guard={!signedIn}>
                 <Stack.Screen name="sign-in" />
+                <Stack.Screen name="register" />
+                <Stack.Screen name="forgot-password" />
             </Stack.Protected>
             <Stack.Protected guard={signedIn}>
                 <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
@@ -64,6 +74,8 @@ function Shell() {
                 <Stack.Screen name="home-service" />
             </Stack.Protected>
         </Stack>
+        {intro}
+        </>
     );
 }
 

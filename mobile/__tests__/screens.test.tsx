@@ -38,6 +38,8 @@ const screens: Record<string, { load: () => { default: ComponentType }; params?:
     Rewards: { load: () => require('../app/(tabs)/rewards') },
     Me: { load: () => require('../app/(tabs)/me') },
     'Sign in': { load: () => require('../app/sign-in') },
+    'Create account': { load: () => require('../app/register') },
+    'Forgot password': { load: () => require('../app/forgot-password') },
     Bookings: { load: () => require('../app/bookings') },
     'Booking in progress': { load: () => require('../app/booking/[id]'), params: { id: '1' } },
     'Booking finished': { load: () => require('../app/booking/[id]'), params: { id: '2' } },
@@ -95,7 +97,7 @@ describe('key screens in both schemes', () => {
         const mine = palettes[scheme];
         const other = palettes[scheme === 'dark' ? 'light' : 'dark'];
 
-        for (const name of ['Home', 'Rewards', 'Sign in', 'Booking in progress', 'Garage', 'Me']) {
+        for (const name of ['Home', 'Rewards', 'Sign in', 'Create account', 'Forgot password', 'Booking in progress', 'Garage', 'Me']) {
             const tree = json(await show(name, scheme));
             expect({ name, page: tree.includes(`"backgroundColor":"${mine.bg}"`) }).toEqual({ name, page: true });
             expect({ name, wrongPage: tree.includes(`"backgroundColor":"${other.bg}"`) }).toEqual({ name, wrongPage: false });
@@ -105,7 +107,7 @@ describe('key screens in both schemes', () => {
     });
 
     it('draw the same words in light and dark', async () => {
-        for (const name of ['Home', 'Rewards', 'Sign in', 'Booking in progress']) {
+        for (const name of ['Home', 'Rewards', 'Sign in', 'Create account', 'Booking in progress']) {
             const dark = texts(await show(name, 'dark'));
             await act(async () => renderer?.unmount());
             const light = texts(await show(name, 'light'));

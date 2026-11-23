@@ -6,12 +6,12 @@ const json = (file: string) => JSON.parse(fs.readFileSync(path.join(root, file),
 const sources = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? sources(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
 describe('app config', () => {
-    it('is 0.2.0 (versionCode 2, buildNumber 2) and follows the phone light or dark setting', () => {
+    it('is 0.3.0 (versionCode 3, buildNumber 3) and follows the phone light or dark setting', () => {
         const { expo } = json('app.json');
-        expect(expo.version).toBe('0.2.0');
-        expect(json('package.json').version).toBe('0.2.0');
-        expect(expo.android.versionCode).toBe(2);
-        expect(expo.ios.buildNumber).toBe('2');
+        expect(expo.version).toBe('0.3.0');
+        expect(json('package.json').version).toBe('0.3.0');
+        expect(expo.android.versionCode).toBe(3);
+        expect(expo.ios.buildNumber).toBe('3');
         expect(expo.userInterfaceStyle).toBe('automatic');
     });
 });

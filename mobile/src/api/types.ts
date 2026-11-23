@@ -32,9 +32,15 @@ export type AppGuest = {
     avatar: string | null;
     referralCode: string | null;
     source?: string | null;
+    /** How this customer signs in; null for older accounts */
+    signInMethod?: 'password' | 'google' | 'apple' | null;
+    emailVerified?: boolean;
 };
 
 export type SignInResult = { token: string; guest: AppGuest };
+
+/** POST /app/auth/register: 201 verified (demo: signed in at once) or 202 verify_email (check the mailbox) */
+export type RegisterResult = Partial<SignInResult> & { status: 'verified' | 'verify_email'; message?: string; email?: string; demo?: boolean };
 
 export type Service = {
     id: number;

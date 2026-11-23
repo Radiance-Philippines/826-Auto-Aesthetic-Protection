@@ -1,22 +1,26 @@
 import Constants from 'expo-constants';
 import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Check, Download, FileText, LogOut, Save, Trash2, Undo2, UserRound } from 'lucide-react-native';
+import { Check, Download, FileText, KeyRound, LogOut, Save, Trash2, Undo2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { api, problemText, type AppRelease } from '@/api';
 import { useAuth } from '@/context/auth';
 import { useCatalog } from '@/context/catalog';
+import { PASSWORD_RULE, passwordProblem } from '@/lib/account';
 import { DEMO } from '@/lib/config';
 import { phoneOk } from '@/lib/wizard';
 import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Field } from '@/ui/Field';
+import { PasswordField } from '@/ui/PasswordField';
 import { Screen } from '@/ui/Screen';
 import { Sheet } from '@/ui/Sheet';
 import { FormError } from '@/ui/States';
 import { Text } from '@/ui/Text';
+
+const METHODS = { password: 'email', google: 'Google', apple: 'Apple' } as const;
 
 export default function MeScreen() {
     const c = useTheme();
@@ -31,6 +35,11 @@ export default function MeScreen() {
     const [deleting, setDeleting] = useState(false);
     const [deleteBusy, setDeleteBusy] = useState(false);
     const [deleteProblem, setDeleteProblem] = useState<string | null>(null);
+    const [current, setCurrent] = useState('');
+    const [next, setNext] = useState('');
+    const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+    const [changing, setChanging] = useState(false);
+    const [changed, setChanged] = useState(false);
     const [release, setRelease] = useState<AppRelease | null>(null);
     const version = Constants.expoConfig?.version ?? '';
     const code = Constants.expoConfig?.android?.versionCode ?? 0;
@@ -77,6 +86,31 @@ export default function MeScreen() {
         }
     };
 
+    const changePassword = async () => {
+        const found: Record<string, string> = {};
+        if (!current) found.current_password = 'Enter your current password.';
+        const weak = passwordProblem(next, guest?.email ?? '');
+        if (weak) found.password = weak;
+        setPasswordErrors(found);
+        setChanged(false);
+        if (Object.keys(found).length) return;
+
+        setChanging(true);
+        const result = await api.updateMe({ current_password: current, password: next });
+        setChanging(false);
+
+        if (result.kind === 'ok') {
+            setGuest(result.data);
+            setCurrent('');
+            setNext('');
+            setChanged(true);
+        } else if (result.kind === 'invalid') {
+            setPasswordErrors(Object.fromEntries(Object.entries(result.errors).map(([key, messages]) => [key, messages[0]])));
+        } else {
+            setPasswordErrors({ form: problemText(result) });
+        }
+    };
+
     const deleteAccount = async () => {
         setDeleteBusy(true);
         setDeleteProblem(null);
@@ -104,6 +138,7 @@ export default function MeScreen() {
                             {guest?.name}
                         </Text>
                         {guest?.email ? <Text v="small">{guest.email}</Text> : null}
+                        {guest?.signInMethod && METHODS[guest.signInMethod] ? <Text v="small">{`Signed in with ${METHODS[guest.signInMethod]}`}</Text> : null}
                     </View>
                 </View>
                 <Field label="Name" value={name} onChangeText={setName} autoCapitalize="words" error={errors.name} />
@@ -111,6 +146,21 @@ export default function MeScreen() {
                 <FormError>{errors.form}</FormError>
                 <Button icon={saved ? Check : Save} label={saved ? 'Saved' : 'Save'} loading={saving} onPress={save} />
             </Card>
+
+            {guest?.signInMethod === 'password' ? (
+                <Card style={{ gap: 12 }} testID="change-password">
+                    <Text v="title">Change password</Text>
+                    <PasswordField label="Current password" value={current} onChangeText={setCurrent} autoComplete="current-password" textContentType="password" error={passwordErrors.current_password} />
+                    <PasswordField label="New password" value={next} onChangeText={setNext} autoComplete="new-password" textContentType="newPassword" hint={PASSWORD_RULE} error={passwordErrors.password} />
+                    <FormError>{passwordErrors.form}</FormError>
+                    {changed ? (
+                        <Text v="small" accessibilityLiveRegion="polite">
+                            Password changed. Your other devices are signed out.
+                        </Text>
+                    ) : null}
+                    <Button kind="secondary" icon={changed ? Check : KeyRound} label="Change password" loading={changing} onPress={() => void changePassword()} testID="change-password-button" />
+                </Card>
+            ) : null}
 
             {release ? (
                 <Card style={{ gap: 8 }}>

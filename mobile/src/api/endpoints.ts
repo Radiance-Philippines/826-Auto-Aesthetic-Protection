@@ -9,6 +9,7 @@ import type {
     MonthAvailability,
     MyReview,
     PaymentMethodKey,
+    RegisterResult,
     ReservationInput,
     Rewards,
     SavedVehicle,
@@ -37,12 +38,19 @@ export function createApi(client: Client) {
         signInApple: (identityToken: string, deviceName: string, fullName?: string | null) =>
             client.post<SignInResult>('/app/sign-in/apple', { identity_token: identityToken, device_name: deviceName, ...(fullName ? { full_name: fullName } : {}) }, { auth: false }),
         signInDemo: (deviceName: string) => client.post<SignInResult>('/app/sign-in/demo', { device_name: deviceName }, { auth: false }),
+        login: (email: string, password: string, deviceName: string) => client.post<SignInResult>('/app/auth/login', { email, password, device_name: deviceName }, { auth: false }),
+        register: (input: { name: string; email: string; password: string; phone?: string }, deviceName: string) =>
+            client.post<RegisterResult>('/app/auth/register', { ...input, device_name: deviceName }, { auth: false }),
+        forgotPassword: (email: string) => client.post<{ message?: string }>('/app/auth/forgot-password', { email }, { auth: false }),
+        /** The reset itself happens in the browser from the emailed link; kept here for the day the app opens that link */
+        resetPassword: (email: string, token: string, password: string) => client.post<{ message?: string }>('/app/auth/reset-password', { email, token, password }, { auth: false }),
+        resendVerification: (email: string) => client.post<{ message?: string }>('/app/auth/resend-verification', { email }, { auth: false }),
         signOut: () => client.post<{ ok?: boolean }>('/app/sign-out'),
         deleteAccount: () => client.post<{ ok?: boolean }>('/app/account/delete'),
 
         // Me
         me: () => client.get<AppGuest>('/app/me'),
-        updateMe: (changes: { name?: string; phone?: string }) => client.patch<AppGuest>('/app/me', changes),
+        updateMe: (changes: { name?: string; phone?: string; current_password?: string; password?: string }) => client.patch<AppGuest>('/app/me', changes),
         registerPush: (token: string, platform: 'android' | 'ios') => client.post<{ ok?: boolean }>('/app/push-token', { token, platform }),
 
         // Read

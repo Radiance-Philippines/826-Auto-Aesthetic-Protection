@@ -32,6 +32,8 @@ export type Palette = {
     shimmer: string;
     /** The unit drawing: body, cut-outs (glass, wheel hubs) and ground shadow */
     car: { body: string; cut: string; shadow: string };
+    /** The opening animation: tyre smoke colour (white-grey on dark, soft grey with more opacity on light) and the car's ground shadow */
+    intro: { smoke: string; smokeGain: number; ground: string };
     /** Chip tones (design system DS3): text on a faint tint of itself */
     tone: Record<'neutral' | 'blue' | 'teal' | 'gold' | 'green' | 'red', { fg: string; bg: string }>;
 };
@@ -62,6 +64,7 @@ const dark: Palette = {
     goldLine: 'rgba(205,181,122,0.25)',
     shimmer: 'rgba(238,240,241,0.07)',
     car: { body: '#9AA3A7', cut: '#1D2024', shadow: 'rgba(0,0,0,0.5)' },
+    intro: { smoke: '#E9ECEE', smokeGain: 0.55, ground: '#000000' },
     tone: {
         neutral: { fg: '#B4BBBF', bg: 'rgba(238,240,241,0.07)' },
         blue: { fg: '#8AB4FF', bg: 'rgba(138,180,255,0.14)' },
@@ -99,6 +102,7 @@ const light: Palette = {
     goldLine: 'rgba(184,154,78,0.45)',
     shimmer: 'rgba(15,18,20,0.06)',
     car: { body: '#6B7478', cut: '#E0E4E5', shadow: 'rgba(22,30,34,0.25)' },
+    intro: { smoke: '#7D858B', smokeGain: 0.8, ground: '#0F1214' },
     tone: {
         neutral: { fg: '#4B5357', bg: 'rgba(15,18,20,0.07)' },
         blue: { fg: '#1D4ED8', bg: 'rgba(29,78,216,0.1)' },

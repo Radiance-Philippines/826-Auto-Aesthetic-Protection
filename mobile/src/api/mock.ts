@@ -14,7 +14,7 @@ const TOKEN = 'mock-token';
 const iso = (offset: number) => isoDate(addDays(parseDate(manilaToday()), offset));
 const at = (offset: number, time: string) => `${iso(offset)}T${time}+08:00`;
 
-const guest = { id: 1, name: 'Miguel Santos', email: 'miguel@example.test', phone: '0917 123 4567', avatar: null, referralCode: 'MIGUEL-826', source: 'google' };
+const guest = { id: 1, name: 'Miguel Santos', email: 'miguel@example.test', phone: '0917 123 4567', avatar: null, referralCode: 'MIGUEL-826', source: 'google', signInMethod: 'google' as const, emailVerified: true };
 
 const sample = (n: number) => ({ src: `https://picsum.photos/seed/826-${n}/800/600`, srcset: null, thumb: `https://picsum.photos/seed/826-${n}/200/150` });
 
@@ -239,13 +239,42 @@ export function createMockFetch(): typeof fetch {
         return { month, first, last, days, estimate: { days: 3, label: 'about 3 days' } };
     }
 
+    /** The email and password endpoints. Sample addresses pick the answer: locked@, unverified@, verify@ (sign-up needs a mailbox), taken@, down@ */
+    function auth(action: string, body: Record<string, string>): Response {
+        const email = String(body.email ?? '').trim().toLowerCase();
+        const reply = (status: number, json: Json) => ({ status, ok: status < 300, json: async () => json }) as Response;
+        const mine = { ...guestState, name: body.name ?? guestState.name, email, signInMethod: 'password' as const };
+        const bad = { message: 'Those details don’t match. Check your email and password.', errors: { email: ['Those details don’t match. Check your email and password.'] } };
+
+        if (action === 'login') {
+            if (email.startsWith('locked@')) return reply(429, { message: 'Too many tries. Wait 15 minutes and try again, or reset your password.', code: 'locked', retryAfter: 900 });
+            if (body.password === 'wrong') return reply(422, bad);
+            if (email.startsWith('unverified@')) return reply(403, { message: 'Verify your email first. Open the link we sent you.', code: 'email_unverified', canResend: true, email });
+
+            return reply(200, { token: TOKEN, guest: mine });
+        }
+
+        if (action === 'register') {
+            if (email.startsWith('down@')) return reply(503, { message: 'Account sign-up by email isn’t available yet. Use Google.', code: 'email_sign_up_unavailable' });
+            if (email.startsWith('taken@')) return reply(422, { message: 'That email already has an account. Sign in instead.', errors: { email: ['That email already has an account. Sign in instead.'] } });
+            if (email.startsWith('verify@')) return reply(202, { status: 'verify_email', message: 'Check your email to verify your account.', email });
+
+            return reply(201, { status: 'verified', demo: true, message: 'Demo: email isn’t sent, your account is verified automatically.', token: TOKEN, guest: mine });
+        }
+
+        if (action === 'resend-verification') return reply(202, { message: 'If that account is waiting to be verified, we sent a new link.' });
+        if (action === 'forgot-password') return reply(200, { message: 'If that email has an account, we sent a link to choose a new password.' });
+
+        return reply(404, {});
+    }
+
     return (async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = new URL(String(input));
         const path = url.pathname.replace(/^.*\/api/, '');
         const method = (init?.method ?? 'GET').toUpperCase();
         const headers = (init?.headers ?? {}) as Record<string, string>;
         const reply = (status: number, body: Json = {}) => ({ status, ok: status < 300, json: async () => body }) as Response;
-        const publicPath = path === '/app/catalog' || path === '/app/showcase' || path === '/app/latest' || path.startsWith('/app/sign-in');
+        const publicPath = path === '/app/catalog' || path === '/app/showcase' || path === '/app/latest' || path.startsWith('/app/sign-in') || path.startsWith('/app/auth/');
 
         await new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 0 : 250));
 
@@ -256,10 +285,17 @@ export function createMockFetch(): typeof fetch {
         if (path === '/app/catalog') return reply(200, catalog);
         if (path === '/app/showcase') return reply(200, showcase);
         if (path === '/app/latest') return reply(200, {});
+        if (path.startsWith('/app/auth/')) return auth(path.slice('/app/auth/'.length), JSON.parse(String(init?.body ?? '{}')));
         if (path.startsWith('/app/sign-in')) return reply(200, { token: TOKEN, guest: guestState });
         if (path === '/app/sign-out' || path === '/app/account/delete' || path === '/app/push-token') return reply(200, { ok: true });
         if (path === '/app/me' && method === 'PATCH') {
-            guestState = { ...guestState, ...JSON.parse(String(init?.body ?? '{}')) };
+            const { current_password: current, password, ...changes } = JSON.parse(String(init?.body ?? '{}'));
+
+            if (password && current === 'wrong') {
+                return reply(422, { message: 'That isn’t your current password.', errors: { current_password: ['That isn’t your current password.'] } });
+            }
+
+            guestState = { ...guestState, ...changes };
 
             return reply(200, guestState);
         }

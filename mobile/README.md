@@ -15,16 +15,17 @@ Run the API from the repo root: `php artisan serve --host=0.0.0.0 --port=8050`. 
 | `EXPO_PUBLIC_API_URL` | `https://dran.dev/demo/826` | Laravel site, no trailing slash |
 | `EXPO_PUBLIC_DEMO` | unset | `1` shows "Try the demo account" (the server also has to allow it) |
 | `EXPO_PUBLIC_MOCK` | unset | `1` uses the built-in fake API (`src/api/mock.ts`): no server needed |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | unset | Google web client id. No id, no "Continue with Google" |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | unset | Google web client id. No id, no Google button |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | unset | Google iOS client id (adds its URL scheme at prebuild) |
+| `EXPO_PUBLIC_INTRO` | unset | `1` plays the opening animation. Paused by the owner: off in every release |
 | `APP_VARIANT` | unset | `dev` allows cleartext http (local API). Never for release |
 
 ## Layout
-- `app/` routes: `(tabs)` Home, Book, Garage, Rewards, Me; `booking/[id]`, `vehicle/[id]`, `review/[id]`, `bookings`, `warranty`, `home-service`, `sign-in`.
+- `app/` routes: `(tabs)` Home, Book, Garage, Rewards, Me; `booking/[id]`, `vehicle/[id]`, `review/[id]`, `bookings`, `warranty`, `home-service`, `sign-in`, `register`, `forgot-password` (signed out).
 - `src/api` one typed client (`client.ts`), every endpoint (`endpoints.ts`), shapes (`types.ts`), the fake API (`mock.ts`).
 - `src/lib` pure logic: stage mapping, dates (Manila time), wizard rules, photo shrink, token storage.
 - `src/ui` the design system parts; `src/theme.ts` has the dark and light palettes copied from `resources/css/app.css`; read them with `useTheme()` (`src/context/theme.tsx`, follows the phone's light/dark setting). `src/ui/motion.tsx` has the animation helpers (press scale, list entrance, count-up); they all stop when the phone is set to remove animations.
-- Every `Button` has a leading icon (the `icon` prop is required; a jest test checks it). There is no self sign-up anywhere: sign-in only. Referral sharing sends `<site>/r/<code>` (the site is `EXPO_PUBLIC_API_URL`).
+- Every `Button` has a leading icon (the `icon` prop is required; a jest test checks it). Customers sign in or create an account with email and password (`/api/app/auth/*`, `src/features/Account.tsx`) or with Google / Apple; the verify and reset links open in the browser (no deep link yet). Referral sharing sends `<site>/r/<code>` (the site is `EXPO_PUBLIC_API_URL`).
 - The app never invents facts: prices, warranty and reward values come from the API. A price shows only after 826 reviews the unit.
 
 ## Checks
@@ -46,7 +47,7 @@ What the owner provides:
 1. An Apple Developer Program account (paid, yearly).
 2. An App Store Connect app record with bundle id `ph.radianceph.aap826`. Put its numeric id in `eas.json` (`submit.production.ios.ascAppId`).
 3. A Google iOS OAuth client id (Google Cloud console, iOS type, same bundle id) for `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and a Google web client id for `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`. Both are also saved in the site's Settings, Google sign-in.
-4. Sign in with Apple: enable the capability on the App ID, and save the bundle id as the site's Apple client id (Settings). The app already shows "Continue with Apple" on iOS (App Store rule 4.8 while Google is offered).
+4. Sign in with Apple: enable the capability on the App ID, and save the bundle id as the site's Apple client id (Settings). The app already shows "Sign in with Apple" / "Create account with Apple" on iOS (App Store rule 4.8 while Google is offered).
 5. For push (later): an APNs key from the Apple account added in EAS, and the site's push credentials.
 6. A privacy policy URL for the App Store listing (the site has no privacy page yet).
 

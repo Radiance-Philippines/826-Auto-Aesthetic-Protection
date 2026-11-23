@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HEADER } from '@/lib/layout';
 import { target } from '@/theme';
 import { useTheme } from '@/context/theme';
 import { Brand } from './Brand';
@@ -41,7 +42,7 @@ export function Screen({ children, onRefresh, brand, title, back, right, tabs, c
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 automaticallyAdjustKeyboardInsets
-                contentContainerStyle={[{ paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: (tabs ? 24 : insets.bottom + 24) + (footer ? 8 : 0), gap: 16 }, contentStyle]}
+                contentContainerStyle={[{ paddingTop: insets.top + HEADER.topGap, paddingHorizontal: HEADER.padX, paddingBottom: (tabs ? 24 : insets.bottom + 24) + (footer ? 8 : 0), gap: 16 }, contentStyle]}
                 refreshControl={onRefresh ? <RefreshControl refreshing={busy} tintColor={c.accent} colors={[c.accent]} progressBackgroundColor={c.surface2} progressViewOffset={insets.top} onRefresh={async () => { setBusy(true); try { await onRefresh(); } finally { setBusy(false); } }} /> : undefined}
             >
                 {back ? (
