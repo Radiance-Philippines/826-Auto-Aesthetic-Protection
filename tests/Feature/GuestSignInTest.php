@@ -82,7 +82,7 @@ class GuestSignInTest extends TestCase
         $this->assertSame(['Maria Santos', 'maria@example.com'], [$guest->name, $guest->email]);
         $this->assertAuthenticatedAs($guest, 'guest');
         $this->assertGuest('web');
-        $this->assertSame(['name' => 'Maria Santos', 'email' => 'maria@example.com', 'avatar' => 'https://lh3.example/photo.jpg'], $this->get('/')->viewData('app')['auth']['guest']);
+        $this->assertSame(['name' => 'Maria Santos', 'email' => 'maria@example.com', 'avatar' => 'https://lh3.example/photo.jpg', 'signInMethod' => 'google'], $this->get('/')->viewData('app')['auth']['guest']);
     }
 
     public function test_a_signed_in_customers_booking_is_theirs(): void

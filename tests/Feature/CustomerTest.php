@@ -115,7 +115,7 @@ class CustomerTest extends TestCase
         $booking = Booking::factory()->create(['guest_id' => $walkIn->id, 'branch_id' => $this->branch->id]);
 
         $this->actingAs($walkIn, 'guest')->getJson('/api/my-bookings')->assertOk()->assertJsonPath('bookings.0.id', $booking->id);
-        $this->assertSame(['name' => 'Pedro Reyes', 'email' => null, 'avatar' => null], $this->get('/')->viewData('app')['auth']['guest']);
+        $this->assertSame(['name' => 'Pedro Reyes', 'email' => null, 'avatar' => null, 'signInMethod' => null], $this->get('/')->viewData('app')['auth']['guest']);
         $this->assertTrue($booking->isOpenedBy($walkIn, null));
     }
 

@@ -21,6 +21,12 @@ class SecurityEvent extends Model
 
     public const GUEST_ACCOUNT_DELETED = 'guest_account_deleted';
 
+    public const CUSTOMER_SIGN_IN_FAILED = 'customer_sign_in_failed';
+
+    public const CUSTOMER_LOCKED_OUT = 'customer_locked_out';
+
+    public const CUSTOMER_PASSWORD_RESET = 'customer_password_reset';
+
     public const STAFF_APP_SIGN_IN = 'staff_app_sign_in';
 
     public const STAFF_APP_SIGN_IN_FAILED = 'staff_app_sign_in_failed';
@@ -33,6 +39,9 @@ class SecurityEvent extends Model
         self::PASSKEY_SIGN_IN => 'Signed in with a passkey',
         self::PASSKEYS_CLEARED => 'Passkeys removed by a super admin',
         self::GUEST_ACCOUNT_DELETED => 'Customer deleted their account in the app',
+        self::CUSTOMER_SIGN_IN_FAILED => 'Failed customer sign-in (wrong password)',
+        self::CUSTOMER_LOCKED_OUT => 'Customer sign-in locked after too many wrong passwords',
+        self::CUSTOMER_PASSWORD_RESET => 'Customer chose a new password from an emailed link',
         self::STAFF_APP_SIGN_IN => 'Signed in to the team app',
         self::STAFF_APP_SIGN_IN_FAILED => 'Failed sign-in to the team app',
         self::STAFF_APP_SIGN_OUT => 'Signed out of the team app',

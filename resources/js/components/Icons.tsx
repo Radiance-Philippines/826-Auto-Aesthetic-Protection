@@ -212,6 +212,24 @@ export function User({ className }: IconProps) {
     );
 }
 
+export function Eye({ className }: IconProps) {
+    return (
+        <svg {...base(className)}>
+            <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+            <circle cx="12" cy="12" r="2.8" />
+        </svg>
+    );
+}
+
+export function EyeOff({ className }: IconProps) {
+    return (
+        <svg {...base(className)}>
+            <path d="M9.9 5.7A9 9 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.6 3.4M6.3 7.3A16 16 0 0 0 2.5 12S6 18.5 12 18.5a9 9 0 0 0 4-.9" />
+            <path d="M9.9 9.9a2.8 2.8 0 0 0 4.2 3.7M3.5 3.5l17 17" />
+        </svg>
+    );
+}
+
 export function SignOut({ className }: IconProps) {
     return (
         <svg {...base(className)}>

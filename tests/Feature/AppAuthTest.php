@@ -360,6 +360,8 @@ class AppAuthTest extends TestCase
             'avatar' => null,
             'referralCode' => 'MARIA-7K3Q',
             'source' => 'google',
+            'signInMethod' => 'google',
+            'emailVerified' => false,
         ]);
 
         $this->patchJson('/api/app/me', ['phone' => '+63 917 123 4567', 'name' => 'Maria S. Santos'], $headers)->assertOk()->assertJsonPath('phone', '+63 917 123 4567');

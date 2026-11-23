@@ -12,7 +12,7 @@ import SignInBlock from '../components/SignInBlock';
 import UnitFields from '../components/UnitFields';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { type FieldErrors, postJson } from '../lib/api';
-import { guest, signInHref, signInNeeded } from '../lib/auth';
+import { accountPagePath, guest, signInNeeded } from '../lib/auth';
 import { fetchMonth, forget, type JobQuery, jobKey, readyOn } from '../lib/availability';
 import { copy } from '../lib/copy';
 import { longDate, shortDate } from '../lib/dates';
@@ -425,7 +425,7 @@ export default function Book() {
 
         if (signInNeeded) {
             saveDraft(BOOK_DRAFT, draft);
-            window.location.assign(signInHref(`/book?step=${STEPS.length}`));
+            window.location.assign(site.base + accountPagePath('login', `/book?step=${STEPS.length}`));
             return;
         }
 
@@ -468,7 +468,7 @@ export default function Book() {
 
         if (result.kind === 'signIn') {
             saveDraft(BOOK_DRAFT, draft);
-            window.location.assign(signInHref(`/book?step=${STEPS.length}`));
+            window.location.assign(site.base + accountPagePath('login', `/book?step=${STEPS.length}`));
             return;
         }
 

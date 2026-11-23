@@ -18,16 +18,23 @@ export type Settings = {
     messenger: string | null;
 };
 
-/** The customer signed in with Google */
+/** The signed-in customer: their own account (email and password), Google, or added by the team */
+export type SignInMethod = 'password' | 'google' | 'apple' | null;
+
 export type Guest = {
     name: string;
     /** Empty for a customer the team added without a Google account */
     email: string | null;
     avatar: string | null;
+    signInMethod: SignInMethod;
 };
 
 export type AuthData = {
     googleEnabled: boolean;
+    /** Accounts with an email and a password work here (the mailbox is set up, or this is the demo) */
+    emailEnabled: boolean;
+    /** The demo: no email is sent, sign-up verifies the account at once */
+    emailAutoVerify: boolean;
     guest: Guest | null;
     /** /auth/google, takes ?return=<site-relative path> */
     signInUrl: string;
@@ -320,6 +327,8 @@ export type MyProfile = {
     phone: string | null;
     avatar: string | null;
     referralCode: string | null;
+    signInMethod: SignInMethod;
+    emailVerified: boolean;
 };
 
 /** GET /api/my-vehicles/{id}: one unit and every booking made for it */

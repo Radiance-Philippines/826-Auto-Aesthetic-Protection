@@ -101,7 +101,7 @@ class AppEndpointsTest extends TestCase
         $home = $this->getJson('/api/app/home', $this->headers)->assertOk()->json();
 
         $this->assertKeys(['guest', 'inShop', 'nextBooking', 'referral', 'garage', 'unread'], $home, 'home');
-        $this->assertKeys(['id', 'name', 'email', 'phone', 'avatar', 'referralCode', 'source'], $home['guest'], 'guest');
+        $this->assertKeys(['id', 'name', 'email', 'phone', 'avatar', 'referralCode', 'source', 'signInMethod', 'emailVerified'], $home['guest'], 'guest');
         $this->assertSame($inShop->id, $home['inShop']['id']);
         $this->assertSame('in_progress', $home['inShop']['stage']);
         $this->assertSame('2026-11-18', $home['inShop']['readyOn']);

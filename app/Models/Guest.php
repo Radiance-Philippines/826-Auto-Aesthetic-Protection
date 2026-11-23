@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Mail\CustomerAccountMail;
+use App\Support\CustomerAccounts;
 use Database\Factories\GuestFactory;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * A customer. Most signed in with Google to reserve and follow their
@@ -16,14 +21,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * App\Models\User (the admin's team), with its own "guest" auth guard, so a
  * guest can never open /admin.
  */
-class Guest extends Authenticatable
+class Guest extends Authenticatable implements CanResetPasswordContract
 {
     /** @use HasFactory<GuestFactory> */
-    use HasFactory;
+    use CanResetPassword, HasFactory;
 
     public const SOURCES = [
         'google' => 'Signed in with Google',
         'apple' => 'Signed in with Apple',
+        'password' => 'Created an account with email',
         'walk_in' => 'Walk-in',
         'phone' => 'Call or message',
         'admin' => 'Added in the admin',
@@ -52,6 +58,8 @@ class Guest extends Authenticatable
     ];
 
     protected $hidden = [
+        'password',
+        'login_email',
         'google_id',
         'apple_id',
         'remember_token',
@@ -65,6 +73,8 @@ class Guest extends Authenticatable
     {
         return [
             'last_signed_in_at' => 'datetime',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
         ];
     }
 
@@ -234,6 +244,53 @@ class Guest extends Authenticatable
     }
 
     /**
+     * An account the customer made with an email and a password.
+     */
+    public function hasPassword(): bool
+    {
+        return filled($this->password) && filled($this->login_email);
+    }
+
+    /**
+     * How this customer signs in: "password", "google", "apple" or null
+     * (a walk-in the team added, who has no account yet).
+     */
+    public function signInMethod(): ?string
+    {
+        return match (true) {
+            $this->hasPassword() => 'password',
+            filled($this->google_id) => 'google',
+            filled($this->apple_id) => 'apple',
+            default => null,
+        };
+    }
+
+    /**
+     * What the emailed verification link carries. It depends on the
+     * password, so a link sent before the password was replaced (someone
+     * signing up with another person's address, then the owner of the
+     * address signing up) stops working.
+     */
+    public function verificationHash(): string
+    {
+        return hash_hmac('sha256', $this->login_email.'|'.$this->getRawOriginal('password'), (string) config('app.key'));
+    }
+
+    /**
+     * The reset broker looks the account up by login_email: walk-in and
+     * Google customers may share an email, a password account never does.
+     */
+    public function getEmailForPasswordReset(): string
+    {
+        return (string) $this->login_email;
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        Mail::to($this->email)->send(new CustomerAccountMail('reset', $this, CustomerAccounts::resetUrl($this, $token)));
+    }
+
+    /**
      * "Maria Santos" → "Maria S.": all a friend may see of another customer.
      */
     public function shortName(): string
@@ -250,7 +307,7 @@ class Guest extends Authenticatable
     /**
      * Shape used by the customer app (GET /api/app/me and the sign-in reply).
      *
-     * @return array{id: int, name: string, email: string|null, phone: string|null, avatar: string|null, referralCode: string|null, source: string}
+     * @return array{id: int, name: string, email: string|null, phone: string|null, avatar: string|null, referralCode: string|null, source: string, signInMethod: string|null, emailVerified: bool}
      */
     public function toApp(): array
     {
@@ -262,13 +319,15 @@ class Guest extends Authenticatable
             'avatar' => $this->avatar_url,
             'referralCode' => $this->referral_code,
             'source' => $this->source,
+            'signInMethod' => $this->signInMethod(),
+            'emailVerified' => $this->email_verified_at !== null,
         ];
     }
 
     /**
      * Shape used by the React site (window.APP826.auth.guest).
      *
-     * @return array{name: string, email: string|null, avatar: string|null}
+     * @return array{name: string, email: string|null, avatar: string|null, signInMethod: string|null}
      */
     public function toSite(): array
     {
@@ -276,6 +335,7 @@ class Guest extends Authenticatable
             'name' => $this->name,
             'email' => $this->email,
             'avatar' => $this->avatar_url,
+            'signInMethod' => $this->signInMethod(),
         ];
     }
 }

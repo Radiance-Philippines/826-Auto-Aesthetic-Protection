@@ -2,7 +2,7 @@ import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 're
 import { Link, useLocation } from 'react-router-dom';
 
 import useModalLayer from '../hooks/useModalLayer';
-import { afterSignOut, canSignIn, guest, signOut } from '../lib/auth';
+import { accountPagePath, afterSignOut, canSignIn, emailSignIn, guest, signOut } from '../lib/auth';
 import { copy } from '../lib/copy';
 import type { Guest } from '../types';
 import Avatar from './Avatar';
@@ -134,15 +134,24 @@ export default function AccountMenu() {
 
     // Back to the page they were on, except from the home page and the sign-in page itself: those go to the account
     const here = `${location.pathname}${location.search}`;
-    const back = location.pathname === '/' || location.pathname === '/login' ? '' : `?return=${encodeURIComponent(here)}`;
+    const back = ['/', '/login', '/register', '/forgot-password', '/verify-email'].includes(location.pathname) || location.pathname.startsWith('/reset-password') ? '' : here;
+
+    const returnTo = back ? here : null;
 
     return (
-        <Link
-            to={`/login${back}`}
-            className="press inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-full text-[0.95rem] font-medium text-text/85 hover:bg-text/6 hover:text-text lg:w-auto lg:rounded-control lg:px-3.5"
-        >
-            <User className="size-5" />
-            <span className="max-lg:sr-only">{copy.account.signIn}</span>
-        </Link>
+        <>
+            <Link
+                to={accountPagePath('login', returnTo)}
+                className="press inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-full text-[0.95rem] font-medium text-text/85 hover:bg-text/6 hover:text-text lg:w-auto lg:rounded-control lg:px-3.5"
+            >
+                <User className="size-5" />
+                <span className="max-lg:sr-only">{copy.account.signIn}</span>
+            </Link>
+            {emailSignIn && (
+                <Link to={accountPagePath('register', returnTo)} className="press hidden min-h-11 items-center rounded-control border border-field px-3.5 text-[0.95rem] font-medium text-text hover:border-text hover:bg-text/5 lg:inline-flex">
+                    {copy.account.createAccount}
+                </Link>
+            )}
+        </>
     );
 }

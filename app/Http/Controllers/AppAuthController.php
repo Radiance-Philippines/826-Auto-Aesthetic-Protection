@@ -9,12 +9,16 @@ use App\Models\Guest;
 use App\Models\GuestToken;
 use App\Models\SecurityEvent;
 use App\Models\SiteSetting;
+use App\Support\CustomerRules;
 use App\Support\GoogleSignIn;
 use App\Support\GuestIdentity;
 use App\Support\IdTokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -136,20 +140,16 @@ class AppAuthController extends Controller
     }
 
     /**
-     * PATCH /api/app/me {name?, phone?}. The demo's shared customer is not
+     * PATCH /api/app/me {name?, phone?, current_password?+password?}. The demo's shared customer is not
      * changed: the reply shows what it would be.
      */
     public function update(Request $request): JsonResponse
     {
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120'],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:40', 'regex:/^\+?[\d\s().-]+$/', function (string $attribute, mixed $value, \Closure $fail) {
-                $digits = strlen(preg_replace('/\D/', '', (string) $value));
-
-                if ($value !== null && ($digits < 10 || $digits > 13)) {
-                    $fail('Enter your mobile number, like 0917 123 4567.');
-                }
-            }],
+            'phone' => ['sometimes', ...CustomerRules::phone()],
+            'current_password' => ['required_with:password', 'string', 'max:72'],
+            'password' => ['sometimes', ...CustomerRules::password($this->guest()->email)],
         ], [
             'name.required' => 'Add your name.',
             'name.max' => 'That name is too long. Keep it under 120 characters.',
@@ -157,9 +157,20 @@ class AppAuthController extends Controller
         ]);
 
         $guest = $this->guest();
-        $guest->fill($data);
+
+        if (isset($data['password']) && ! ($guest->hasPassword() && Hash::check($data['current_password'], $guest->password))) {
+            throw ValidationException::withMessages(['current_password' => 'That isn’t your current password.']);
+        }
+
+        $guest->fill(Arr::only($data, ['name', 'phone']));
 
         if (! config('app.demo')) {
+            if (isset($data['password'])) {
+                // Every other sign-in ends; this one (a token or the site's session) stays
+                $guest->forceFill(['password' => $data['password'], 'remember_token' => null]);
+                $guest->tokens()->when($request->attributes->get('guest_token'), fn ($tokens, $keep) => $tokens->whereKeyNot($keep->getKey()))->delete();
+            }
+
             $guest->save();
         }
 
@@ -215,6 +226,9 @@ class AppAuthController extends Controller
                 'referral_code' => null,
                 'notes' => null,
                 'remember_token' => null,
+                'password' => null,
+                'login_email' => null,
+                'email_verified_at' => null,
             ])->save();
 
             SecurityEvent::recordForGuest(SecurityEvent::GUEST_ACCOUNT_DELETED, $guest, "Guest #{$guest->id}");

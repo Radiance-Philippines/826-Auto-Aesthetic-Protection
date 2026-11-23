@@ -24,13 +24,15 @@ type FieldProps = {
     multiline?: boolean;
     rows?: number;
     className?: string;
+    /** A control drawn inside the box, at its right end (the show-password button) */
+    trailing?: ReactNode;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className'>;
 
 /**
  * A labelled text box (or a text area), its hint under the label and its
  * error under the box, both read with it.
  */
-export function TextField({ label, value, onChange, error, hint, optional, multiline, rows = 3, className = '', id, ...rest }: FieldProps) {
+export function TextField({ label, value, onChange, error, hint, optional, multiline, rows = 3, className = '', id, trailing, ...rest }: FieldProps) {
     const autoId = useId();
     const fieldId = id ?? autoId;
     const hintId = `${fieldId}-hint`;
@@ -41,7 +43,7 @@ export function TextField({ label, value, onChange, error, hint, optional, multi
         value,
         'aria-invalid': error ? true : undefined,
         'aria-describedby': describedBy,
-        className: `${control} ${error ? 'border-danger' : 'border-field'} ${multiline ? 'min-h-28 py-3 leading-relaxed' : 'min-h-12'}`,
+        className: `${control} ${error ? 'border-danger' : 'border-field'} ${multiline ? 'min-h-28 py-3 leading-relaxed' : 'min-h-12'} ${trailing ? 'pr-14' : ''}`,
     };
 
     return (
@@ -55,7 +57,8 @@ export function TextField({ label, value, onChange, error, hint, optional, multi
                     {hint}
                 </p>
             )}
-            <div className="mt-2">
+            <div className="relative mt-2">
+                {trailing && <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>}
                 {multiline ? (
                     <textarea rows={rows} {...shared} onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)} maxLength={rest.maxLength} name={rest.name} placeholder={rest.placeholder} />
                 ) : (

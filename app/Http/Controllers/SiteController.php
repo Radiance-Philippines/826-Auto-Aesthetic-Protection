@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\SiteSetting;
 use App\Models\Video;
+use App\Support\CustomerAccounts;
 use App\Support\GoogleSignIn;
 use App\Support\StructuredData;
 use Illuminate\Http\Request;
@@ -139,6 +140,26 @@ class SiteController extends Controller
         return $this->render($request, ['title' => 'Sign in | '.self::BRAND, 'noindex' => true]);
     }
 
+    public function register(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'Create account | '.self::BRAND, 'noindex' => true]);
+    }
+
+    public function forgotPassword(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'Forgot password | '.self::BRAND, 'noindex' => true]);
+    }
+
+    public function resetPassword(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'Choose a new password | '.self::BRAND, 'noindex' => true]);
+    }
+
+    public function verifyEmailPage(Request $request): Response
+    {
+        return $this->render($request, ['title' => 'Verify your email | '.self::BRAND, 'noindex' => true]);
+    }
+
     public function account(Request $request): Response
     {
         return $this->render($request, ['title' => 'My account | '.self::BRAND, 'noindex' => true]);
@@ -249,6 +270,8 @@ class SiteController extends Controller
                 'settings' => $settings->toSite(),
                 'auth' => [
                     'googleEnabled' => GoogleSignIn::enabled(),
+                    'emailEnabled' => CustomerAccounts::available(),
+                    'emailAutoVerify' => CustomerAccounts::autoVerify(),
                     'guest' => $guest instanceof Guest ? $guest->toSite() : null,
                     'signInUrl' => url('/auth/google'),
                     'signOutUrl' => url('/auth/logout'),

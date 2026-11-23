@@ -10,7 +10,7 @@ import { ArrowRight, Bolt, Check, Droplet, House, Shade } from '../components/Ic
 import SignInBlock from '../components/SignInBlock';
 import UnitFields from '../components/UnitFields';
 import { type FieldErrors, postJson } from '../lib/api';
-import { guest, signInHref, signInNeeded } from '../lib/auth';
+import { accountPagePath, guest, signInNeeded } from '../lib/auth';
 import { pageCars } from '../lib/cars';
 import { copy } from '../lib/copy';
 import { addDays, addMonths, daysInMonth, isoDate, longDate, manilaToday, monthStart, parseDate } from '../lib/dates';
@@ -196,7 +196,7 @@ export default function HomeService() {
 
         if (signInNeeded) {
             saveDraft(DRAFT, draft);
-            window.location.assign(signInHref('/home-service'));
+            window.location.assign(site.base + accountPagePath('login', '/home-service'));
             return;
         }
 
@@ -244,7 +244,7 @@ export default function HomeService() {
 
         if (result.kind === 'signIn') {
             saveDraft(DRAFT, draft);
-            window.location.assign(signInHref('/home-service'));
+            window.location.assign(site.base + accountPagePath('login', '/home-service'));
             return;
         }
 

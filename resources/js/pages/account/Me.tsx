@@ -4,12 +4,13 @@ import { useLocation } from 'react-router-dom';
 import { CardBone, Loading, Problem } from '../../components/AccountParts';
 import Avatar from '../../components/Avatar';
 import { buttonClass } from '../../components/Button';
+import { PasswordField } from '../../components/AuthParts';
 import { ErrorText, Notice, TextField } from '../../components/Form';
 import { Check, SignOut, Trash } from '../../components/Icons';
 import Modal from '../../components/Modal';
 import { fetchProfile, useLoad } from '../../lib/account';
 import { type FieldErrors, patchJson, postJson } from '../../lib/api';
-import { afterSignOut, guest, signOut } from '../../lib/auth';
+import { afterSignOut, guest, passwordProblem, signOut } from '../../lib/auth';
 import { copy } from '../../lib/copy';
 import { phoneProblem } from '../../lib/draft';
 import { site } from '../../lib/site';
@@ -72,7 +73,13 @@ function Details({ profile }: { profile: MyProfile }) {
                     <p className="font-semibold break-all">{profile.email ?? '—'}</p>
                 </div>
             </div>
-            {profile.email && <p className="mt-2 text-sm text-muted">{text.emailNote}</p>}
+            {profile.signInMethod && (
+                <p className="mt-3 flex items-center gap-2 text-sm font-medium">
+                    <Check className="size-4 text-accent" /> {copy.auth.method[profile.signInMethod]}
+                </p>
+            )}
+            {profile.email && profile.signInMethod !== 'password' && <p className="mt-1 text-sm text-muted">{text.emailNote}</p>}
+            {profile.email && profile.signInMethod === 'password' && <p className="mt-1 text-sm text-muted">{text.emailNotePassword}</p>}
 
             <div className="mt-6 grid gap-5">
                 <TextField label={text.name} value={name} onChange={setName} error={errors.name?.[0]} autoComplete="name" name="name" maxLength={120} required />
@@ -85,6 +92,71 @@ function Details({ profile }: { profile: MyProfile }) {
                 </button>
                 <span role="status" className="text-sm font-medium text-muted">
                     {state === 'saved' ? (site.demo ? text.demo : text.saved) : ''}
+                </span>
+            </div>
+            {state === 'failed' && <ErrorText>{text.failed}</ErrorText>}
+        </form>
+    );
+}
+
+/** Only for an account made with an email and password: the current password first */
+function ChangePassword({ email }: { email: string | null }) {
+    const pw = text.password;
+    const [current, setCurrent] = useState('');
+    const [next, setNext] = useState('');
+    const [errors, setErrors] = useState<FieldErrors>({});
+    const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+
+    const save = async (event: FormEvent) => {
+        event.preventDefault();
+        const problems: FieldErrors = {};
+
+        if (!current) {
+            problems.current_password = [copy.auth.passwordRequired];
+        }
+
+        const problem = passwordProblem(next, email ?? '');
+
+        if (problem) {
+            problems.password = [problem];
+        }
+
+        setErrors(problems);
+
+        if (Object.keys(problems).length > 0) {
+            requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+            return;
+        }
+
+        setState('saving');
+        const result = await patchJson<MyProfile>('/me', { current_password: current, password: next });
+
+        if (result.kind === 'ok') {
+            setCurrent('');
+            setNext('');
+            setState('saved');
+        } else if (result.kind === 'invalid') {
+            setErrors(result.errors);
+            setState('idle');
+        } else {
+            setState('failed');
+        }
+    };
+
+    return (
+        <form onSubmit={save} noValidate className="panel mt-6 p-5 sm:p-6">
+            <h3 className="text-lg font-bold">{pw.title}</h3>
+            {email && <input type="email" name="email" value={email} autoComplete="username" readOnly hidden />}
+            <div className="mt-5 grid gap-5">
+                <PasswordField id="me-current-password" name="current_password" label={copy.auth.currentPassword} value={current} onChange={setCurrent} error={errors.current_password?.[0]} autoComplete="current-password" />
+                <PasswordField id="me-new-password" name="new_password" label={copy.auth.newPassword} hint={copy.auth.passwordHint} value={next} onChange={setNext} error={errors.password?.[0]} autoComplete="new-password" />
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button type="submit" disabled={state === 'saving'} className={buttonClass('accent')}>
+                    <Check className="size-4" /> {state === 'saving' ? pw.saving : pw.save}
+                </button>
+                <span role="status" className="text-sm font-medium text-muted">
+                    {state === 'saved' ? (site.demo ? pw.demo : pw.saved) : ''}
                 </span>
             </div>
             {state === 'failed' && <ErrorText>{text.failed}</ErrorText>}
@@ -173,6 +245,7 @@ export default function Me() {
                 )}
                 {(load.state === 'failed' || load.state === 'signedOut' || load.state === 'missing') && <Problem kind={load.state === 'signedOut' ? 'signedOut' : 'failed'} onRetry={reload} />}
                 {load.state === 'ok' && <Details profile={load.data} />}
+                {load.state === 'ok' && load.data.signInMethod === 'password' && <ChangePassword email={load.data.email} />}
 
                 <div className="mt-10 flex flex-wrap items-center gap-3">
                     <button type="button" onClick={leave} disabled={leaving} className={buttonClass('outline')}>

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminFileController;
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
@@ -38,6 +39,10 @@ Route::controller(SiteController::class)->group(function () {
     Route::get('/bookings/{booking}', 'myBooking')->whereNumber('booking');
     // The customer's sign-in page and account pages
     Route::get('/login', 'login');
+    Route::get('/register', 'register');
+    Route::get('/forgot-password', 'forgotPassword');
+    Route::get('/reset-password/{token}', 'resetPassword')->where('token', '[A-Za-z0-9]+');
+    Route::get('/verify-email', 'verifyEmailPage');
     Route::get('/account/{section?}', 'account')->where('section', 'garage|garage/[0-9]+|rewards|warranty|me');
 });
 
@@ -52,6 +57,17 @@ Route::controller(GuestAuthController::class)->group(function () {
     // Local development and the demo only (404 anywhere else): the sample customer without Google
     Route::get('/auth/local', 'local')->name('auth.local');
 });
+
+// A customer's own account (email and password), for the site: session cookie and CSRF token; the app has its own under /api/app/auth
+Route::controller(CustomerAuthController::class)->prefix('auth')->name('customer.')->group(function () {
+    Route::post('register', 'register')->middleware('throttle:customer-register')->name('register');
+    Route::post('login', 'login')->middleware('throttle:customer-login')->name('login');
+    Route::post('forgot-password', 'forgotPassword')->middleware('throttle:customer-forgot')->name('forgot');
+    Route::post('reset-password', 'resetPassword')->middleware('throttle:customer-forgot')->name('reset');
+    Route::post('resend-verification', 'resendVerification')->middleware('throttle:customer-forgot')->name('resend');
+});
+// The link in the verification email (signed, 24 hours); sends the visitor on to /verify-email?status=…
+Route::get('/verify-email/{id}/{hash}', [CustomerAuthController::class, 'verifyEmail'])->whereNumber('id')->where('hash', '[0-9a-f]{64}')->middleware('throttle:customer-forgot')->name('customer.verify');
 
 // The customer endpoints below take the site's session cookie or the app's bearer token (guest.token)
 Route::middleware('guest.token')->group(function () {

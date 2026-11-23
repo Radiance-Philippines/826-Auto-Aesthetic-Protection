@@ -67,8 +67,8 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /**
      * Only 826's team has accounts (there is no public sign-up): owners
      * invite team members from Users. Strict per panel: a super admin opens
-     * all three, a sales admin /sales, detailers and branch managers
-     * /operations. /admin is only the shared sign-in and old links, open to
+     * all four (/owner, /sales, /operations, /system), a sales admin /sales,
+     * detailers and branch managers /operations. /admin is only the shared sign-in and old links, open to
      * anyone with a panel.
      */
     public function canAccessPanel(Panel $panel): bool

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AppController;
+use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\StaffAuthController;
 use App\Http\Controllers\StaffCustomerController;
 use App\Http\Controllers\StaffInboxController;
@@ -20,6 +21,15 @@ Route::prefix('app')->name('app.')->group(function () {
     Route::post('sign-in/google', [AppAuthController::class, 'google'])->middleware('throttle:app-sign-in')->name('sign-in.google');
     Route::post('sign-in/apple', [AppAuthController::class, 'apple'])->middleware('throttle:app-sign-in')->name('sign-in.apple');
     Route::post('sign-in/demo', [AppAuthController::class, 'demo'])->middleware('throttle:app-sign-in')->name('sign-in.demo');
+
+    // Email and password sign-up and sign-in: the same rules as the site's /auth/*, answered with a bearer token
+    Route::prefix('auth')->name('auth.')->controller(CustomerAuthController::class)->group(function () {
+        Route::post('register', 'register')->middleware('throttle:customer-register')->name('register');
+        Route::post('login', 'login')->middleware('throttle:customer-login')->name('login');
+        Route::post('forgot-password', 'forgotPassword')->middleware('throttle:customer-forgot')->name('forgot');
+        Route::post('reset-password', 'resetPassword')->middleware('throttle:customer-forgot')->name('reset');
+        Route::post('resend-verification', 'resendVerification')->middleware('throttle:customer-forgot')->name('resend');
+    });
 
     Route::get('catalog', [AppController::class, 'catalog'])->middleware('throttle:availability')->name('catalog');
     Route::get('showcase', [AppController::class, 'showcase'])->middleware('throttle:availability')->name('showcase');

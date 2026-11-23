@@ -23,19 +23,21 @@ type Props = {
     /** Before leaving: keep what's typed */
     onClick?: MouseEventHandler<HTMLAnchorElement>;
     className?: string;
+    /** "Sign in with Google" (default) or "Create account with Google" */
+    label?: string;
     ref?: Ref<HTMLAnchorElement>;
 };
 
 /**
- * "Continue with Google", the way Google's branding asks: a white button
+ * "Sign in with Google", the way Google's branding asks: a white button
  * with a grey hairline, the multi-colour G and Google's wording. White in
  * dark mode too (.google-button in app.css).
  */
-export default function GoogleButton({ href, onClick, className = '', ref }: Props) {
+export default function GoogleButton({ href, onClick, className = '', label = copy.account.google, ref }: Props) {
     return (
         <a ref={ref} href={href} onClick={onClick} className={`google-button press ${className}`}>
             <GoogleG />
-            <span>{copy.account.google}</span>
+            <span>{label}</span>
         </a>
     );
 }

@@ -1,4 +1,5 @@
 import type { Guest } from '../types';
+import { copy } from './copy';
 import { site } from './site';
 
 /** Laravel's token, from the meta tag in site.blade.php: every POST sends it */
@@ -18,8 +19,11 @@ export const localSignIn = !site.auth.googleEnabled && Boolean(site.auth.localSi
 /** A reservation or request needs a signed-in customer (a demo saves nothing, so it doesn't) */
 export const signInNeeded = !guest && !site.demo;
 
-/** Signing in is possible on this copy */
-export const canSignIn = signInBase !== null;
+/** Signing in is possible on this copy: with an email and password, with Google, or (local and demo) as the sample customer */
+export const canSignIn = site.auth.emailEnabled || signInBase !== null;
+
+/** Own accounts (email and password) work on this copy */
+export const emailSignIn = site.auth.emailEnabled;
 
 /**
  * Sign-in, coming back to `path` (site-relative, without site.base:
@@ -33,13 +37,59 @@ export function signInHref(path: string): string {
 }
 
 /**
+ * The site's sign-in or create-account page, coming back to `path`
+ * (site-relative, without site.base). No path: the account.
+ */
+export function accountPagePath(page: 'login' | 'register', path?: string | null): string {
+    return path ? `/${page}?return=${encodeURIComponent(path.startsWith('/') ? path : `/${path}`)}` : `/${page}`;
+}
+
+/** What a POST to /auth/* came back with: the status and the JSON (null when there was none) */
+export type AuthReply<T = Record<string, unknown>> = { status: number; body: (T & { message?: string; errors?: Record<string, string[]>; code?: string }) | null };
+
+/**
+ * Sends the sign-in, sign-up, forgot and reset forms (POST /auth/…, with the
+ * CSRF token). Status 0 when the network failed.
+ */
+export async function postAuth<T = Record<string, unknown>>(path: string, payload: unknown): Promise<AuthReply<T>> {
+    try {
+        const response = await fetch(`${site.base}/auth/${path}`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+        });
+
+        return { status: response.status, body: await response.json().catch(() => null) };
+    } catch {
+        return { status: 0, body: null };
+    }
+}
+
+/**
+ * The same checks the server makes on a new password: 10 or more
+ * characters, a letter, a digit, not the email address. Null when fine.
+ */
+export function passwordProblem(password: string, email = ''): string | null {
+    if (password.length < 10 || !/\p{L}/u.test(password) || !/\d/.test(password)) {
+        return copy.auth.passwordRules;
+    }
+
+    if (password.length > 72) {
+        return copy.auth.passwordTooLong;
+    }
+
+    return email && password.toLowerCase() === email.trim().toLowerCase() ? copy.auth.passwordIsEmail : null;
+}
+
+/**
  * A `?return=` path from the address, only if it stays on this site (the
- * server's safeReturn rules); never the sign-in page itself. Null otherwise.
+ * server's safeReturn rules); never a sign-in page itself. Null otherwise.
  */
 export function safeReturn(raw: string | null): string | null {
     const path = (raw ?? '').trim();
 
-    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || /[\u0000-\u001f]/.test(path) || /^\/login(?:[/?#]|$)/.test(path)) {
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || /[\u0000-\u001f]/.test(path) || /^\/(?:login|register|forgot-password|reset-password|verify-email)(?:[/?#]|$)/.test(path)) {
         return null;
     }
 

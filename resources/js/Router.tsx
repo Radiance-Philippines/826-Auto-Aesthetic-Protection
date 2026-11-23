@@ -15,6 +15,10 @@ const BranchDetail = lazyPage(() => import('./pages/BranchDetail'));
 const Branches = lazyPage(() => import('./pages/Branches'));
 const Gallery = lazyPage(() => import('./pages/Gallery'));
 const Login = lazyPage(() => import('./pages/Login'));
+const Register = lazyPage(() => import('./pages/Register'));
+const ForgotPassword = lazyPage(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazyPage(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazyPage(() => import('./pages/VerifyEmail'));
 const AccountShell = lazyPage(() => import('./pages/account/Shell'));
 const AccountOverview = lazyPage(() => import('./pages/account/Overview'));
 const AccountGarage = lazyPage(() => import('./pages/account/Garage'));
@@ -88,6 +92,10 @@ export default function Router() {
                 <Route path="/bookings" element={<Bookings />} />
                 <Route path="/bookings/:id" element={<BookingDetail />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/account" element={<AccountShell />}>
                     <Route index element={<AccountOverview />} />
                     <Route path="garage" element={<AccountGarage />} />

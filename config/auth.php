@@ -112,6 +112,14 @@ return [
             'expire' => 1440,
             'throttle' => 60,
         ],
+
+        // Customers with their own account: their own token table (an address may be a customer's and a team member's), an hour to use the link
+        'guests' => [
+            'provider' => 'guests',
+            'table' => 'guest_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
     /*

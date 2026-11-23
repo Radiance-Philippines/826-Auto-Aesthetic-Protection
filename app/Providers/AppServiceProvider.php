@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -85,6 +86,13 @@ class AppServiceProvider extends ServiceProvider
         // The team app: sign-in by address (each try counts; the per-email count is in the controller) and a generous per-person budget after it
         RateLimiter::for('staff-sign-in', fn (Request $request) => Limit::perMinute(10)->by('staff-sign-in|'.$request->ip()));
         RateLimiter::for('staff', fn (Request $request) => Limit::perMinute(240)->by('staff|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        // Customers' own accounts: 5 a minute per visitor and per email address, each try counting
+        foreach (['customer-register', 'customer-login', 'customer-forgot'] as $name) {
+            RateLimiter::for($name, fn (Request $request) => [
+                Limit::perMinute(5)->by("{$name}|ip|".$request->ip()),
+                Limit::perMinute(5)->by("{$name}|email|".sha1(Str::lower(trim((string) $request->input('email'))))),
+            ]);
+        }
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }
