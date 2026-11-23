@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\RefreshesLive;
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Branch;
@@ -38,6 +39,7 @@ use UnitEnum;
 class Inbox extends Page
 {
     use RefreshesLive;
+    use ShownInItsPanels;
 
     protected function liveArea(): string
     {

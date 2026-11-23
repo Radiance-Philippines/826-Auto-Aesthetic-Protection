@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\SecuritySetting;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -25,6 +26,8 @@ use UnitEnum;
  */
 class SecuritySettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
     protected static string|UnitEnum|null $navigationGroup = 'System';

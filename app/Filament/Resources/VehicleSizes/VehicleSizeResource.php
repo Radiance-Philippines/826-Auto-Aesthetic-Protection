@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\VehicleSizes;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\VehicleSizes\Pages\ManageVehicleSizes;
 use App\Models\VehicleSize;
 use BackedEnum;
@@ -23,6 +24,8 @@ use UnitEnum;
  */
 class VehicleSizeResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = VehicleSize::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;

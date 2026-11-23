@@ -3,13 +3,16 @@
 namespace App\Filament\Resources\BranchBlocks;
 
 use App\Filament\Concerns\ScopedToStaffBranches;
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\Pages\ManageBranchBlocks;
 use App\Models\BranchBlock;
+use App\Support\Panels;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -32,6 +35,7 @@ use UnitEnum;
 class BranchBlockResource extends Resource
 {
     use ScopedToStaffBranches;
+    use ShownInItsPanels;
 
     protected static function includesEveryBranchRecords(): bool
     {
@@ -42,7 +46,13 @@ class BranchBlockResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedNoSymbol;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Bookings';
+    /**
+     * With the setup in /owner, in the daily work's group elsewhere.
+     */
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return Filament::getCurrentOrDefaultPanel()->getId() === Panels::OWNER ? 'Shop' : 'Bookings';
+    }
 
     protected static ?string $navigationLabel = 'Closures';
 

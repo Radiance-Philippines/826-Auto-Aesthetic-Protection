@@ -20,7 +20,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 class Login extends BaseLogin
 {
     /**
-     * Any of the three panels signs in here (and at /admin/login): LoginResponse sends the person to their own.
+     * Any of the panels signs in here (and at /admin/login): LoginResponse sends the person to their own.
      */
     protected function isUserAllowedToAccessPanel(Authenticatable $user): bool
     {

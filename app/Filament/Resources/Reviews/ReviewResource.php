@@ -3,11 +3,13 @@
 namespace App\Filament\Resources\Reviews;
 
 use App\Filament\Concerns\ScopedToStaffBranches;
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Reviews\Pages\EditReview;
 use App\Filament\Resources\Reviews\Pages\ListReviews;
 use App\Filament\Resources\Reviews\Pages\ViewReview;
 use App\Models\Review;
 use App\Support\ImagePipeline;
+use App\Support\Panels;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -15,6 +17,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -38,12 +41,19 @@ use UnitEnum;
 class ReviewResource extends Resource
 {
     use ScopedToStaffBranches;
+    use ShownInItsPanels;
 
     protected static ?string $model = Review::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleBottomCenterText;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Site';
+    /**
+     * With the setup in /owner, in the daily work's group elsewhere.
+     */
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return Filament::getCurrentOrDefaultPanel()->getId() === Panels::OWNER ? 'Site' : 'Bookings';
+    }
 
     protected static ?string $navigationLabel = 'Reviews';
 

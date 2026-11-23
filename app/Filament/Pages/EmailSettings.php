@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\MailSetting;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class EmailSettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAtSymbol;
 
     protected static string|UnitEnum|null $navigationGroup = 'System';

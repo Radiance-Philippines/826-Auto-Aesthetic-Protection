@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\MetaSetting;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -30,6 +31,8 @@ use UnitEnum;
  */
 class MetaSettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleOvalLeftEllipsis;
 
     protected static string|UnitEnum|null $navigationGroup = 'System';

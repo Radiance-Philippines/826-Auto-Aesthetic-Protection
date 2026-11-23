@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Support\ImageUpload;
 use App\Models\SiteSetting;
 use BackedEnum;
@@ -26,9 +27,11 @@ use UnitEnum;
  */
 class SiteSettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static string|UnitEnum|null $navigationGroup = 'System';
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
 
     protected static ?string $navigationLabel = 'Site settings';
 

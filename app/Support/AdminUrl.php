@@ -10,34 +10,52 @@ use App\Models\User;
 use Filament\Facades\Filament;
 
 /**
- * Links into the admin for one recipient: always in the panel that person
- * works in (/owner, /sales or /operations), never the one that happens to
- * be current when an email or bell notification is built.
+ * Links into the admin for one recipient: always in a panel of that person's
+ * that has the page (a sales admin's in /sales, a super admin's bookings and
+ * inbox in /sales too), never the one that happens to be current when an
+ * email or bell notification is built.
  *
  *     AdminUrl::for($user)->booking($booking)
  */
 final class AdminUrl
 {
-    private function __construct(private readonly string $panel) {}
+    /**
+     * @param  list<string>  $panels  the recipient's panels, home first
+     */
+    private function __construct(private readonly array $panels) {}
 
     public static function for(?User $user): self
     {
-        return new self(($user ? Panels::homeId($user) : null) ?? Panels::OWNER);
+        return new self(($user ? Panels::idsFor($user) : []) ?: [Panels::OWNER]);
     }
 
     public function home(): string
     {
-        return Filament::getPanel($this->panel)->getUrl();
+        return Filament::getPanel($this->panels[0])->getUrl();
+    }
+
+    /**
+     * @param  class-string  $class
+     */
+    private function panelOf(string $class): string
+    {
+        foreach ($this->panels as $id) {
+            if (Panels::shows($class, $id)) {
+                return $id;
+            }
+        }
+
+        return $this->panels[0];
     }
 
     public function booking(Booking|int $booking): string
     {
-        return BookingResource::getUrl('view', ['record' => $booking], panel: $this->panel);
+        return BookingResource::getUrl('view', ['record' => $booking], panel: $this->panelOf(BookingResource::class));
     }
 
     public function reviews(): string
     {
-        return ReviewResource::getUrl('index', panel: $this->panel);
+        return ReviewResource::getUrl('index', panel: $this->panelOf(ReviewResource::class));
     }
 
     /**
@@ -45,7 +63,7 @@ final class AdminUrl
      */
     public function inbox(array $parameters = []): string
     {
-        return Inbox::getUrl($parameters, panel: $this->panel);
+        return Inbox::getUrl($parameters, panel: $this->panelOf(Inbox::class));
     }
 
     /**

@@ -4,11 +4,16 @@ namespace Tests\Support;
 
 use App\Models\User;
 use App\Support\Panels;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
- * The admin is three panels (/owner, /sales, /operations). A test says which
- * page it wants and the helper puts it in the panel of whoever is signed in
- * (a super admin's home is /owner), so each role is tested in its own panel.
+ * The admin is four panels (/owner, /sales, /operations, /system), each with
+ * its own pages. A test says which page it wants and the helper puts it in the
+ * first panel of whoever is signed in that has it (a super admin's Bookings are
+ * in /sales, the Queue in /operations, Users in /owner), else in their home
+ * panel, so each role is tested where the page lives.
  */
 trait UsesPanels
 {
@@ -19,7 +24,30 @@ trait UsesPanels
     {
         $user = $as ?? auth()->user();
 
-        return '/'.($user instanceof User ? Panels::homeId($user) : Panels::OWNER).$path;
+        if (! $user instanceof User) {
+            return '/'.Panels::OWNER.$path;
+        }
+
+        foreach (Panels::idsFor($user) as $id) {
+            if ($path === '' || $this->panelShows($id, $path)) {
+                return '/'.$id.$path;
+            }
+        }
+
+        return '/'.Panels::homeId($user).$path;
+    }
+
+    private function panelShows(string $panel, string $path): bool
+    {
+        try {
+            $route = Route::getRoutes()->match(Request::create("/{$panel}".strtok($path, '?')));
+        } catch (HttpExceptionInterface) {
+            return false;
+        }
+
+        $class = Panels::placedClass($route);
+
+        return ! $route->isFallback && $class !== null && Panels::shows($class, $panel);
     }
 
     /**

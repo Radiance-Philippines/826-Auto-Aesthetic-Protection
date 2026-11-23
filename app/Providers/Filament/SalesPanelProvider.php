@@ -8,8 +8,8 @@ use Filament\Panel;
 
 /**
  * Sales admins: bookings and their sales actions, customers, warranty,
- * reviews, the inbox and manual transactions, and a dashboard of the sales
- * numbers.
+ * reviews, closures, the inbox and manual transactions, and a dashboard of
+ * the sales numbers.
  */
 class SalesPanelProvider extends BasePanelProvider
 {

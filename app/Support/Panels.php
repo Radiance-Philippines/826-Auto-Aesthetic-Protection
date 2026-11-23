@@ -3,18 +3,25 @@
 namespace App\Support;
 
 use App\Models\User;
+use App\Providers\Filament\PanelPages;
 use Filament\Facades\Filament;
+use Filament\Pages\Page;
+use Filament\Resources\Pages\Page as ResourcePage;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
- * The admin is three panels over one code base: /owner (super admins, who
- * may open all three), /sales (sales admins) and /operations (detailers and
- * branch managers). The split is organisation, not a security boundary:
- * policies, areas and branch scoping decide what anyone can do. The fourth
- * panel, /admin, only holds the one sign-in page and the old links: it sends
- * each person to their own panel.
+ * The admin is four panels over one code base: /owner (the business owner's
+ * setup and master dashboard), /sales (sales admins), /operations (detailers
+ * and branch managers) and /system (IT backoffice and Radiance). Super admins
+ * may open all four, nobody else /system. Each panel's sidebar shows only its
+ * own pages (PanelPages::shown), and a page opened in a panel it does not
+ * belong to is redirected to the same page in the panel where it lives. The
+ * split is organisation, not a security boundary: policies, areas and branch
+ * scoping decide what anyone can do. The fifth, /admin, only holds the one
+ * sign-in page and the old links: it sends each person to their own panel.
  */
 final class Panels
 {
@@ -23,6 +30,8 @@ final class Panels
     public const SALES = 'sales';
 
     public const OPERATIONS = 'operations';
+
+    public const SYSTEM = 'system';
 
     /** The old single panel: sign-in, password reset and redirects only */
     public const GATEWAY = 'admin';
@@ -33,7 +42,7 @@ final class Panels
      * @var array<string, list<string>>
      */
     private const BY_ROLE = [
-        Access::SUPER_ADMIN => [self::OWNER, self::SALES, self::OPERATIONS],
+        Access::SUPER_ADMIN => [self::OWNER, self::SALES, self::OPERATIONS, self::SYSTEM],
         Access::SALES_ADMIN => [self::SALES],
         Access::OPERATIONS => [self::OPERATIONS],
         Access::BRANCH_MANAGER => [self::OPERATIONS],
@@ -68,37 +77,89 @@ final class Panels
     }
 
     /**
-     * The page this request asked for, in this person's own panel when it
-     * exists there (an old /admin/bookings/5 link, or /owner/bookings for a
-     * sales admin), else their panel's home. The first path segment is the
-     * panel being left.
+     * Whether this page or resource is in the panel's own set (what its
+     * sidebar shows, and the only pages that open there).
+     *
+     * @param  class-string  $class
+     */
+    public static function shows(string $class, string $panelId): bool
+    {
+        return in_array($class, PanelPages::shown($panelId), true);
+    }
+
+    /**
+     * The page or resource a route opens, when it is one that belongs to a
+     * panel (the profile and the sign-in pages belong to none).
+     *
+     * @return class-string|null
+     */
+    public static function placedClass(?RoutingRoute $route): ?string
+    {
+        $class = $route ? explode('@', $route->getActionName())[0] : null;
+
+        if ($class === null || ! class_exists($class)) {
+            return null;
+        }
+
+        if (is_subclass_of($class, ResourcePage::class)) {
+            $class = $class::getResource();
+        } elseif (! is_subclass_of($class, Page::class)) {
+            return null;
+        }
+
+        foreach (PanelPages::panels() as $id) {
+            if (self::shows($class, $id)) {
+                return $class;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The page this request asked for, in the first of this person's panels
+     * (other than the one being left, the first path segment) where it lives:
+     * an old /admin/bookings/5 link, /owner/bookings for a sales admin, or
+     * /owner/queue for a super admin. Null when none of their panels has it.
+     */
+    public static function elsewhereUrl(User $user, Request $request): ?string
+    {
+        [$left, $path] = array_pad(explode('/', trim($request->path(), '/'), 2), 2, '');
+
+        if ($path === '') {
+            return null;
+        }
+
+        foreach (self::idsFor($user) as $id) {
+            $candidate = url(trim(Filament::getPanel($id)->getPath(), '/').'/'.$path);
+            $route = $id === $left ? null : self::matchGetRoute($candidate);
+
+            if ($route && (($class = self::placedClass($route)) === null || self::shows($class, $id))) {
+                return $candidate.($request->getQueryString() ? '?'.$request->getQueryString() : '');
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Where to send someone who asked for a page their panel does not have:
+     * the same page in their panel that has it, else their home.
      */
     public static function equivalentUrl(User $user, Request $request): string
     {
-        $id = self::homeId($user);
-
-        if ($id === null) {
-            return url('/');
-        }
-
-        $path = explode('/', trim($request->path(), '/'), 2)[1] ?? '';
-
-        $candidate = url(trim(Filament::getPanel($id)->getPath(), '/').'/'.$path);
-
-        if ($path !== '' && self::hasGetRoute($candidate)) {
-            return $candidate.($request->getQueryString() ? '?'.$request->getQueryString() : '');
-        }
-
-        return self::homeUrl($user);
+        return self::elsewhereUrl($user, $request) ?? self::homeUrl($user);
     }
 
-    private static function hasGetRoute(string $url): bool
+    private static function matchGetRoute(string $url): ?RoutingRoute
     {
         try {
             // Anything else lands on the site's own not-found page
-            return ! Route::getRoutes()->match(Request::create($url))->isFallback;
+            $route = Route::getRoutes()->match(Request::create($url));
+
+            return $route->isFallback ? null : $route;
         } catch (HttpExceptionInterface) {
-            return false;
+            return null;
         }
     }
 }

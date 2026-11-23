@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\ReferralSetting;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -27,9 +28,11 @@ use UnitEnum;
  */
 class ReferralSettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGift;
 
-    protected static string|UnitEnum|null $navigationGroup = 'System';
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
 
     protected static ?string $navigationLabel = 'Referral';
 

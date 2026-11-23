@@ -117,7 +117,7 @@ class RolesTest extends TestCase
         $matrix = [
             'branch_manager' => ['allowed' => ['', '/queue', '/bookings', '/customers', '/warranty', '/reviews', '/manual-transaction', '/branch-blocks'], 'denied' => ['/branches', '/services', '/photos', '/videos', '/vehicle-sizes', '/backjob-types', '/users', '/booking-rules', '/security']],
             'operations' => ['allowed' => ['', '/queue', '/bookings', '/customers', '/warranty'], 'denied' => ['/bookings/create', '/customers/create', '/reviews', '/manual-transaction', '/branch-blocks', '/branches', '/photos', '/users', '/security']],
-            'sales_admin' => ['allowed' => ['', '/queue', '/bookings', '/bookings/create', '/customers', '/customers/create', '/warranty', '/reviews', '/manual-transaction'], 'denied' => ['/branch-blocks', '/branches', '/photos', '/users', '/security', '/referral']],
+            'sales_admin' => ['allowed' => ['', '/bookings', '/bookings/create', '/customers', '/customers/create', '/warranty', '/reviews', '/manual-transaction'], 'denied' => ['/queue', '/branch-blocks', '/branches', '/photos', '/users', '/security', '/referral']],
             'super_admin' => ['allowed' => ['', '/queue', '/branches', '/services', '/photos', '/videos', '/users', '/security', '/referral', '/branch-blocks', '/vehicle-sizes'], 'denied' => []],
         ];
 

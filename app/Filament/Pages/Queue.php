@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\RefreshesLive;
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\BranchBlockResource;
 use App\Models\Booking;
@@ -31,6 +32,7 @@ use UnitEnum;
 class Queue extends Page
 {
     use RefreshesLive;
+    use ShownInItsPanels;
 
     protected function liveArea(): string
     {

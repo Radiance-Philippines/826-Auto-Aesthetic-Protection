@@ -24,6 +24,7 @@ class SeoController extends Controller
             'Disallow: /owner',
             'Disallow: /sales',
             'Disallow: /operations',
+            'Disallow: /system',
             '',
             'Sitemap: '.SiteController::pageUrl('sitemap.xml'),
         ];

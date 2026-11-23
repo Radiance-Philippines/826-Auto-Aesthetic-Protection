@@ -93,6 +93,7 @@ class SeoTest extends TestCase
             ->assertSee('Disallow: /owner')
             ->assertSee('Disallow: /sales')
             ->assertSee('Disallow: /operations')
+            ->assertSee('Disallow: /system')
             ->assertSee('Sitemap: https://826auto.test/sitemap.xml');
     }
 

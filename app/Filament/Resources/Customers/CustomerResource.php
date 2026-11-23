@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Pages\Warranty;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
@@ -40,6 +41,8 @@ use UnitEnum;
  */
 class CustomerResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = Guest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;

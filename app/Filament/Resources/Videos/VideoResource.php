@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Videos;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Videos\Pages\ManageVideos;
 use App\Models\Video;
 use App\Support\YouTube;
@@ -24,6 +25,8 @@ use UnitEnum;
  */
 class VideoResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = Video::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedVideoCamera;

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\BackjobTypes;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\BackjobTypes\Pages\ManageBackjobTypes;
 use App\Models\BackjobType;
 use BackedEnum;
@@ -24,6 +25,8 @@ use UnitEnum;
  */
 class BackjobTypeResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = BackjobType::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrench;

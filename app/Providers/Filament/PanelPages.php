@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\BookingSettings;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmailSettings;
 use App\Filament\Pages\GoogleSignInSettings;
 use App\Filament\Pages\Inbox;
@@ -13,6 +14,7 @@ use App\Filament\Pages\Queue;
 use App\Filament\Pages\ReferralSettings;
 use App\Filament\Pages\SecuritySettings;
 use App\Filament\Pages\SiteSettings;
+use App\Filament\Pages\SystemHealth;
 use App\Filament\Pages\Warranty;
 use App\Filament\Resources\AppReleases\AppReleaseResource;
 use App\Filament\Resources\BackjobTypes\BackjobTypeResource;
@@ -36,18 +38,56 @@ use App\Filament\Widgets\SalesChart;
 use App\Filament\Widgets\SalesOverview;
 use App\Filament\Widgets\ServicesInsight;
 use App\Filament\Widgets\StaffInsight;
+use App\Support\Panels;
 
 /**
- * What each panel registers, spelled out. Every panel has the booking work
- * (the pages link to one another, so they are always there); a person only
- * sees the ones their areas allow. The shop, site, settings, Users and App
- * releases pages are registered everywhere too, only so that an account given
- * one of those areas by hand can still open it (Users and App releases stay
- * super admin only, by their policies): they stay hidden for everyone else,
- * and a refused account gets the same 403 in any panel.
+ * What each panel registers, and what its sidebar shows. The three working
+ * panels register the same pages (they link to one another, and an old link
+ * must still find a route to redirect from), but each one shows and opens only
+ * its own set (shown): a page outside it is redirected to the panel where it
+ * lives (AuthenticatePanel), and a person only sees the entries their areas
+ * allow. /system registers the same, with its health page for a dashboard.
  */
 final class PanelPages
 {
+    /**
+     * @return list<string>
+     */
+    public static function panels(): array
+    {
+        return [Panels::OWNER, Panels::SALES, Panels::OPERATIONS, Panels::SYSTEM];
+    }
+
+    /**
+     * The pages and resources one panel shows in its sidebar and opens.
+     *
+     * @return list<class-string>
+     */
+    public static function shown(string $panelId): array
+    {
+        return match ($panelId) {
+            Panels::OWNER => [
+                Dashboard::class,
+                BranchResource::class, ServiceResource::class, ServiceCategoryResource::class, VehicleSizeResource::class, BackjobTypeResource::class, BranchBlockResource::class,
+                PhotoResource::class, VideoResource::class, ReviewResource::class,
+                ReferralSettings::class, BookingSettings::class, PaymentSettings::class, SiteSettings::class,
+                UserResource::class,
+            ],
+            Panels::SALES => [
+                Dashboard::class,
+                BookingResource::class, CustomerResource::class, Warranty::class, ReviewResource::class, Inbox::class, ManualTransactionPage::class, BranchBlockResource::class,
+            ],
+            Panels::OPERATIONS => [
+                Dashboard::class, Queue::class,
+                BookingResource::class, CustomerResource::class, Warranty::class, BranchBlockResource::class, Inbox::class, ReviewResource::class, ManualTransactionPage::class,
+            ],
+            Panels::SYSTEM => [
+                SystemHealth::class, AppReleaseResource::class, MetaSettings::class, GoogleSignInSettings::class, EmailSettings::class, SecuritySettings::class,
+            ],
+            default => [],
+        };
+    }
+
     /**
      * @return list<class-string>
      */

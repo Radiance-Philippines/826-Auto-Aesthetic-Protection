@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AppReleases;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\AppReleases\Pages\CreateAppRelease;
 use App\Filament\Resources\AppReleases\Pages\EditAppRelease;
 use App\Filament\Resources\AppReleases\Pages\ListAppReleases;
@@ -32,6 +33,8 @@ use UnitEnum;
  */
 class AppReleaseResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = AppRelease::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDevicePhoneMobile;

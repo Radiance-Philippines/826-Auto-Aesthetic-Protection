@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Providers\Filament\PanelPages;
 use App\Support\Dashboard\Insights;
 use App\Support\Dashboard\Period;
@@ -20,7 +21,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * The dashboard (the home page of /owner and /sales), for accounts with the dashboard area: today at the
+ * The dashboard (the home page of /owner and /sales, and /operations/dashboard), for accounts with the dashboard area: today at the
  * branches, then sales, services, branches, operations, customers and
  * staff for the chosen period and branch. A widget only shows to the
  * roles that may see its numbers. The filters stay in the address.
@@ -28,6 +29,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class Dashboard extends BaseDashboard
 {
     use HasFiltersForm;
+    use ShownInItsPanels;
 
     public static function canAccess(): bool
     {

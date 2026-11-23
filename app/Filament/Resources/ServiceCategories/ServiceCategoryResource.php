@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ServiceCategories;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\ServiceCategories\Pages\ManageServiceCategories;
 use App\Models\ServiceCategory;
 use BackedEnum;
@@ -25,6 +26,8 @@ use UnitEnum;
  */
 class ServiceCategoryResource extends Resource
 {
+    use ShownInItsPanels;
+
     protected static ?string $model = ServiceCategory::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;

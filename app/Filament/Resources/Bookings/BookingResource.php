@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Bookings;
 
 use App\Filament\Concerns\ScopedToStaffBranches;
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Bookings\Pages\EditBooking;
 use App\Filament\Resources\Bookings\Pages\ListBookings;
@@ -52,6 +53,7 @@ use UnitEnum;
 class BookingResource extends Resource
 {
     use ScopedToStaffBranches;
+    use ShownInItsPanels;
 
     protected static ?string $model = Booking::class;
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\SiteSetting;
 use App\Support\GoogleSignIn;
 use BackedEnum;
@@ -26,6 +27,8 @@ use UnitEnum;
  */
 class GoogleSignInSettings extends Page
 {
+    use ShownInItsPanels;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
 
     protected static string|UnitEnum|null $navigationGroup = 'System';
