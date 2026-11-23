@@ -453,6 +453,19 @@ class PanelsTest extends TestCase
         $this->get('/system')->assertOk()->assertSee('(current panel)', false);
     }
 
+    public function test_the_super_admin_sees_the_planned_apps_as_disabled_tiles_and_nobody_else_does(): void
+    {
+        $this->actingAs($this->owner());
+        $html = $this->get('/owner')->assertOk()->getContent();
+
+        foreach (['HR', 'Payroll', 'Accounting', 'Inventory'] as $app) {
+            $this->assertMatchesRegularExpression('~class="pl-tile pl-soon"[^>]*aria-disabled="true"[^>]*>.*?<span>'.$app.'<span class="pl-sr"> \(coming soon\)~s', $html);
+        }
+        // A tile that is not built yet is not a link
+        $this->assertSame(0, preg_match('~<a[^>]*class="pl-tile pl-soon"~', $html));
+        $this->assertSame(4, substr_count($html, 'class="pl-tag"'));
+    }
+
     public function test_the_launcher_links_to_the_same_page_in_the_other_panel_else_its_home(): void
     {
         $this->actingAs($this->owner());

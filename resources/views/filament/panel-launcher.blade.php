@@ -1,4 +1,4 @@
-{{-- Panel launcher: a grid button in the top bar that opens a card of tiles, one per panel this person can open. Hidden with a single panel. --}}
+{{-- Panel launcher: a grid button in the top bar that opens a card of tiles, one per panel this person can open, plus disabled "Soon" tiles for planned apps (super admin only). Hidden with a single panel. --}}
 @php
     $user = auth()->user();
     $ids = $user instanceof \App\Models\User ? \App\Support\Panels::idsFor($user) : [];
@@ -27,6 +27,9 @@
         .pl-icon svg { width: 1.625rem; height: 1.625rem; }
         .pl-tile:hover .pl-icon, .pl-tile:focus-visible .pl-icon { background: #e7e5e4; }
         .pl-tile[aria-current="true"] .pl-icon { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3d4148; background: #e7e5e4; }
+        .pl-soon { opacity: .55; cursor: not-allowed; }
+        .pl-tag { margin-top: -.125rem; padding: 0 .375rem; border-radius: 999px; background: #e7e5e4; color: #57534e; font-size: .6875rem; line-height: 1.1rem; font-weight: 600; letter-spacing: .02em; }
+        .dark .pl-tag { background: #3a3532; color: #d6d3d1; }
         .pl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
         .dark .pl-btn { color: #d6d3d1; }
         .dark .pl-btn:hover, .dark .pl-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .1); }
@@ -89,6 +92,17 @@
                         </a>
                     </li>
                 @endforeach
+                @if ($user instanceof \App\Models\User && $user->isOwner())
+                    @foreach (config('apps.coming', []) as $app)
+                        <li role="none">
+                            <span class="pl-tile pl-soon" role="menuitem" aria-disabled="true" tabindex="-1">
+                                <span class="pl-icon">{{ \Filament\Support\generate_icon_html(constant(\Filament\Support\Icons\Heroicon::class.'::'.$app['icon'])) }}</span>
+                                <span>{{ $app['label'] }}<span class="pl-sr"> (coming soon)</span></span>
+                                <span class="pl-tag" aria-hidden="true">Soon</span>
+                            </span>
+                        </li>
+                    @endforeach
+                @endif
             </ul>
         </div>
     </div>

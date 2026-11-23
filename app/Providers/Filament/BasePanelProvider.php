@@ -20,6 +20,7 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -112,6 +113,8 @@ abstract class BasePanelProvider extends PanelProvider
             ])
             // Fonts are self-hosted in the theme (@fontsource), not loaded from a CDN
             ->font('Archivo Variable', provider: LocalFontProvider::class)
+            // Pages use the whole width of the window: the default 7xl column left wide empty margins
+            ->maxContentWidth(Width::Full)
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->navigationGroups([
                 NavigationGroup::make('Bookings'),
