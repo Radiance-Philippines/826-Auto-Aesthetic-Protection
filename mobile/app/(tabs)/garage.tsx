@@ -1,16 +1,17 @@
 import { useRouter } from 'expo-router';
-import { Plus } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { CalendarPlus, Plus, ShieldCheck, Star } from 'lucide-react-native';
+import { View } from 'react-native';
 import { api, type CustomerBooking, type SavedVehicle } from '@/api';
 import { VehicleHead } from '@/features/VehicleCard';
 import { useLoad } from '@/hooks/useLoad';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Screen } from '@/ui/Screen';
+import { Enter, PressScale } from '@/ui/motion';
 import { Skeleton } from '@/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/ui/States';
 import { Text } from '@/ui/Text';
-import { c } from '@/theme';
+import { useTheme } from '@/context/theme';
 
 
 type Garage = { vehicles: SavedVehicle[]; bookings: CustomerBooking[] };
@@ -34,6 +35,7 @@ function withLastService(vehicle: SavedVehicle, bookings: CustomerBooking[]): Sa
 }
 
 export default function GarageScreen() {
+    const c = useTheme();
     const router = useRouter();
     const { data, error, loading, reload } = useLoad<Garage>(loadGarage);
 
@@ -48,22 +50,24 @@ export default function GarageScreen() {
                 <ErrorState result={error} onRetry={reload} />
             ) : data ? (
                 <>
-                    {data.vehicles.length === 0 ? <EmptyState title="No units yet" body="A unit you book is kept here for next time." action={{ label: 'Book a service', onPress: () => router.push('/book') }} /> : null}
-                    {data.vehicles.map((raw) => {
+                    {data.vehicles.length === 0 ? <EmptyState title="No units yet" body="A unit you book is kept here for next time." action={{ label: 'Book a service', icon: CalendarPlus, onPress: () => router.push('/book') }} /> : null}
+                    {data.vehicles.map((raw, index) => {
                         const vehicle = withLastService(raw, data.bookings);
                         const reviewable = data.bookings.find((b) => b.vehicle.id === vehicle.id && b.canReview);
 
                         return (
-                            <Card key={vehicle.id} style={{ gap: 14, padding: 16 }}>
-                                <Pressable accessibilityRole="button" accessibilityLabel={`${vehicle.model}, open unit`} onPress={() => router.push(`/vehicle/${vehicle.id}`)}>
-                                    <VehicleHead vehicle={vehicle} />
-                                </Pressable>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                    <Button small label="Book again" onPress={() => router.push({ pathname: '/book', params: { vehicleId: String(vehicle.id) } })} />
-                                    <Button small kind="secondary" label="Warranty" onPress={() => router.push({ pathname: '/warranty', params: { vehicleId: String(vehicle.id) } })} />
-                                    {reviewable ? <Button small kind="link" label="Review" onPress={() => router.push(`/review/${reviewable.id}`)} /> : null}
-                                </View>
-                            </Card>
+                            <Enter key={vehicle.id} index={index}>
+                                <Card style={{ gap: 14, padding: 16 }}>
+                                    <PressScale accessibilityRole="button" accessibilityLabel={`${vehicle.model}, open unit`} onPress={() => router.push(`/vehicle/${vehicle.id}`)}>
+                                        <VehicleHead vehicle={vehicle} />
+                                    </PressScale>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                        <Button small icon={CalendarPlus} label="Book again" onPress={() => router.push({ pathname: '/book', params: { vehicleId: String(vehicle.id) } })} />
+                                        <Button small kind="secondary" icon={ShieldCheck} label="Warranty" onPress={() => router.push({ pathname: '/warranty', params: { vehicleId: String(vehicle.id) } })} />
+                                        {reviewable ? <Button small kind="link" icon={Star} label="Review" onPress={() => router.push(`/review/${reviewable.id}`)} /> : null}
+                                    </View>
+                                </Card>
+                            </Enter>
                         );
                     })}
                     <Card style={{ gap: 10 }}>
@@ -72,7 +76,7 @@ export default function GarageScreen() {
                             <Text weight="bold">Add a unit</Text>
                         </View>
                         <Text v="small">A new unit is saved when you book it: add its year, model, type and plate in the booking.</Text>
-                        <Button kind="secondary" label="Book with a new unit" onPress={() => router.push('/book')} />
+                        <Button kind="secondary" icon={Plus} label="Book with a new unit" onPress={() => router.push('/book')} />
                     </Card>
                 </>
             ) : null}

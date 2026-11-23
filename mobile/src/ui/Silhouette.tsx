@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
-import { c, radius } from '@/theme';
+import { radius } from '@/theme';
+import { useTheme } from '@/context/theme';
 
 // Side profiles from resources/js/components/VehicleSilhouette.tsx, one colour with the glass and wheel faces let through.
 type Kind = 'motorcycle' | 'small' | 'sedan' | 'suv' | 'pickup';
@@ -31,37 +32,36 @@ const SHAPES: Record<Exclude<Kind, 'motorcycle'>, Shape> = {
     },
 };
 
-const BODY = '#9AA3A7';
-const CUT = '#1D2024';
-
 /** A unit of a given type drawn in a tile. It is a drawing of the type, never the customer's own car. */
 export function Silhouette({ type, width = 96, height = 56 }: { type: string | null | undefined; width?: number; height?: number }) {
+    const c = useTheme();
+    const { body, cut } = c.car;
     const kind = (type && TYPE_KIND[type]) || 'sedan';
 
     return (
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width, height, borderRadius: radius.md, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             <Svg width={width - 6} height={(width - 6) * (90 / 240)} viewBox="0 0 240 90">
-                <Ellipse cx="120" cy="85.5" rx="104" ry="2.6" fill="rgba(0,0,0,0.5)" />
+                <Ellipse cx="120" cy="85.5" rx="104" ry="2.6" fill={c.car.shadow} />
                 {kind === 'motorcycle' ? (
                     <G>
-                        <Path d="M76,60 L101,57 C104,50 111,45.5 120,44.5 L139,44 C145,44 149,46.4 151,50 L157,55.6 L163,50.5 L170,50.5 L167,58 L150,61.5 L113,64.5 Z" fill={BODY} />
-                        <Path d="M160,52 L171,70" stroke={BODY} strokeWidth={4} strokeLinecap="round" fill="none" />
-                        <Path d="M86,66.5 L120,66" stroke={BODY} strokeWidth={4} strokeLinecap="round" fill="none" />
+                        <Path d="M76,60 L101,57 C104,50 111,45.5 120,44.5 L139,44 C145,44 149,46.4 151,50 L157,55.6 L163,50.5 L170,50.5 L167,58 L150,61.5 L113,64.5 Z" fill={body} />
+                        <Path d="M160,52 L171,70" stroke={body} strokeWidth={4} strokeLinecap="round" fill="none" />
+                        <Path d="M86,66.5 L120,66" stroke={body} strokeWidth={4} strokeLinecap="round" fill="none" />
                         {[72, 170].map((cx) => (
-                            <Circle key={cx} cx={cx} cy={70} r={14} stroke={BODY} strokeWidth={5} fill="none" />
+                            <Circle key={cx} cx={cx} cy={70} r={14} stroke={body} strokeWidth={5} fill="none" />
                         ))}
                     </G>
                 ) : (
                     <G>
-                        <Path d={SHAPES[kind].body} fill={BODY} />
+                        <Path d={SHAPES[kind].body} fill={body} />
                         {SHAPES[kind].glass.map((d) => (
-                            <Path key={d} d={d} fill={CUT} />
+                            <Path key={d} d={d} fill={cut} />
                         ))}
                         {SHAPES[kind].wheels.map((w) => (
                             <G key={w.cx}>
-                                <Circle cx={w.cx} cy={w.cy} r={w.r} fill={BODY} />
-                                <Circle cx={w.cx} cy={w.cy} r={w.r * 0.62} fill={CUT} />
-                                <Circle cx={w.cx} cy={w.cy} r={w.r * 0.2} fill={BODY} />
+                                <Circle cx={w.cx} cy={w.cy} r={w.r} fill={body} />
+                                <Circle cx={w.cx} cy={w.cy} r={w.r * 0.62} fill={cut} />
+                                <Circle cx={w.cx} cy={w.cy} r={w.r * 0.2} fill={body} />
                             </G>
                         ))}
                     </G>

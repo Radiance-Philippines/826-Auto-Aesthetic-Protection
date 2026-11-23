@@ -1,9 +1,11 @@
 import { View } from 'react-native';
-import { c, radius, type Tone } from '@/theme';
+import { radius, type Tone } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Text } from './Text';
 
 /** A status chip: a dot and a word on a faint tint (design system DS3) */
 export function Chip({ label, tone = 'neutral', dot = true }: { label: string; tone?: Tone; dot?: boolean }) {
+    const c = useTheme();
     const t = c.tone[tone];
 
     return (

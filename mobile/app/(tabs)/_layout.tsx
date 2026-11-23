@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { CalendarDays, CircleUser, Gift, House, Truck } from 'lucide-react-native';
-import { c, fonts } from '@/theme';
+import { fonts } from '@/theme';
+import { useTheme } from '@/context/theme';
 
 const icon = (Icon: typeof House) =>
     function TabIcon({ color }: { color: unknown }) {
@@ -9,6 +10,7 @@ const icon = (Icon: typeof House) =>
 
 /** Exactly five tabs, each with an icon and a label (the design's bar) */
 export default function TabsLayout() {
+    const c = useTheme();
     return (
         <Tabs
             screenOptions={{

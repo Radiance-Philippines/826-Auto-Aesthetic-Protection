@@ -84,6 +84,19 @@ class DemoDataTest extends TestCase
         $this->assertSame(['awarded', 'pending'], $demoCustomer->referralRedemptions->map->status()->sort()->values()->all());
         $this->assertSame(100, $demoCustomer->pointsBalance());
         $exited = $demoCustomer->bookings->firstWhere('status', 'exited');
+        // Booked, then arrived in working hours (never a bare date at midnight), then picked up
+        foreach ($demoCustomer->bookings->whereNotNull('arrived_at') as $visit) {
+            $this->assertTrue($visit->created_at->lessThan($visit->arrived_at), 'booked before arriving');
+            $this->assertNotSame('00:00', $visit->arrived_at->format('H:i'));
+            $this->assertGreaterThanOrEqual(8, $visit->arrived_at->hour);
+            $this->assertLessThan(18, $visit->arrived_at->hour);
+            $this->assertTrue($visit->arrived_at->lessThanOrEqualTo(now()));
+            $this->assertTrue($visit->exited_at === null || $visit->arrived_at->lessThan($visit->exited_at));
+        }
+        $this->assertCount(2, $demoCustomer->bookings->whereNotNull('arrived_at'));
+        $sent = $exited->toCustomer();
+        $this->assertSame('09:40', CarbonImmutable::parse($sent['arrivedAt'])->format('H:i'));
+        $this->assertLessThan(strtotime($sent['arrivedAt']), strtotime($sent['createdAt']));
         $this->assertSame('active', Warranty::status($exited, $exited->items->first()));
 
         // Running it again leaves one demo customer, not two

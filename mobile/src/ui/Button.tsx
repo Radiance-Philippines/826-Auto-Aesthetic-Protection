@@ -1,22 +1,25 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { c, radius, target } from '@/theme';
+import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useTheme } from '@/context/theme';
+import { radius, target, type Palette } from '@/theme';
+import { PressScale } from './motion';
 import { Text } from './Text';
 
 type Kind = 'primary' | 'secondary' | 'danger' | 'link';
 
-const KIND: Record<Kind, { bg: string; fg: string; border: string }> = {
+const kinds = (c: Palette): Record<Kind, { bg: string; fg: string; border: string }> => ({
     primary: { bg: c.accent, fg: c.onAccent, border: c.accent },
-    secondary: { bg: c.surface2, fg: c.text, border: 'rgba(238,240,241,0.18)' },
-    danger: { bg: 'rgba(255,158,146,0.12)', fg: c.danger, border: 'rgba(255,158,146,0.18)' },
+    secondary: { bg: c.surface2, fg: c.text, border: c.outline },
+    danger: { bg: c.dangerSoft, fg: c.danger, border: c.dangerLine },
     link: { bg: 'transparent', fg: c.link, border: 'transparent' },
-};
+});
 
 type Props = {
     label: string;
     onPress: () => void;
+    /** Every button leads with an icon (house rule), so this is not optional */
+    icon: LucideIcon;
     kind?: Kind;
-    icon?: LucideIcon;
     loading?: boolean;
     disabled?: boolean;
     small?: boolean;
@@ -25,27 +28,27 @@ type Props = {
     testID?: string;
 };
 
-export function Button({ label, onPress, kind = 'primary', icon: Icon, loading, disabled, small, style, accessibilityLabel, testID }: Props) {
-    const k = KIND[kind];
+export function Button({ label, onPress, icon: Icon, kind = 'primary', loading, disabled, small, style, accessibilityLabel, testID }: Props) {
+    const k = kinds(useTheme())[kind];
     const off = disabled || loading;
 
     return (
-        <Pressable
+        <PressScale
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? label}
             accessibilityState={{ disabled: !!off, busy: !!loading }}
             testID={testID}
             disabled={off}
             onPress={onPress}
-            style={({ pressed }) => [styles.base, small ? styles.small : null, { backgroundColor: k.bg, borderColor: k.border, opacity: off ? 0.5 : pressed ? 0.85 : 1 }, kind === 'link' ? styles.link : null, style]}
+            style={[styles.base, small ? styles.small : null, { backgroundColor: k.bg, borderColor: k.border }, off ? { opacity: 0.5 } : null, kind === 'link' ? styles.link : null, style]}
         >
-            {loading ? <ActivityIndicator color={k.fg} size="small" /> : Icon ? <Icon size={small ? 16 : 18} color={k.fg} strokeWidth={2.2} /> : null}
+            {loading ? <ActivityIndicator color={k.fg} size="small" /> : <Icon size={small ? 16 : 18} color={k.fg} strokeWidth={2.2} />}
             <View style={{ flexShrink: 1 }}>
                 <Text weight="semi" color={k.fg} style={{ fontSize: small ? 14 : 16, textAlign: 'center' }}>
                     {label}
                 </Text>
             </View>
-        </Pressable>
+        </PressScale>
     );
 }
 

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Home, MapPin, Plus } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, CalendarCheck, FileText, Home, MapPin, Pencil, Plus, RotateCcw } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { api, problemText, type Branch, type MonthAvailability, type SavedVehicle } from '@/api';
@@ -8,7 +8,7 @@ import { useCatalog } from '@/context/catalog';
 import { longDate } from '@/lib/dates';
 import { unitName, unitSub } from '@/lib/unit';
 import { daysLabel, emptyDraft, emptyUnit, readyOn, reservationInput, servicesAt, STEP_TITLES, STEPS, validateStep, type Draft, type Errors, type Step } from '@/lib/wizard';
-import { c } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Calendar } from '@/ui/Calendar';
 import { Card } from '@/ui/Card';
@@ -26,6 +26,7 @@ import { Chip } from '@/ui/Chip';
 const FIELD_STEP: Record<string, Step> = { branch: 'branch', vehicle_id: 'unit', vehicle_year: 'unit', vehicle_model: 'unit', vehicle_type: 'unit', plate_number: 'unit', services: 'services', date: 'date' };
 
 export function BookWizard() {
+    const c = useTheme();
     const router = useRouter();
     const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
     const { guest } = useAuth();
@@ -149,6 +150,7 @@ export function BookWizard() {
                     <Text v="title">That would be booked</Text>
                     <Text color={c.muted}>On the live site, your date would now be reserved{demoDone ? ` (${demoDone.charAt(0).toLowerCase()}${demoDone.slice(1)})` : ''} and you’d land on your booking page. This demo saves nothing.</Text>
                     <Button
+                        icon={RotateCcw}
                         label="Start over"
                         onPress={() => {
                             setDemoDone(null);
@@ -168,8 +170,8 @@ export function BookWizard() {
 
     const footer = (
         <View style={{ flexDirection: 'row', gap: 12 }}>
-            {at > 0 ? <Button label="Back" kind="secondary" onPress={() => go(STEPS[at - 1])} style={{ flex: 1 }} /> : null}
-            {step === 'review' ? <Button label="Reserve this date" loading={sending} onPress={submit} style={{ flex: 2 }} testID="reserve" /> : <Button label="Continue" onPress={next} style={{ flex: 2 }} testID="continue" />}
+            {at > 0 ? <Button icon={ArrowLeft} label="Back" kind="secondary" onPress={() => go(STEPS[at - 1])} style={{ flex: 1 }} /> : null}
+            {step === 'review' ? <Button icon={CalendarCheck} label="Reserve this date" loading={sending} onPress={submit} style={{ flex: 2 }} testID="reserve" /> : <Button icon={ArrowRight} label="Continue" onPress={next} style={{ flex: 2 }} testID="continue" />}
         </View>
     );
 
@@ -284,7 +286,7 @@ export function BookWizard() {
                         testID="consent"
                     />
                     <FormError>{errors.consent}</FormError>
-                    {catalog.booking.policy ? <Button kind="link" label="Booking policy" onPress={() => setPolicyOpen(true)} /> : null}
+                    {catalog.booking.policy ? <Button kind="link" icon={FileText} label="Booking policy" onPress={() => setPolicyOpen(true)} /> : null}
                     <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)} title="Booking policy">
                         <Text>{catalog.booking.policy}</Text>
                     </Sheet>
@@ -320,7 +322,7 @@ function Row({ label, value, onChange }: { label: string; value: string; onChang
                 <Text v="label">{label}</Text>
                 <Text>{value}</Text>
             </View>
-            <Button small kind="link" label="Change" accessibilityLabel={`Change ${label}`} onPress={onChange} />
+            <Button small kind="link" icon={Pencil} label="Change" accessibilityLabel={`Change ${label}`} onPress={onChange} />
         </View>
     );
 }

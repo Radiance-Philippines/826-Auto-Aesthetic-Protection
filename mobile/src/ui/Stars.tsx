@@ -1,9 +1,11 @@
 import { Star } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
-import { c, target } from '@/theme';
+import { target } from '@/theme';
+import { useTheme } from '@/context/theme';
 
 /** A 1 to 5 star picker (or a read-only row when `onChange` is left out) */
 export function Stars({ value, onChange, size = 36 }: { value: number; onChange?: (value: number) => void; size?: number }) {
+    const c = useTheme();
     return (
         <View accessibilityRole={onChange ? 'radiogroup' : 'image'} accessibilityLabel={`${value} out of 5`} style={{ flexDirection: 'row', gap: 4 }}>
             {[1, 2, 3, 4, 5].map((n) => {

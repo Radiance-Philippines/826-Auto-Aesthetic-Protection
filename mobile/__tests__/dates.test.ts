@@ -1,4 +1,4 @@
-import { addMonths, dayMonthYear, longDate, manilaToday, minutesUntil, monthTitle, shortDate, stamp } from '@/lib/dates';
+import { addMonths, dayMonthYear, longDate, manilaToday, minutesUntil, moment, monthTitle, shortDate, stamp, stampOrDate } from '@/lib/dates';
 import { readyOn } from '@/lib/wizard';
 import type { MonthAvailability } from '@/api';
 
@@ -22,6 +22,16 @@ describe('dates', () => {
         expect(stamp('2026-11-21T00:05:00+08:00')).toBe('Sat, 21 Nov, 12:05 AM');
         expect(stamp(null)).toBeNull();
         expect(stamp('nonsense')).toBeNull();
+    });
+
+    it('tells a real time from a bare date stored as midnight', () => {
+        expect(moment('2026-11-22T00:00:00+08:00')).toMatchObject({ day: '2026-11-22', clock: false });
+        expect(moment('2026-11-21T16:00:00Z')).toMatchObject({ day: '2026-11-22', clock: false });
+        expect(moment('2026-11-22T12:00:00+08:00')).toMatchObject({ day: '2026-11-22', clock: true });
+        expect(stampOrDate('2026-11-22T00:00:00+08:00')).toBe('Sun, 22 Nov');
+        expect(stampOrDate('2026-11-22T12:00:00+08:00')).toBe('Sun, 22 Nov, 12:00 PM');
+        expect(stampOrDate(null)).toBeNull();
+        expect(moment('nonsense')).toBeNull();
     });
 
     it('counts minutes left on a hold', () => {

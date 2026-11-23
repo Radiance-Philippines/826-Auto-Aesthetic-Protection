@@ -51,9 +51,9 @@ describe('booking wizard rules (same as the site and server)', () => {
 });
 
 describe('small helpers', () => {
-    it('words the referral share with the code only, no link', () => {
-        expect(referralMessage('MIGUEL-826', '₱500 off')).toContain('MIGUEL-826');
-        expect(referralMessage('MIGUEL-826', '₱500 off')).not.toMatch(/https?:/);
+    it('words the referral share with the code and the site link', () => {
+        expect(referralMessage('MIGUEL-826', '₱500 off', 'https://dran.dev/demo/826')).toContain('MIGUEL-826');
+        expect(referralMessage('MIGUEL-826', '₱500 off', 'https://dran.dev/demo/826')).toContain('\nhttps://dran.dev/demo/826/r/MIGUEL-826');
         expect(referralMessage('MIGUEL-826', null)).not.toContain('null');
     });
 

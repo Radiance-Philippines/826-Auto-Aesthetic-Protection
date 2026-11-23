@@ -433,11 +433,20 @@ class DemoData extends Command
             'size_reviewed_at' => $size ? now() : null,
         ]))->values();
 
+        // The shop is closed on some days: a unit only arrives on an open one
+        $openDay = function (CarbonImmutable $date) use ($branch): CarbonImmutable {
+            while (! $branch->opensOn($date)) {
+                $date = $date->subDay();
+            }
+
+            return $date;
+        };
+
         // status, service, drop-off, exited, unit
         $jobs = [
-            ['in_progress', 'graphene-coating', $dropOff(0)->subDay(), null, 0],
+            ['in_progress', 'graphene-coating', $openDay($dropOff(0)->subDay()), null, 0],
             ['confirmed', 'exterior-detailing', $dropOff(2), null, 1],
-            ['exited', 'graphene-coating', $dropOff(0)->subDays(7), today()->toImmutable()->subDays(4)->setTime(12, 0), 1],
+            ['exited', 'graphene-coating', $openDay($dropOff(0)->subDays(7)), today()->toImmutable()->subDays(4)->setTime(12, 0), 1],
         ];
 
         foreach ($jobs as [$status, $slug, $day, $exited, $unit]) {
@@ -450,7 +459,9 @@ class DemoData extends Command
             $vehicle = $vehicles[$unit];
             $price = (int) ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $size->id)->value('price');
 
-            $booking = Booking::create([
+            // Booked a few days before the drop-off; arrives in working hours, after it was booked
+            $booking = Booking::unguarded(fn () => Booking::create([
+                ...($status === 'confirmed' ? [] : ['created_at' => $this->bookedAt($day)]),
                 'kind' => 'onsite',
                 'source' => self::SOURCE,
                 'status' => $status,
@@ -472,9 +483,9 @@ class DemoData extends Command
                 'phone' => $customer->phone,
                 'email' => $customer->email,
                 'total_days' => (int) $service->estimate_days,
-                'arrived_at' => $status === 'confirmed' ? null : $day,
+                'arrived_at' => $status === 'confirmed' ? null : $this->arrivedAt($day),
                 'exited_at' => $exited,
-            ]);
+            ]));
             $booking->items()->create(['service_id' => $service->id, 'service_name' => $service->name, 'category_name' => $service->category?->name, 'price' => $price, 'duration_days' => (int) $service->estimate_days, 'warranty_months' => $service->warranty_months]);
         }
 
@@ -487,6 +498,18 @@ class DemoData extends Command
                 Referrals::syncStatus($booking);
             }
         }
+    }
+
+    /** A unit arrives at 9:40 in the morning of its drop-off day (never a bare date at midnight) */
+    private function arrivedAt(CarbonImmutable $day): CarbonImmutable
+    {
+        return $day->setTime(9, 40);
+    }
+
+    /** The booking was made three days before the drop-off, in the afternoon */
+    private function bookedAt(CarbonImmutable $day): CarbonImmutable
+    {
+        return $day->subDays(3)->setTime(14, 25);
     }
 
     /**
@@ -524,7 +547,8 @@ class DemoData extends Command
         $price = (int) ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $size->id)->value('price');
         $exited = today()->toImmutable()->subDays(10)->setTime(12, 0);
 
-        $booking = Booking::create([
+        $booking = Booking::unguarded(fn () => Booking::create([
+            'created_at' => $this->bookedAt($exited->subDays(2)),
             'kind' => 'onsite',
             'source' => self::SOURCE,
             'status' => 'exited',
@@ -545,9 +569,9 @@ class DemoData extends Command
             'name' => $customer->name,
             'phone' => $customer->phone,
             'total_days' => (int) $service->estimate_days,
-            'arrived_at' => $exited->subDays(2),
+            'arrived_at' => $this->arrivedAt($exited->subDays(2)),
             'exited_at' => $exited,
-        ]);
+        ]));
         $booking->items()->create(['service_id' => $service->id, 'service_name' => $service->name, 'category_name' => $service->category?->name, 'price' => $price, 'duration_days' => (int) $service->estimate_days, 'warranty_months' => $service->warranty_months]);
         $this->sampleBackjob($booking);
     }

@@ -1,10 +1,11 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { api, type DayState, type MonthAvailability } from '@/api';
 import type { JobQuery } from '@/api/endpoints';
 import { addMonths, daysInMonth, manilaToday, monthKey, monthStart, monthTitle, pad, parseDate } from '@/lib/dates';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from './Button';
 import { Text } from './Text';
 
@@ -36,6 +37,7 @@ function rangeMonth(month: string, { first, last }: { first: string; last: strin
 
 /** The days of a month with room (open), fully booked, or closed, from GET /api/availability. Like the site's calendar. */
 export function Calendar({ job, range, value, onPick, onMonths }: Props) {
+    const c = useTheme();
     const [month, setMonth] = useState(() => (value ?? manilaToday()).slice(0, 7));
     const [months, setMonths] = useState<Record<string, MonthAvailability>>({});
     const [state, setState] = useState<'loading' | 'ready' | 'failed'>(range ? 'ready' : 'loading');
@@ -107,7 +109,7 @@ export function Calendar({ job, range, value, onPick, onMonths }: Props) {
             {state === 'failed' ? (
                 <View style={{ alignItems: 'center', gap: 10, paddingVertical: 18 }}>
                     <Text color={c.muted}>We couldn’t load the open days.</Text>
-                    <Button label="Try again" kind="secondary" onPress={() => load(month)} />
+                    <Button icon={RefreshCw} label="Try again" kind="secondary" onPress={() => load(month)} />
                 </View>
             ) : (
                 <View style={{ minHeight: 6 * 52 + 20 }}>
@@ -137,7 +139,7 @@ export function Calendar({ job, range, value, onPick, onMonths }: Props) {
                                         accessibilityState={{ disabled: !pickable, selected: picked }}
                                         disabled={!pickable}
                                         onPress={() => onPick(day)}
-                                        style={{ minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: picked ? c.accent : pickable ? c.line : 'transparent', backgroundColor: picked ? 'rgba(42,211,203,0.16)' : pickable ? c.surface : 'transparent' }}
+                                        style={{ minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: picked ? c.accent : pickable ? c.line : 'transparent', backgroundColor: picked ? c.accentSoft : pickable ? c.surface : 'transparent' }}
                                     >
                                         <Text weight="semi" color={pickable ? c.text : c.field} style={{ fontSize: 16 }}>
                                             {number}

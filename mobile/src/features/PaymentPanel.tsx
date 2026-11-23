@@ -7,7 +7,8 @@ import { api, problemText, type CustomerBooking, type PaymentMethodKey, type Upl
 import { minutesUntil } from '@/lib/dates';
 import { peso } from '@/lib/money';
 import { pickPhoto } from '@/lib/photo';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { FormError } from '@/ui/States';
@@ -19,6 +20,7 @@ import { Text } from '@/ui/Text';
  * checks it and confirms the date.
  */
 export function PaymentPanel({ booking, onUpdated }: { booking: CustomerBooking; onUpdated: (booking: CustomerBooking) => void }) {
+    const c = useTheme();
     const [method, setMethod] = useState<PaymentMethodKey | null>(booking.methods[0]?.key ?? null);
     const [file, setFile] = useState<UploadFile | null>(null);
     const [busy, setBusy] = useState(false);
@@ -72,7 +74,7 @@ export function PaymentPanel({ booking, onUpdated }: { booking: CustomerBooking;
         <Card style={{ gap: 14 }}>
             <Text v="title">How to pay</Text>
             {booking.payment.rejectedReason ? (
-                <View style={{ backgroundColor: 'rgba(255,158,146,0.12)', borderRadius: radius.md, padding: 12, gap: 4 }}>
+                <View style={{ backgroundColor: c.dangerSoft, borderRadius: radius.md, padding: 12, gap: 4 }}>
                     <Text weight="bold" color={c.danger}>
                         Your last screenshot was turned down
                     </Text>
@@ -99,7 +101,7 @@ export function PaymentPanel({ booking, onUpdated }: { booking: CustomerBooking;
                 <>
                     <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 8 }}>
                         {booking.methods.map((m) => (
-                            <Pressable key={m.key} accessibilityRole="radio" accessibilityState={{ selected: method === m.key }} onPress={() => setMethod(m.key)} style={{ flex: 1, minHeight: target, borderRadius: radius.md, borderWidth: 1, borderColor: method === m.key ? c.accent : c.line, backgroundColor: method === m.key ? 'rgba(42,211,203,0.12)' : c.surface2, alignItems: 'center', justifyContent: 'center' }}>
+                            <Pressable key={m.key} accessibilityRole="radio" accessibilityState={{ selected: method === m.key }} onPress={() => setMethod(m.key)} style={{ flex: 1, minHeight: target, borderRadius: radius.md, borderWidth: 1, borderColor: method === m.key ? c.accent : c.line, backgroundColor: method === m.key ? c.accentSoft : c.surface2, alignItems: 'center', justifyContent: 'center' }}>
                                 <Text weight="semi" color={method === m.key ? c.accent : c.text}>
                                     {m.label}
                                 </Text>

@@ -5,7 +5,8 @@ import { Pressable, View } from 'react-native';
 import { api, type WarrantyService, type WarrantyUnit } from '@/api';
 import { useLoad } from '@/hooks/useLoad';
 import { dayMonthYear } from '@/lib/dates';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { Screen } from '@/ui/Screen';
@@ -17,6 +18,7 @@ import { Text } from '@/ui/Text';
 const normalise = (data: WarrantyUnit[] | { units: WarrantyUnit[] }): WarrantyUnit[] => (Array.isArray(data) ? data : (data.units ?? []));
 
 function ServiceCard({ service }: { service: WarrantyService }) {
+    const c = useTheme();
     const active = service.status === 'active';
 
     return (
@@ -55,6 +57,7 @@ function ServiceCard({ service }: { service: WarrantyService }) {
 
 /** C5: what is covered on each unit, built by the server from finished jobs. Nothing here is guessed. */
 export default function WarrantyScreen() {
+    const c = useTheme();
     const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
     const { data, error, loading, reload } = useLoad<WarrantyUnit[], WarrantyUnit[] | { units: WarrantyUnit[] }>(() => api.warranty(), normalise);
     // A unit without a saved record has no id: units are told apart by their place in the list

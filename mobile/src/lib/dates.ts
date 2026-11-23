@@ -71,8 +71,14 @@ export const monthYear = (iso: string) => monthTitle(iso.slice(0, 7));
 /** Short day name of an ISO date: "Mon" */
 export const dayName = (iso: string) => DAYS[parseDate(iso).getDay()];
 
-/** A server timestamp as "Sat, 21 Nov, 9:12 AM" in Manila time; null when missing or unreadable */
-export function stamp(value: string | null | undefined): string | null {
+/**
+ * A server timestamp read in Manila time: when it is (`ms`), which day (`day`), and whether it carries a real time
+ * (`clock`). A value at exactly 00:00:00 is a date that was stored without a time, so it has no clock.
+ * Null when missing or unreadable.
+ */
+export type Moment = { ms: number; day: string; clock: boolean; hours: number; minutes: number };
+
+export function moment(value: string | null | undefined): Moment | null {
     if (!value) {
         return null;
     }
@@ -84,9 +90,30 @@ export function stamp(value: string | null | undefined): string | null {
     }
 
     const m = new Date(ms + MANILA_OFFSET_MS);
-    const hours = m.getUTCHours();
 
-    return `${DAYS[m.getUTCDay()]}, ${m.getUTCDate()} ${MONTHS[m.getUTCMonth()]}, ${hours % 12 || 12}:${pad(m.getUTCMinutes())} ${hours < 12 ? 'AM' : 'PM'}`;
+    return {
+        ms,
+        day: `${m.getUTCFullYear()}-${pad(m.getUTCMonth() + 1)}-${pad(m.getUTCDate())}`,
+        clock: m.getUTCHours() + m.getUTCMinutes() + m.getUTCSeconds() > 0,
+        hours: m.getUTCHours(),
+        minutes: m.getUTCMinutes(),
+    };
+}
+
+const clockText = (m: Moment) => `${m.hours % 12 || 12}:${pad(m.minutes)} ${m.hours < 12 ? 'AM' : 'PM'}`;
+
+/** A server timestamp as "Sat, 21 Nov, 9:12 AM" in Manila time; null when missing or unreadable */
+export function stamp(value: string | null | undefined): string | null {
+    const m = moment(value);
+
+    return m ? `${shortDate(m.day)}, ${clockText(m)}` : null;
+}
+
+/** Like `stamp`, but a value with no real time (stored as a bare date) shows just the date: "Sat, 21 Nov" */
+export function stampOrDate(value: string | null | undefined): string | null {
+    const m = moment(value);
+
+    return m ? (m.clock ? `${shortDate(m.day)}, ${clockText(m)}` : shortDate(m.day)) : null;
 }
 
 /** Whole minutes from `now` until a server timestamp; 0 when it has passed or is unreadable */

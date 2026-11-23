@@ -1,7 +1,8 @@
 import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Sheet } from './Sheet';
 import { Text } from './Text';
 
@@ -9,6 +10,7 @@ type Option = { value: string; label: string };
 
 /** A field that opens a sheet of choices: the design's custom select, never the native one */
 export function Select({ label, value, options, onChange, placeholder, error }: { label: string; value: string; options: Option[]; onChange: (value: string) => void; placeholder: string; error?: string | null }) {
+    const c = useTheme();
     const [open, setOpen] = useState(false);
     const current = options.find((option) => option.value === value);
 

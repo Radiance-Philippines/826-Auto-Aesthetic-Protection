@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Download, LogOut, Trash2, UserRound } from 'lucide-react-native';
+import { Check, Download, FileText, LogOut, Save, Trash2, Undo2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { api, problemText, type AppRelease } from '@/api';
@@ -9,7 +9,7 @@ import { useAuth } from '@/context/auth';
 import { useCatalog } from '@/context/catalog';
 import { DEMO } from '@/lib/config';
 import { phoneOk } from '@/lib/wizard';
-import { c } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Field } from '@/ui/Field';
@@ -19,6 +19,7 @@ import { FormError } from '@/ui/States';
 import { Text } from '@/ui/Text';
 
 export default function MeScreen() {
+    const c = useTheme();
     const { guest, setGuest, signOut, forget } = useAuth();
     const { catalog } = useCatalog();
     const [name, setName] = useState(guest?.name ?? '');
@@ -108,7 +109,7 @@ export default function MeScreen() {
                 <Field label="Name" value={name} onChangeText={setName} autoCapitalize="words" error={errors.name} />
                 <Field label="Mobile number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="0917 123 4567" error={errors.phone} />
                 <FormError>{errors.form}</FormError>
-                <Button label={saved ? 'Saved' : 'Save'} loading={saving} onPress={save} />
+                <Button icon={saved ? Check : Save} label={saved ? 'Saved' : 'Save'} loading={saving} onPress={save} />
             </Card>
 
             {release ? (
@@ -119,7 +120,7 @@ export default function MeScreen() {
                 </Card>
             ) : null}
 
-            {catalog?.booking.policy ? <Button kind="secondary" label="Booking policy" onPress={() => setPolicy(true)} /> : null}
+            {catalog?.booking.policy ? <Button kind="secondary" icon={FileText} label="Booking policy" onPress={() => setPolicy(true)} /> : null}
             <Sheet open={policy} onClose={() => setPolicy(false)} title="Booking policy">
                 <Text>{catalog?.booking.policy}</Text>
             </Sheet>
@@ -135,7 +136,7 @@ export default function MeScreen() {
                 <Text color={c.muted}>This removes your name, email, number, referral code and sign-in from 826. Your past bookings stay with the shop for its records, but no longer carry your name. This can’t be undone.</Text>
                 <FormError>{deleteProblem}</FormError>
                 <Button kind="danger" icon={Trash2} label="Yes, delete my account" loading={deleteBusy} onPress={deleteAccount} testID="confirm-delete" />
-                <Button kind="secondary" label="Keep my account" onPress={() => setDeleting(false)} />
+                <Button kind="secondary" icon={Undo2} label="Keep my account" onPress={() => setDeleting(false)} />
             </Sheet>
         </Screen>
     );

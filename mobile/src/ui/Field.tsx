@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { TextInput, View, type TextInputProps } from 'react-native';
-import { c, fonts, radius, target } from '@/theme';
+import { fonts, radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Text } from './Text';
 
 type Props = Omit<TextInputProps, 'style'> & {
@@ -14,6 +15,7 @@ type Props = Omit<TextInputProps, 'style'> & {
 
 /** A labelled text field with its error beneath it. Fields stay 48dp tall. */
 export function Field({ label, error, hint, icon: Icon, optional, multiline, ...rest }: Props) {
+    const c = useTheme();
     return (
         <View style={{ gap: 6 }}>
             <Text weight="semi" style={{ fontSize: 14 }} color={c.muted}>
@@ -26,6 +28,7 @@ export function Field({ label, error, hint, icon: Icon, optional, multiline, ...
                     accessibilityLabel={label}
                     placeholderTextColor={c.field}
                     selectionColor={c.accent}
+                    keyboardAppearance={c.scheme}
                     multiline={multiline}
                     textAlignVertical={multiline ? 'top' : 'center'}
                     {...rest}

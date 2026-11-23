@@ -1,6 +1,6 @@
 import type { CustomerBooking, Stage } from '@/api/types';
 import type { Tone } from '@/theme';
-import { stamp, shortDate } from './dates';
+import { moment, shortDate, stampOrDate, type Moment } from './dates';
 
 /** The site's words for each stage (resources/js/lib/copy.ts `stages`) */
 export const STAGES: Record<Stage, { label: string; body: string; tone: Tone }> = {
@@ -40,10 +40,15 @@ export type TimelineRow = { key: string; label: string; detail: string | null; s
 const FLOW: Stage[] = ['confirmed', 'arrived', 'in_progress', 'quality_check', 'ready', 'exited'];
 const EARLY: Stage[] = ['requested', 'awaiting_payment', 'payment_review'];
 
+/** A step is not earlier than the one before it: a time against a time, a bare date against the day */
+const notBefore = (at: Moment, before: Moment | null) => !before || (at.clock && before.clock ? at.ms >= before.ms : at.day >= before.day);
+
 /**
  * The booking's line (C3): Booked, Arrived, In progress, Quality check, Ready,
- * Picked up. Only times the server sent are shown; nothing is guessed.
- * Cancelled, expired and the like have no line.
+ * Picked up. Only times the server sent are shown; nothing is guessed. A
+ * time shows its clock only when the stored value has one (a bare date shows
+ * just the day), and a step that would read earlier than the one before it
+ * shows no time at all. Cancelled, expired and the like have no line.
  */
 export function timeline(booking: Pick<CustomerBooking, 'stage' | 'arrivedAt' | 'exitedAt' | 'readyOn' | 'createdAt'>): TimelineRow[] {
     const now = EARLY.includes(booking.stage) ? 0 : FLOW.indexOf(booking.stage);
@@ -52,13 +57,31 @@ export function timeline(booking: Pick<CustomerBooking, 'stage' | 'arrivedAt' | 
         return [];
     }
 
+    // The latest time shown so far: each stamped step must not come before it
+    let last: Moment | null = moment(booking.createdAt);
+    const inOrder = (value: string | null | undefined): string | null => {
+        const at = moment(value);
+
+        if (!at || !notBefore(at, last)) {
+            return null;
+        }
+
+        last = at;
+
+        return stampOrDate(value);
+    };
+    const booked = stampOrDate(booking.createdAt);
+    const arrived = inOrder(booking.arrivedAt);
+    const ready = booking.readyOn && notBefore({ ms: 0, day: booking.readyOn, clock: false, hours: 0, minutes: 0 }, last) ? `${shortDate(booking.readyOn)} (estimate)` : null;
+    const exited = inOrder(booking.exitedAt);
+
     const rows: { key: string; label: string; detail: string | null; current: string | null; next: string }[] = [
-        { key: 'booked', label: 'Booked', detail: stamp(booking.createdAt), current: null, next: '' },
-        { key: 'arrived', label: 'Arrived', detail: stamp(booking.arrivedAt), current: null, next: 'After you drop it off' },
+        { key: 'booked', label: 'Booked', detail: booked, current: null, next: '' },
+        { key: 'arrived', label: 'Arrived', detail: arrived, current: null, next: 'After you drop it off' },
         { key: 'in_progress', label: 'In progress', detail: null, current: 'Now · the team is working on it', next: 'Next' },
         { key: 'quality_check', label: 'Quality check', detail: null, current: 'Now · being checked', next: 'Next' },
-        { key: 'ready', label: 'Ready', detail: booking.readyOn ? `${shortDate(booking.readyOn)} (estimate)` : null, current: 'Now · ready for pickup', next: 'Next' },
-        { key: 'exited', label: 'Picked up', detail: stamp(booking.exitedAt), current: null, next: 'After you collect it' },
+        { key: 'ready', label: 'Ready', detail: ready, current: 'Now · ready for pickup', next: 'Next' },
+        { key: 'exited', label: 'Picked up', detail: exited, current: null, next: 'After you collect it' },
     ];
 
     return rows.map((row, index) => {

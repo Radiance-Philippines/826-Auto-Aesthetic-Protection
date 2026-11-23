@@ -3,12 +3,13 @@ import { View } from 'react-native';
 import type { SavedVehicle } from '@/api';
 import { dayMonthYear } from '@/lib/dates';
 import { savedUnit } from '@/lib/unit';
-import { c } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Silhouette } from '@/ui/Silhouette';
 import { Text } from '@/ui/Text';
 
 /** A saved unit's picture, name, type and plate, and its last finished work when the server sends it */
 export function VehicleHead({ vehicle, width = 96 }: { vehicle: SavedVehicle; width?: number }) {
+    const c = useTheme();
     const unit = savedUnit(vehicle);
 
     return (

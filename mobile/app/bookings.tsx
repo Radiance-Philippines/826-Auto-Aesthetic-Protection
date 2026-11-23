@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
+import { CalendarPlus } from 'lucide-react-native';
 import { api, type CustomerBooking } from '@/api';
 import { BookingCard } from '@/features/BookingCard';
 import { useLoad } from '@/hooks/useLoad';
 import { isEnded } from '@/lib/stage';
+import { Enter } from '@/ui/motion';
 import { Screen } from '@/ui/Screen';
 import { Skeleton } from '@/ui/Skeleton';
 import { EmptyState, ErrorState } from '@/ui/States';
@@ -25,14 +27,18 @@ export default function BookingsScreen() {
                 <ErrorState result={error} onRetry={reload} />
             ) : data ? (
                 <>
-                    {data.length === 0 ? <EmptyState title="No bookings yet." body="Your reservations and home service requests show here." action={{ label: 'Reserve a drop-off date', onPress: () => router.push('/book') }} /> : null}
+                    {data.length === 0 ? <EmptyState title="No bookings yet." body="Your reservations and home service requests show here." action={{ label: 'Reserve a drop-off date', icon: CalendarPlus, onPress: () => router.push('/book') }} /> : null}
                     {upcoming.length ? <Text v="label">Coming up</Text> : null}
-                    {upcoming.map((b) => (
-                        <BookingCard key={b.id} booking={b} />
+                    {upcoming.map((b, index) => (
+                        <Enter key={b.id} index={index}>
+                            <BookingCard booking={b} />
+                        </Enter>
                     ))}
                     {past.length ? <Text v="label">Past and cancelled</Text> : null}
-                    {past.map((b) => (
-                        <BookingCard key={b.id} booking={b} />
+                    {past.map((b, index) => (
+                        <Enter key={b.id} index={upcoming.length + index}>
+                            <BookingCard booking={b} />
+                        </Enter>
                     ))}
                 </>
             ) : null}

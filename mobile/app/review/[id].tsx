@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Info, Plus, X } from 'lucide-react-native';
+import { Check, Info, Plus, Send, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { api, problemText, type CustomerBooking, type UploadFile } from '@/api';
@@ -9,7 +9,8 @@ import { dayMonthYear } from '@/lib/dates';
 import { pickPhoto } from '@/lib/photo';
 import { reviewProblems } from '@/lib/wizard';
 import { bookingUnit, serviceLine } from '@/lib/unit';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Field } from '@/ui/Field';
@@ -21,6 +22,7 @@ import { Stars } from '@/ui/Stars';
 import { Text } from '@/ui/Text';
 
 export default function ReviewScreen() {
+    const c = useTheme();
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { data, error, loading, reload } = useLoad<CustomerBooking, { booking: CustomerBooking }>(() => api.booking(Number(id)), (raw) => raw.booking);
@@ -49,7 +51,7 @@ export default function ReviewScreen() {
     };
 
     return (
-        <Screen back="Back" title="Write a review" onRefresh={reload} footer={!done && data ? <Button label="Post review" loading={busy} onPress={submit} testID="post-review" /> : undefined}>
+        <Screen back="Back" title="Write a review" onRefresh={reload} footer={!done && data ? <Button icon={Send} label="Post review" loading={busy} onPress={submit} testID="post-review" /> : undefined}>
             {loading ? (
                 <Skeleton height={200} />
             ) : error ? (
@@ -58,7 +60,7 @@ export default function ReviewScreen() {
                 <Card style={{ gap: 10 }}>
                     <Text v="title">Thanks.</Text>
                     <Text color={c.muted}>We’ll show it once our team has read it.</Text>
-                    <Button label="Done" onPress={() => router.back()} />
+                    <Button icon={Check} label="Done" onPress={() => router.back()} />
                 </Card>
             ) : data ? (
                 <>

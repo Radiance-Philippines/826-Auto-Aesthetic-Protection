@@ -3,7 +3,8 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { c, target } from '@/theme';
+import { target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Brand } from './Brand';
 import { Text } from './Text';
 
@@ -29,6 +30,7 @@ type Props = {
  * (the system resizes the window).
  */
 export function Screen({ children, onRefresh, brand, title, back, right, tabs, contentStyle, footer }: Props) {
+    const c = useTheme();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [busy, setBusy] = useState(false);

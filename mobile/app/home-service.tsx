@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ArrowLeft, Plus, Send } from 'lucide-react-native';
 import { api, problemText, type HomeWindow, type SavedVehicle } from '@/api';
 import { useAuth } from '@/context/auth';
 import { useCatalog } from '@/context/catalog';
 import { addDays, longDate, manilaToday, parseDate, isoDate } from '@/lib/dates';
 import { unitName, unitSub } from '@/lib/unit';
 import { daysLabel, emptyHomeDraft, emptyUnit, homeInput, servicesAt, validateHome, type Errors, type HomeDraft } from '@/lib/wizard';
-import { c, radius, target } from '@/theme';
+import { radius, target } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Calendar } from '@/ui/Calendar';
 import { Card } from '@/ui/Card';
@@ -29,6 +31,7 @@ const ANSWERS: { key: string; value: boolean | null; label: string }[] = [
 
 /** Home service: a request, not a booked date. The branch calls or texts to agree on a time. */
 export default function HomeServiceScreen() {
+    const c = useTheme();
     const router = useRouter();
     const { guest } = useAuth();
     const { catalog, error, reload } = useCatalog();
@@ -96,14 +99,14 @@ export default function HomeServiceScreen() {
                 <Card style={{ gap: 10 }}>
                     <Text v="title">That would be sent</Text>
                     <Text color={c.muted}>On the live site, the branch would now get your request and call or text you. This demo saves nothing.</Text>
-                    <Button label="Back to Book" onPress={() => router.back()} />
+                    <Button icon={ArrowLeft} label="Back to Book" onPress={() => router.back()} />
                 </Card>
             </Screen>
         );
     }
 
     return (
-        <Screen back="Book" title="Home service" footer={<Button label="Send request" loading={sending} onPress={submit} testID="send-request" />}>
+        <Screen back="Book" title="Home service" footer={<Button icon={Send} label="Send request" loading={sending} onPress={submit} testID="send-request" />}>
             <Text color={c.muted}>Tell us where the unit will be and what you’d like done. The branch will call or text you to agree on a time, so this is a request, not a booked date yet.</Text>
             <FormError>{problem}</FormError>
 
@@ -127,7 +130,7 @@ export default function HomeServiceScreen() {
                             <Choice key={v.id} selected={draft.unit.mode === 'saved' && draft.unit.vehicleId === v.id} onPress={() => patch({ unit: { ...emptyUnit(), mode: 'saved', vehicleId: v.id } })} title={unitName(v)} sub={unitSub({ type: v.type, plate: v.plate })} left={<Silhouette type={v.type} width={56} height={34} />} />
                         ))}
                         <FormError>{errors.vehicle}</FormError>
-                        {saved?.length && draft.unit.mode === 'saved' ? <Button kind="secondary" label="New unit" onPress={() => patch({ unit: { ...emptyUnit(), mode: 'new' } })} /> : null}
+                        {saved?.length && draft.unit.mode === 'saved' ? <Button kind="secondary" icon={Plus} label="New unit" onPress={() => patch({ unit: { ...emptyUnit(), mode: 'new' } })} /> : null}
                         {draft.unit.mode === 'new' || saved?.length === 0 ? <UnitFields unit={{ ...draft.unit, mode: 'new' }} types={catalog.vehicleTypes} errors={errors} onChange={(unit) => patch({ unit })} /> : null}
                     </View>
 
@@ -150,7 +153,7 @@ export default function HomeServiceScreen() {
                         <FormError>{errors.date}</FormError>
                         <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                             {(Object.entries(catalog.booking.windows) as [HomeWindow, string][]).map(([key, label]) => (
-                                <Pressable key={key} accessibilityRole="radio" accessibilityState={{ selected: draft.window === key }} onPress={() => patch({ window: key })} style={{ minHeight: target, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: draft.window === key ? c.accent : c.line, backgroundColor: draft.window === key ? 'rgba(42,211,203,0.12)' : c.surface, justifyContent: 'center' }}>
+                                <Pressable key={key} accessibilityRole="radio" accessibilityState={{ selected: draft.window === key }} onPress={() => patch({ window: key })} style={{ minHeight: target, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: draft.window === key ? c.accent : c.line, backgroundColor: draft.window === key ? c.accentSoft : c.surface, justifyContent: 'center' }}>
                                     <Text weight="semi" color={draft.window === key ? c.accent : c.text}>
                                         {label}
                                     </Text>
@@ -176,7 +179,7 @@ export default function HomeServiceScreen() {
                                 <Text style={{ fontSize: 14 }}>{question}</Text>
                                 <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: 8 }}>
                                     {ANSWERS.map((a) => (
-                                        <Pressable key={a.key} accessibilityRole="radio" accessibilityLabel={`${question} ${a.label}`} accessibilityState={{ selected: draft[key] === a.value }} onPress={() => patch({ [key]: a.value })} style={{ minHeight: target, minWidth: 72, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, borderWidth: 1, borderColor: draft[key] === a.value ? c.accent : c.line, backgroundColor: draft[key] === a.value ? 'rgba(42,211,203,0.12)' : c.surface }}>
+                                        <Pressable key={a.key} accessibilityRole="radio" accessibilityLabel={`${question} ${a.label}`} accessibilityState={{ selected: draft[key] === a.value }} onPress={() => patch({ [key]: a.value })} style={{ minHeight: target, minWidth: 72, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, borderWidth: 1, borderColor: draft[key] === a.value ? c.accent : c.line, backgroundColor: draft[key] === a.value ? c.accentSoft : c.surface }}>
                                             <Text weight="semi" color={draft[key] === a.value ? c.accent : c.text}>
                                                 {a.label}
                                             </Text>

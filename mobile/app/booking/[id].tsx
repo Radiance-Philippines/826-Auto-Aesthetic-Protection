@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarDays, MessageCircle, Phone, Star } from 'lucide-react-native';
+import { Ban, CalendarCheck, CalendarClock, CalendarDays, MessageCircle, Phone, Star, Undo2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { api, problemText, type CustomerBooking } from '@/api';
@@ -10,7 +10,8 @@ import { longDate, shortDate } from '@/lib/dates';
 import { peso } from '@/lib/money';
 import { isEnded, STAGES, timeline } from '@/lib/stage';
 import { bookingUnit, serviceLine } from '@/lib/unit';
-import { c, radius } from '@/theme';
+import { radius } from '@/theme';
+import { useTheme } from '@/context/theme';
 import { Button } from '@/ui/Button';
 import { Calendar } from '@/ui/Calendar';
 import { Card } from '@/ui/Card';
@@ -26,6 +27,7 @@ import { Text } from '@/ui/Text';
 
 /** C3 "Your unit": where the job is, what it costs (once reviewed), paying, moving, cancelling, reviewing */
 export default function BookingScreen() {
+    const c = useTheme();
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { catalog } = useCatalog();
@@ -93,7 +95,7 @@ export default function BookingScreen() {
                     <Chip label={stage.label} tone={stage.tone} />
 
                     {b.readyOn && !isEnded(b.stage) && b.kind === 'onsite' ? (
-                        <View style={{ backgroundColor: 'rgba(42,211,203,0.12)', borderColor: 'rgba(42,211,203,0.3)', borderWidth: 1, borderRadius: radius.lg, padding: 16, flexDirection: 'row', gap: 12 }}>
+                        <View style={{ backgroundColor: c.accentSoft, borderColor: c.accentLine, borderWidth: 1, borderRadius: radius.lg, padding: 16, flexDirection: 'row', gap: 12 }}>
                             <CalendarDays size={22} color={c.accent} />
                             <View style={{ flex: 1 }}>
                                 <Text v="title">{`Ready by ${shortDate(b.readyOn)}`}</Text>
@@ -200,13 +202,13 @@ export default function BookingScreen() {
 
                     {b.canReschedule && rules?.rescheduleEnabled ? (
                         <>
-                            <Button kind="secondary" label="Move to another date" onPress={() => { setProblem(null); setSheet('move'); }} />
+                            <Button kind="secondary" icon={CalendarClock} label="Move to another date" onPress={() => { setProblem(null); setSheet('move'); }} />
                             <Text v="small">{`You can move a booking online ${rules.maxReschedules === 1 ? 'once' : `up to ${rules.maxReschedules} times`}, up to ${rules.rescheduleCutoffHours} hours before drop-off.`}</Text>
                         </>
                     ) : null}
                     {b.canCancel ? (
                         <>
-                            <Button kind="danger" label="Cancel booking" onPress={() => { setProblem(null); setSheet('cancel'); }} testID="cancel-booking" />
+                            <Button kind="danger" icon={Ban} label="Cancel booking" onPress={() => { setProblem(null); setSheet('cancel'); }} testID="cancel-booking" />
                             {rules ? <Text v="small">{`You can cancel online up to ${rules.cancelCutoffHours} hours before drop-off.`}</Text> : null}
                         </>
                     ) : null}
@@ -217,15 +219,15 @@ export default function BookingScreen() {
                         <Text color={c.muted}>{`Your date${b.dropOffOn ? ` (${shortDate(b.dropOffOn)})` : ''} will open up for others. This can’t be undone.`}</Text>
                         <Field label="Reason" optional value={reason} onChangeText={setReason} multiline hint="It helps the branch." />
                         <FormError>{problem}</FormError>
-                        <Button kind="danger" label="Yes, cancel it" loading={busy} onPress={() => run('cancel')} />
-                        <Button kind="secondary" label="Keep it" onPress={() => setSheet(null)} />
+                        <Button kind="danger" icon={Ban} label="Yes, cancel it" loading={busy} onPress={() => run('cancel')} />
+                        <Button kind="secondary" icon={Undo2} label="Keep it" onPress={() => setSheet(null)} />
                     </Sheet>
                     <Sheet open={sheet === 'move'} onClose={() => setSheet(null)} title="Move your booking">
                         <Text color={c.muted}>{b.estimate ? `Same services, ${b.estimate.label} at the shop. Pick a new date.` : 'Same services. Pick a new date.'}</Text>
                         {sheet === 'move' ? <Calendar job={{ kind: 'move', booking: b.id }} value={day} onPick={setDay} /> : null}
                         <FormError>{problem}</FormError>
-                        <Button label="Move to this date" loading={busy} onPress={() => run('move')} />
-                        <Button kind="secondary" label="Keep the current date" onPress={() => setSheet(null)} />
+                        <Button icon={CalendarCheck} label="Move to this date" loading={busy} onPress={() => run('move')} />
+                        <Button kind="secondary" icon={Undo2} label="Keep the current date" onPress={() => setSheet(null)} />
                     </Sheet>
                 </>
             ) : null}

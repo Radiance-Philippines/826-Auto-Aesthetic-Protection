@@ -23,7 +23,8 @@ Run the API from the repo root: `php artisan serve --host=0.0.0.0 --port=8050`. 
 - `app/` routes: `(tabs)` Home, Book, Garage, Rewards, Me; `booking/[id]`, `vehicle/[id]`, `review/[id]`, `bookings`, `warranty`, `home-service`, `sign-in`.
 - `src/api` one typed client (`client.ts`), every endpoint (`endpoints.ts`), shapes (`types.ts`), the fake API (`mock.ts`).
 - `src/lib` pure logic: stage mapping, dates (Manila time), wizard rules, photo shrink, token storage.
-- `src/ui` the design system parts; `src/theme.ts` has the tokens copied from `resources/css/app.css`.
+- `src/ui` the design system parts; `src/theme.ts` has the dark and light palettes copied from `resources/css/app.css`; read them with `useTheme()` (`src/context/theme.tsx`, follows the phone's light/dark setting). `src/ui/motion.tsx` has the animation helpers (press scale, list entrance, count-up); they all stop when the phone is set to remove animations.
+- Every `Button` has a leading icon (the `icon` prop is required; a jest test checks it). There is no self sign-up anywhere: sign-in only. Referral sharing sends `<site>/r/<code>` (the site is `EXPO_PUBLIC_API_URL`).
 - The app never invents facts: prices, warranty and reward values come from the API. A price shows only after 826 reviews the unit.
 
 ## Checks
