@@ -3,7 +3,7 @@
 @case ('verify')
 # Verify your email
 
-Hi {{ $guest->name }}, confirm this email address to finish creating your {{ $brand }} account.
+Confirm this email address to finish creating your {{ $brand }} account.
 
 <x-mail::button :url="$url">
 Verify my email
@@ -14,7 +14,7 @@ This link works for 24 hours. If you didn’t create an account, you can ignore 
 @case ('reset')
 # Choose a new password
 
-Hi {{ $guest->name }}, use the button to choose a new password for your {{ $brand }} account.
+Hi {{ $name }}, use the button to choose a new password for your {{ $brand }} account.
 
 <x-mail::button :url="$url">
 Choose a new password
@@ -25,7 +25,7 @@ This link works for 60 minutes. If you didn’t ask for it, ignore this email: y
 @default
 # You already have an account
 
-Hi {{ $guest->name }}, someone (hopefully you) tried to create a {{ $brand }} account with this email address, but it already has one.
+Hi {{ $name }}, someone (hopefully you) tried to create a {{ $brand }} account with this email address, but it already has one.
 
 @if ($usesPassword)
 Sign in with your email and password. If you forgot the password, use **Forgot password?** on the sign-in page.

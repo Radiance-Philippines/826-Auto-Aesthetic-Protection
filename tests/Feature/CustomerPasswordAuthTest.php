@@ -88,6 +88,27 @@ class CustomerPasswordAuthTest extends TestCase
         $this->assertStringContainsString('signature=', $mail->url);
     }
 
+    public function test_a_name_typed_at_sign_up_cannot_inject_content_into_the_emails(): void
+    {
+        $evil = '[Click here to be safe](https://evil.example/login) **urgent**';
+        $this->postJson('/auth/register', $this->signUpData(['name' => $evil, 'email' => 'victim@example.com']))->assertStatus(202);
+
+        $verify = $this->sentTo('verify');
+        $html = $verify->render();
+        $this->assertStringNotContainsString('evil.example', $html);
+        $this->assertStringNotContainsString('urgent', $html);
+        $this->assertStringNotContainsString('Click here', $html);
+        $this->assertStringNotContainsString('safe', $html);
+
+        // The other two emails greet by name too: letters only
+        $guest = $this->account(['name' => $evil]);
+        foreach (['reset', 'existing'] as $kind) {
+            $mail = new CustomerAccountMail($kind, $guest, 'https://826auto.test/x');
+            $this->assertStringNotContainsString('evil.example', $mail->render());
+            $this->assertStringNotContainsString('**', $mail->render());
+        }
+    }
+
     public function test_sign_up_rules(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);

@@ -32,8 +32,23 @@ class CustomerAccountMail extends Mailable
     {
         return new Content(markdown: 'mail.customer-account', with: [
             'brand' => config('app.name'),
+            'name' => $this->safeName(),
             'signInUrl' => url('/login'),
             'usesPassword' => $this->guest->hasPassword(),
         ]);
+    }
+
+    /**
+     * The name goes into a Markdown email, and a sign-up form lets anyone
+     * type any name for any address: greet by the first word only, made of
+     * letters, marks, ' and - , so a name can never add links, formatting,
+     * lines or a sentence of its own.
+     */
+    private function safeName(): string
+    {
+        $first = preg_split('/\s+/u', trim((string) $this->guest->name))[0] ?? '';
+        $first = preg_replace('/[^\pL\pM\'-]+/u', '', $first) ?? '';
+
+        return $first === '' ? 'there' : mb_substr($first, 0, 30);
     }
 }
