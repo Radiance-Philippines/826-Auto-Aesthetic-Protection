@@ -33,10 +33,10 @@ A thin team app is: `app.json` (name, slug, scheme, package, bundle id, version,
 | App | Package / bundle id | Version (code) | Icon colour | Keystore env |
 |---|---|---|---|---|
 | 826 Auto Aesthetic (customer) | `ph.radianceph.aap826` | 0.3.1 (4) | brand teal (real icon) | `~/backups/826-app/keystore.env`, `AAP826_*` |
-| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.0 (1) | gold `#C9A24B` (placeholder) | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
-| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.0 (1) | teal `#2AD1CB` (placeholder) | same staff keystore |
-| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.0 (3) | blue `#4C8DFF` (placeholder) | same staff keystore |
-| 826 System | `ph.radianceph.aap826.system` | 0.1.0 (1) | violet `#8B7CF6` (placeholder) | same staff keystore |
+| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.1 (2) | gold `#C9A24B` (placeholder) | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
+| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.1 (2) | teal `#2AD1CB` (placeholder) | same staff keystore |
+| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.1 (4) | blue `#4C8DFF` (placeholder) | same staff keystore |
+| 826 System | `ph.radianceph.aap826.system` | 0.1.1 (2) | violet `#8B7CF6` (placeholder) | same staff keystore |
 
 The team icons are placeholders (the 826 mark on the role colour with a two-letter badge). Replace the files in `apps/<app>/assets/`; `scripts/make-placeholder-icons.mjs` regenerates the placeholders.
 

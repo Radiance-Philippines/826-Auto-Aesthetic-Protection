@@ -3,7 +3,7 @@
     "name": "826 Operations",
     "slug": "826-operations",
     "scheme": "aap826operations",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -35,7 +35,7 @@
     ],
     "android": {
       "package": "ph.radianceph.aap826.staff",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#4C8DFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -48,7 +48,7 @@
     },
     "ios": {
       "bundleIdentifier": "ph.radianceph.aap826.staff",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
