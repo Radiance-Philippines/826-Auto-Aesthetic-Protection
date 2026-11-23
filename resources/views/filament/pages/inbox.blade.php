@@ -50,6 +50,15 @@
                     <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
                         <x-filament::input type="search" wire:model.live.debounce.400ms="search" placeholder="Search by name or message" />
                     </x-filament::input.wrapper>
+                    <div class="inline-flex gap-1 rounded-lg bg-gray-100 p-1 text-xs dark:bg-white/5" role="group" aria-label="Channel">
+                        @foreach ($this->channels() as $value => $label)
+                            <button
+                                type="button"
+                                wire:click="$set('channel', '{{ $value }}')"
+                                @class(['shrink-0 rounded-lg px-3 py-1 font-medium', 'bg-white text-gray-950 shadow-sm dark:bg-white/10 dark:text-white' => $channel === $value, 'text-gray-600 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white' => $channel !== $value])
+                            >{{ $label }}</button>
+                        @endforeach
+                    </div>
                     <div class="flex flex-wrap gap-1 text-xs">
                         @foreach ($this->filters() as $value => $label)
                             <button
@@ -89,6 +98,9 @@
                                         @if ($branch === 'all')
                                             <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-white/5">{{ $item->branch?->name }}</span>
                                         @endif
+                                        @if ($item->channel === 'headsup')
+                                            <span class="rounded bg-primary-600 px-1.5 py-0.5 font-semibold text-white">Heads-up{{ $item->booking ? ' · '.$item->booking->reference : '' }}</span>
+                                        @endif
                                         @if ($item->is_sample)
                                             <span class="rounded bg-warning-100 px-1.5 py-0.5 font-semibold text-warning-800 dark:bg-warning-400/10 dark:text-warning-300">Sample</span>
                                         @endif
@@ -101,7 +113,7 @@
                         </li>
                     @empty
                         <li class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                            {{ $search !== '' || $filter !== 'open' ? 'No chats match.' : 'No open chats. They show up here as soon as a customer messages a branch’s Facebook Page.' }}
+                            {{ $search !== '' || $filter !== 'open' ? 'No chats match.' : ($channel === 'headsup' ? 'No open heads-ups. They show up here when operations changes a booking’s ready date or unit.' : 'No open chats. They show up here as soon as a customer messages a branch’s Facebook Page, or operations changes a booking.') }}
                         </li>
                     @endforelse
                 </ul>
@@ -124,7 +136,15 @@
                                 @endif
                             </p>
                             <p class="truncate text-xs text-gray-500 dark:text-gray-400">
-                                Messenger · {{ $active->branch?->name }}
+                                @if ($active->isHeadsUp())
+                                    <span class="rounded bg-primary-600 px-1.5 py-0.5 font-semibold text-white">Heads-up</span>
+                                    @if ($bookingUrl = $this->bookingUrl($active))
+                                        <a href="{{ $bookingUrl }}" class="text-primary-700 underline dark:text-primary-400">Booking {{ $active->booking->reference }}</a> ·
+                                    @endif
+                                    {{ $active->branch?->name }}
+                                @else
+                                    Messenger · {{ $active->branch?->name }}
+                                @endif
                                 @if ($active->guest)
                                     @can('view', $active->guest)
                                         · <a href="{{ $this->customerUrl($active->guest) }}" class="text-primary-700 underline dark:text-primary-400">Customer: {{ $active->guest->name }}</a>
@@ -135,7 +155,9 @@
                             </p>
                         </div>
                         {{ $this->assignAction }}
-                        {{ $this->linkCustomerAction }}
+                        @unless ($active->isHeadsUp())
+                            {{ $this->linkCustomerAction }}
+                        @endunless
                         <x-filament::button size="sm" color="gray" :icon="$active->isDone() ? 'heroicon-m-arrow-uturn-left' : 'heroicon-m-check'" wire:click="toggleDone">
                             {{ $active->isDone() ? 'Reopen' : 'Mark done' }}
                         </x-filament::button>
@@ -178,13 +200,15 @@
                                     @endif
                                 </div>
                                 <span class="text-[11px] text-gray-500 dark:text-gray-400">
-                                    @unless ($message->isInbound())
+                                    @if ($active->isHeadsUp())
+                                        {{ $message->isInbound() ? 'Change' : 'Internal note' }} · {{ $message->sender?->name ?? 'Team' }} ·
+                                    @elseif (! $message->isInbound())
                                         {{ $message->sender?->name ?? ($message->sender_name ? 'via '.$message->sender_name : 'Shop') }} ·
-                                    @endunless
+                                    @endif
                                     {{ $message->sent_at->format('M j, g:i A') }}
                                     @if ($message->failed)
                                         · <span class="text-danger-600 dark:text-danger-400">Not sent: {{ $message->error }}</span>
-                                    @elseif (! $message->isInbound() && $message->external_id === null)
+                                    @elseif (! $message->isInbound() && $message->external_id === null && ! $active->isHeadsUp())
                                         · Saved here only, not sent
                                     @endif
                                 </span>
@@ -193,6 +217,13 @@
                     </div>
 
                     <footer class="space-y-2 border-t border-gray-200 p-3 dark:border-white/10">
+                        @if ($active->isHeadsUp())
+                            <p class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                <x-filament::icon icon="heroicon-m-lock-closed" class="size-4" />
+                                Internal note to operations. It stays in the system and is never sent to the customer.
+                            </p>
+                        @endif
+
                         @if ($this->isPastReplyWindow())
                             <p class="text-xs text-warning-700 dark:text-warning-400">It has been over 24 hours since the customer’s last message. Meta may refuse this reply; if it does, answer in Meta Business Suite.</p>
                         @endif
@@ -204,7 +235,7 @@
                                         wire:model="reply"
                                         rows="2"
                                         maxlength="{{ \App\Filament\Pages\Inbox::MAX_REPLY_LENGTH }}"
-                                        placeholder="Reply on Messenger… (Ctrl+Enter to send)"
+                                        placeholder="{{ $active->isHeadsUp() ? 'Internal note to operations… (Ctrl+Enter to send)' : 'Reply on Messenger… (Ctrl+Enter to send)' }}"
                                         aria-label="Reply"
                                         x-on:keydown.ctrl.enter.prevent="$wire.send()"
                                         x-on:keydown.meta.enter.prevent="$wire.send()"

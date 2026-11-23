@@ -43,11 +43,14 @@ class Inbox
     public const WINDOW_HOURS = 24;
 
     /**
-     * Demo (APP_DEMO) sites never send: replies are kept in the thread only.
+     * Nothing goes to Meta: on a demo (APP_DEMO) site, on a sample chat and
+     * always on a heads-up thread (its replies are internal notes, kept in
+     * the thread only). reply() and markRead() both go through this, so
+     * Meta can never be called for a heads-up thread.
      */
     public static function sendsNothing(Conversation $conversation): bool
     {
-        return (bool) config('app.demo') || $conversation->is_sample;
+        return (bool) config('app.demo') || $conversation->is_sample || $conversation->isHeadsUp();
     }
 
     /**
@@ -170,7 +173,36 @@ class Inbox
             'unread_count' => 0,
         ])->save();
 
+        if ($conversation->isHeadsUp()) {
+            $this->notifyChangeMaker($conversation, $message, $by);
+        }
+
         return $message;
+    }
+
+    /**
+     * Sales answered a heads-up: the team member who made the latest change
+     * gets a bell notification (never the one answering).
+     */
+    private function notifyChangeMaker(Conversation $conversation, ConversationMessage $reply, ?User $by): void
+    {
+        $maker = $conversation->messages()->where('direction', ConversationMessage::IN)->whereNotNull('sent_by')->latest('sent_at')->latest('id')->first()?->sender;
+
+        if (! $maker || $maker->is($by) || ! $maker->canManageBranch($conversation->branch_id)) {
+            return;
+        }
+
+        $booking = $conversation->booking;
+
+        // Now, not queued: nothing here runs a queue worker
+        $maker->notifyNow(Notification::make()
+            ->title('Sales replied: '.$conversation->displayName().($booking ? " ({$booking->reference})" : ''))
+            ->body(Str::limit(($by?->name ?? 'Sales').': '.Str::squish((string) $reply->body), 160))
+            ->icon('heroicon-o-chat-bubble-left-right')
+            ->actions(array_filter([
+                InboxAccess::allows($maker) ? Action::make('open')->label('Open thread')->url(InboxPage::getUrl(['conversation' => $conversation->getKey()], panel: 'admin'))->markAsRead() : null,
+            ]))
+            ->toDatabase());
     }
 
     /**

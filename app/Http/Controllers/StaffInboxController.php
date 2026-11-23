@@ -17,8 +17,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * The staff app's Inbox: the same Messenger chats the admin Inbox page
- * shows, a branch's only to that branch's staff (Conversation::visibleTo
+ * The staff app's Inbox: the same Messenger chats and heads-up threads the
+ * admin Inbox page shows (a heads-up reply is an internal note, never sent), a branch's only to that branch's staff (Conversation::visibleTo
  * and ConversationPolicy; another branch's chat is a 404). Replies go
  * through App\Support\Inbox\Inbox, which saves only locally on demo and
  * sample chats and sends for real only when Meta is connected.
@@ -30,7 +30,7 @@ class StaffInboxController extends StaffController
     private const MESSAGE_PAGE = 50;
 
     /**
-     * GET /api/staff/inbox?branch=&filter=open|unread|done|all&q=
+     * GET /api/staff/inbox?branch=&filter=open|unread|done|all&channel=all|messenger|headsup&q=
      */
     public function index(Request $request): JsonResponse
     {
@@ -41,6 +41,7 @@ class StaffInboxController extends StaffController
         $tabs = InboxList::branchTabs($user);
         $branch = InboxList::validBranch($user, $tabs, (string) $request->query('branch', 'all'));
         $filter = in_array($request->query('filter'), InboxList::FILTERS, true) ? $request->query('filter') : 'open';
+        $channel = in_array($request->query('channel'), InboxList::CHANNELS, true) ? $request->query('channel') : 'all';
         $unread = InboxList::unreadByBranch($user);
 
         $tabRows = $tabs->map(fn (Branch $each, string $key) => ['key' => $key, 'label' => $each->name, 'unread' => $unread[(int) $key] ?? 0])->values();
@@ -52,11 +53,12 @@ class StaffInboxController extends StaffController
         return response()->json([
             'branch' => $branch,
             'filter' => $filter,
+            'channel' => $channel,
             'showsAll' => InboxList::showsAllTab($user, $tabs),
             'tabs' => $tabRows->values()->all(),
             'totalUnread' => array_sum($unread),
             'notice' => InboxList::setupNotice($user, $tabs, $branch),
-            'conversations' => InboxList::query($user, $tabs, $branch, $filter, (string) $request->query('q', ''))
+            'conversations' => InboxList::query($user, $tabs, $branch, $filter, (string) $request->query('q', ''), $channel)
                 ->limit(self::LIST_LIMIT)
                 ->get()
                 ->map(fn (Conversation $conversation) => $this->row($conversation))
@@ -73,7 +75,7 @@ class StaffInboxController extends StaffController
         $conversation = $this->visibleConversation($id, 'view');
 
         app(Inbox::class)->markRead($conversation);
-        $conversation->refresh()->load(['branch', 'guest', 'assignee']);
+        $conversation->refresh()->load(['branch', 'guest', 'assignee', 'booking']);
 
         $limit = min(max((int) $request->query('limit', self::MESSAGE_PAGE), 1), 100);
         $messages = $conversation->messages()
@@ -95,7 +97,7 @@ class StaffInboxController extends StaffController
                 'windowHours' => Inbox::WINDOW_HOURS,
                 'savesLocallyOnly' => Inbox::sendsNothing($conversation),
             ],
-            'messages' => $messages->take($limit)->reverse()->values()->map(fn (ConversationMessage $message) => $this->message($message))->all(),
+            'messages' => $messages->take($limit)->reverse()->values()->map(fn (ConversationMessage $message) => $this->message($message, $conversation->isHeadsUp()))->all(),
             'hasOlder' => $messages->count() > $limit,
         ])->header('Cache-Control', 'no-store');
     }
@@ -119,8 +121,8 @@ class StaffInboxController extends StaffController
         }
 
         return response()->json([
-            'message' => $this->message($message->load('sender:id,name')),
-            'conversation' => $this->row($conversation->refresh()->load('branch')),
+            'message' => $this->message($message->load('sender:id,name'), $conversation->isHeadsUp()),
+            'conversation' => $this->row($conversation->refresh()->load(['branch', 'booking:id,reference'])),
             'savedOnly' => Inbox::sendsNothing($conversation),
         ], 201);
     }
@@ -135,7 +137,7 @@ class StaffInboxController extends StaffController
         $data = $request->validate(['done' => ['required', 'boolean']]);
         $conversation->forceFill(['status' => $data['done'] ? Conversation::DONE : Conversation::OPEN])->save();
 
-        return response()->json($this->row($conversation->load('branch')));
+        return response()->json($this->row($conversation->load(['branch', 'booking:id,reference'])));
     }
 
     /**
@@ -183,7 +185,7 @@ class StaffInboxController extends StaffController
     {
         $this->requireInbox();
 
-        $conversation = Conversation::visibleTo($this->user())->with('branch')->find($id);
+        $conversation = Conversation::visibleTo($this->user())->with(['branch', 'booking:id,reference'])->find($id);
         abort_unless($conversation, 404, 'Chat not found.');
         Gate::forUser($this->user())->authorize($ability, $conversation);
 
@@ -206,13 +208,18 @@ class StaffInboxController extends StaffController
             'done' => $conversation->isDone(),
             'sample' => (bool) $conversation->is_sample,
             'linkedCustomer' => $conversation->guest_id !== null,
-        ];
+        ] + ($conversation->isHeadsUp() ? [
+            // Only heads-up rows carry these: a Messenger row keeps the shape the app 0.1.1 knows
+            'channel' => Conversation::HEADSUP,
+            'internal' => true,
+            'booking' => $conversation->booking ? ['id' => $conversation->booking->getKey(), 'reference' => $conversation->booking->reference] : null,
+        ] : []);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function message(ConversationMessage $message): array
+    private function message(ConversationMessage $message, bool $internal): array
     {
         return [
             'id' => $message->getKey(),
@@ -223,6 +230,6 @@ class StaffInboxController extends StaffController
             'failed' => (bool) $message->failed,
             'error' => $message->error,
             'sentAt' => $message->sent_at->toIso8601String(),
-        ];
+        ] + ($internal ? ['internal' => true] : []);
     }
 }

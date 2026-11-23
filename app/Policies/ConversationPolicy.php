@@ -7,9 +7,9 @@ use App\Models\User;
 use App\Support\InboxAccess;
 
 /**
- * A branch's Messenger chats are private to that branch: its staff see,
- * answer, assign and link them; staff of another branch never do. Only a
- * super admin works with every branch's chats.
+ * A branch's inbox threads (Messenger chats and operations heads-ups) are
+ * private to that branch: its staff see, answer, assign and link them; staff
+ * of another branch never do. Only a super admin works with every branch's.
  */
 class ConversationPolicy
 {

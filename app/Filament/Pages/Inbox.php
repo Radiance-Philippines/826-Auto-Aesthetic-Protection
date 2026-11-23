@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\RefreshesLive;
+use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Branch;
 use App\Models\Conversation;
@@ -29,9 +30,10 @@ use Livewire\Attributes\Url;
 use UnitEnum;
 
 /**
- * Every customer's Messenger chat with the branches' Facebook Pages in one
- * place: a tab per branch (and All), a list on the left, the thread and a
- * composer on the right. Staff only see their own branches' chats.
+ * Every customer's Messenger chat with the branches' Facebook Pages, and
+ * operations' heads-ups about changed bookings, in one place: a tab per
+ * branch (and All), a channel filter, a list on the left, the thread and a
+ * composer on the right. Staff only see their own branches' threads.
  */
 class Inbox extends Page
 {
@@ -88,6 +90,12 @@ class Inbox extends Page
     #[Url]
     public string $filter = 'open';
 
+    /**
+     * all, messenger or headsup.
+     */
+    #[Url]
+    public string $channel = 'all';
+
     public string $search = '';
 
     public string $reply = '';
@@ -119,6 +127,7 @@ class Inbox extends Page
         SampleInbox::ensureSeeded();
 
         $this->branch = $this->validBranch($this->branch);
+        $this->channel = in_array($this->channel, InboxList::CHANNELS, true) ? $this->channel : 'all';
 
         if ($this->conversation !== null) {
             $this->open($this->conversation);
@@ -226,7 +235,7 @@ class Inbox extends Page
             return;
         }
 
-        if (InboxService::sendsNothing($conversation)) {
+        if (! $conversation->isHeadsUp() && InboxService::sendsNothing($conversation)) {
             Notification::make()->warning()->title('Saved here only')->body('This is a demo: nothing was sent to Messenger.')->send();
         }
 
@@ -252,7 +261,7 @@ class Inbox extends Page
     #[Computed]
     public function conversations(): Collection
     {
-        return InboxList::query(auth()->user(), $this->branchTabs, $this->branch, $this->filter, $this->search)
+        return InboxList::query(auth()->user(), $this->branchTabs, $this->branch, $this->filter, $this->search, $this->channel)
             ->limit(100)
             ->get();
     }
@@ -261,7 +270,7 @@ class Inbox extends Page
     public function activeConversation(): ?Conversation
     {
         return $this->conversation
-            ? Conversation::visibleTo(auth()->user())->with(['branch', 'guest', 'assignee'])->find($this->conversation)
+            ? Conversation::visibleTo(auth()->user())->with(['branch', 'guest', 'assignee', 'booking'])->find($this->conversation)
             : null;
     }
 
@@ -317,6 +326,26 @@ class Inbox extends Page
     public function filters(): array
     {
         return ['open' => 'Open', 'unread' => 'Unread', 'done' => 'Done', 'all' => 'All'];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function channels(): array
+    {
+        return ['all' => 'All', Conversation::MESSENGER => 'Messenger', Conversation::HEADSUP => 'Heads-up'];
+    }
+
+    /**
+     * The booking a heads-up thread is about, when this user may open it.
+     */
+    public function bookingUrl(Conversation $conversation): ?string
+    {
+        $user = auth()->user();
+
+        return $conversation->booking && $user instanceof User && $user->canAccessArea('bookings.view')
+            ? BookingResource::getUrl('view', ['record' => $conversation->booking])
+            : null;
     }
 
     /**
@@ -389,6 +418,7 @@ class Inbox extends Page
     public function linkCustomerAction(): Action
     {
         return Action::make('linkCustomer')
+            ->hidden(fn (): bool => (bool) $this->activeConversation?->isHeadsUp())
             ->label(fn (): string => $this->activeConversation?->guest_id ? 'Change customer' : 'Link customer')
             ->icon(Heroicon::OutlinedUserCircle)
             ->color('gray')

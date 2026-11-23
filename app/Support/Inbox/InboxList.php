@@ -22,6 +22,11 @@ final class InboxList
     public const FILTERS = ['open', 'unread', 'done', 'all'];
 
     /**
+     * @var list<string>
+     */
+    public const CHANNELS = ['all', Conversation::MESSENGER, Conversation::HEADSUP];
+
+    /**
      * The branches this user may see: the tabs (after "All").
      *
      * @return Collection<string, Branch>
@@ -60,13 +65,14 @@ final class InboxList
      * @param  Collection<string, Branch>  $tabs
      * @return Builder<Conversation>
      */
-    public static function query(User $user, Collection $tabs, string $branch, string $filter, string $search): Builder
+    public static function query(User $user, Collection $tabs, string $branch, string $filter, string $search, string $channel = 'all'): Builder
     {
         $search = trim($search);
 
         return Conversation::query()
             ->visibleTo($user)
-            ->with('branch:id,name')
+            ->ofChannel($channel)
+            ->with(['branch:id,name', 'booking:id,reference'])
             ->when($branch !== 'all' && $tabs->has($branch), fn ($query) => $query->where('branch_id', (int) $branch))
             ->when($filter === 'unread', fn ($query) => $query->unread())
             ->when($filter === 'open', fn ($query) => $query->where('status', Conversation::OPEN))
