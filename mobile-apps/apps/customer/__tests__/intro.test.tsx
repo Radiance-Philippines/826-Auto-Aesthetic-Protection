@@ -1,6 +1,7 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { AccessibilityInfo, Animated } from 'react-native';
-import { carSize, decideIntro, headerLogoSpot, introFrame, introLaunch, logoSize, PHASE, PUFFS, reducedFrame, REDUCED_FADE, sampleIntro, type Layout } from '@/lib/intro';
+import { carSize, decideIntro, headerLogoSpot, introFrame, introLaunch, logoSize, PHASE, PUFFS, puffInFront, puffTarget, reducedFrame, REDUCED_FADE, sampleIntro, type Layout } from '@/lib/intro';
+import { LOGO_POINTS } from '@/lib/logoPoints';
 import { HEADER, ThemeProvider } from '@826/core';
 import { Intro, IntroGate, SKIP_MS } from '@/ui/Intro';
 
@@ -26,16 +27,17 @@ const puffTotal = (t: number) => at(t).puffs.reduce((sum, p) => sum + p.opacity,
 const alive = (t: number) => at(t).puffs.filter((p) => p.opacity > 0.01);
 
 describe('introFrame phases', () => {
-    it('has the phases in order', () => {
-        const order = [0, PHASE.cruiseEnd, PHASE.stop, PHASE.smokeStart, PHASE.logoIn, PHASE.logoSolid, PHASE.launch, PHASE.exited, PHASE.hold, PHASE.glideEnd, PHASE.bgFadeStart, PHASE.end];
-        expect(PHASE.smokeStart).toBeGreaterThan(PHASE.stop);
-        expect(PHASE.logoIn).toBeGreaterThan(PHASE.smokeStart);
+    it('has the phases in order, about 5 s long', () => {
+        const order = [0, PHASE.cruiseEnd, PHASE.stop, PHASE.smokeStart, PHASE.smokeLast, PHASE.formStart, PHASE.launch, PHASE.formed, PHASE.exited, PHASE.colorIn, PHASE.colorSolid, PHASE.hold, PHASE.glideEnd, PHASE.end];
+        expect(order).toEqual([...order].sort((x, y) => x - y));
+        expect(PHASE.smokeStart).toBeGreaterThanOrEqual(PHASE.stop);
         expect(PHASE.launch).toBeGreaterThan(PHASE.wobbleEnd);
+        expect(PHASE.colorIn - PHASE.formed).toBeGreaterThanOrEqual(0.25); // the grey mark is held before any colour
+        expect(PHASE.colorSolid - PHASE.colorIn).toBeCloseTo(0.5);
         expect(PHASE.hold).toBeGreaterThanOrEqual(PHASE.exited);
         expect(PHASE.bgFadeStart).toBeGreaterThanOrEqual(PHASE.glideEnd);
         expect(PHASE.end).toBeGreaterThan(4.5);
         expect(PHASE.end).toBeLessThanOrEqual(5);
-        expect(order.length).toBe(12);
     });
 
     it('1. the car enters from the right edge, small and far, and grows toward the lower left', () => {
@@ -61,43 +63,112 @@ describe('introFrame phases', () => {
         expect(Math.hypot(at(1.6).shake.x, at(1.6).shake.y)).toBeLessThan(2);
     });
 
-    it('3. the burnout holds the car in place with a quick wobble while smoke grows', () => {
+    it('3. the burnout holds the car in place with a quick wobble', () => {
         const xs = Array.from({ length: 40 }, (_, i) => at(1.4 + i * 0.01).car.x);
         const spread = Math.max(...xs) - Math.min(...xs);
         expect(spread).toBeGreaterThan(0.5);
         expect(spread).toBeLessThan(5);
         expect(Math.abs(xs[0] - W / 2)).toBeLessThan(4);
-        expect(alive(1.2).length).toBeGreaterThan(0);
-        expect(puffTotal(2.0)).toBeGreaterThan(puffTotal(1.2));
-        const size = (t: number) => Math.max(...at(t).puffs.map((p) => p.size));
-        expect(size(2.0)).toBeGreaterThan(size(1.2));
-        expect(alive(2.3).length).toBeGreaterThanOrEqual(20);
-        expect(PUFFS).toBeGreaterThanOrEqual(30);
-        expect(PUFFS).toBeLessThanOrEqual(60);
-        // born at the lower, rear (right) of the car
-        const first = at(1.12).puffs.find((p) => p.opacity > 0);
-        expect(first && first.y).toBeGreaterThan(at(1.12).car.y);
     });
 
-    it('4. the smoke condenses into the mark: the mark rises as the puffs thin out', () => {
-        expect(at(PHASE.logoIn - 0.1).logo.opacity).toBe(0);
-        expect(at(2.9).logo.opacity).toBeGreaterThan(0.4);
-        expect(at(PHASE.logoSolid).logo.opacity).toBe(1);
-        expect(at(2.9).logo.opacity).toBeGreaterThan(at(2.6).logo.opacity);
-        expect(puffTotal(3.2)).toBeLessThan(puffTotal(2.8));
-        expect(puffTotal(PHASE.smokeGone + 0.01)).toBe(0);
-        // the cloud has gathered around the mark
-        const near = alive(3.0).filter((p) => Math.abs(p.x - W / 2) < W * 0.5 && Math.abs(p.y - H * 0.37) < H * 0.15);
-        expect(near.length / alive(3.0).length).toBeGreaterThan(0.7);
-        expect(at(3.0).logo.scale).toBeGreaterThan(0.9);
+    it('3b. the burnout smoke is dense and comes from the tyres, not from a blob above the car', () => {
+        const car = at(1.4).car;
+        const carH = carSize(W).h;
+        expect(alive(1.1).length).toBeGreaterThan(0);
+        expect(puffTotal(1.8)).toBeGreaterThan(puffTotal(1.2));
+        expect(alive(1.9).length).toBeGreaterThanOrEqual(80);
+        // born low: at the tyres, below the car's middle
+        const born = at(PHASE.smokeStart + 0.03).puffs.filter((p) => p.size > 0);
+        expect(born.length).toBeGreaterThan(0);
+        for (const p of born) {
+            expect(p.y).toBeGreaterThan(car.y + carH * 0.2);
+        }
+        // the mass of the smoke sits at the car, spread across its width, and well below where the mark will be
+        const live = alive(1.9);
+        const cy = live.reduce((sum, p) => sum + p.y, 0) / live.length;
+        expect(cy).toBeGreaterThan(H * 0.5);
+        expect(Math.max(...live.map((p) => p.x)) - Math.min(...live.map((p) => p.x))).toBeGreaterThan(carSize(W).w * 0.6);
+        expect(Math.max(...live.map((p) => p.size))).toBeGreaterThan(90);
+        // some in front of the car, some behind
+        expect(at(1.9).puffs.some((p, i) => p.size > 0 && puffInFront(i))).toBe(true);
+        expect(at(1.9).puffs.some((p, i) => p.size > 0 && !puffInFront(i))).toBe(true);
+        // no logo, no grey mark yet
+        expect(at(1.9).ghost).toBe(0);
+        expect(at(1.9).logo.opacity).toBe(0);
     });
 
-    it('5. the car launches off to the left edge and is gone', () => {
+    it('4. the smoke converges to the points inside the 826 glyphs and shrinks to small dots', () => {
+        const { lx, ly, lw, lh } = { lx: W / 2, ly: H * 0.37, lw: logoSize(W).w, lh: logoSize(W).h };
+        const f = at(PHASE.formed);
+        expect(f.puffs).toHaveLength(LOGO_POINTS.length);
+        // every puff sits exactly on its own point; together they use every point once
+        const used = new Set<string>();
+        for (const p of f.puffs) {
+            const px = (p.x - lx) / lw + 0.5;
+            const py = (p.y - ly) / lh + 0.5;
+            const hit = LOGO_POINTS.findIndex(([x, y]) => Math.abs(x - px) < 1e-6 && Math.abs(y - py) < 1e-6);
+            expect(hit).toBeGreaterThanOrEqual(0);
+            used.add(String(hit));
+            expect(p.size).toBeLessThan(lw * 0.1);
+            expect(p.opacity).toBeGreaterThan(0.3);
+        }
+        expect(used.size).toBe(LOGO_POINTS.length);
+        // on the way: the cloud is still big and far, later it is smaller and closer
+        const meanDist = (t: number) => at(t).puffs.reduce((sum, p, i) => sum + Math.hypot(p.x - (lx + (LOGO_POINTS[puffTarget(i)][0] - 0.5) * lw), p.y - (ly + (LOGO_POINTS[puffTarget(i)][1] - 0.5) * lh)), 0) / PUFFS;
+        expect(meanDist(PHASE.formStart)).toBeGreaterThan(meanDist(2.5));
+        expect(meanDist(2.5)).toBeGreaterThan(meanDist(2.9));
+        expect(meanDist(PHASE.formed)).toBeLessThan(1e-6);
+        const size = (t: number) => at(t).puffs.reduce((m, p) => Math.max(m, p.size), 0);
+        expect(size(PHASE.formed)).toBeLessThan(size(PHASE.formStart) / 2);
+        // the soft grey silhouette comes in under them
+        expect(at(PHASE.formStart).ghost).toBe(0);
+        expect(at(PHASE.formed).ghost).toBeGreaterThan(0.5);
+    });
+
+    it('4b. the points are a clean set: inside the box, spread out, deterministic', () => {
+        expect(LOGO_POINTS.length).toBeGreaterThanOrEqual(100);
+        expect(LOGO_POINTS.length).toBeLessThanOrEqual(160);
+        for (const [x, y] of LOGO_POINTS) {
+            expect(x).toBeGreaterThan(0);
+            expect(x).toBeLessThan(1);
+            expect(y).toBeGreaterThan(0);
+            expect(y).toBeLessThan(1);
+        }
+        const gap = Math.min(...LOGO_POINTS.flatMap(([x, y], i) => LOGO_POINTS.slice(i + 1).map(([u, v]) => Math.hypot((x - u) * 480, (y - v) * 134))));
+        expect(gap).toBeGreaterThan(8);
+    });
+
+    it('4c. no colour until the smoke has formed the mark and held it; then a 0.5 s cross-fade', () => {
+        for (const t of [0.5, 1.5, 2.2, 2.8, PHASE.formed, PHASE.colorIn]) {
+            expect(at(t).logo.opacity).toBe(0);
+        }
+        // formed and held: the grey mark is fully there, still no colour
+        const held = at(PHASE.colorIn - 0.02);
+        expect(held.logo.opacity).toBe(0);
+        expect(held.ghost).toBeGreaterThan(0.5);
+        expect(PHASE.colorIn - PHASE.formed).toBeGreaterThanOrEqual(0.25);
+        // cross-fade, ease in-out, the grey mark and the dots go as the colour arrives
+        const mid = at((PHASE.colorIn + PHASE.colorSolid) / 2);
+        expect(mid.logo.opacity).toBeCloseTo(0.5, 1);
+        expect(at(PHASE.colorIn + 0.1).logo.opacity).toBeLessThan(0.2);
+        expect(at(PHASE.colorSolid).logo.opacity).toBe(1);
+        expect(mid.ghost).toBeLessThan(held.ghost);
+        expect(at(PHASE.colorSolid).ghost).toBe(0);
+        expect(puffTotal(PHASE.colorSolid)).toBe(0);
+        expect(puffTotal(PHASE.colorIn + 0.2)).toBeLessThan(puffTotal(PHASE.colorIn));
+        // the coloured mark stays in the same place while the colours come in
+        expect(at(PHASE.colorSolid).logo.x).toBeCloseTo(W / 2);
+        expect(at(PHASE.colorSolid).logo.scale).toBeCloseTo(1);
+    });
+
+    it('5. the car launches off to the left edge (overlapping the formation) and is gone before the colours come in', () => {
+        expect(PHASE.launch).toBeLessThan(PHASE.formed);
         expect(at(PHASE.launch - 0.05).car.x).toBeGreaterThan(W / 2 - 6);
-        expect(at(3.4).car.x).toBeLessThan(at(3.1).car.x);
+        expect(at(2.8).car.x).toBeLessThan(at(2.5).car.x);
         expect(at(PHASE.exited - 0.02).car.x - (carSize(W).w / 2) * at(PHASE.exited - 0.02).car.scale).toBeLessThan(0);
         expect(at(PHASE.exited).car.opacity).toBe(0);
         expect(at(PHASE.exited - 0.3).car.opacity).toBe(1);
+        expect(PHASE.exited).toBeLessThanOrEqual(PHASE.colorIn);
     });
 
     it('6. the mark settles, waits centred, then lands exactly on the header logo', () => {
@@ -105,6 +176,8 @@ describe('introFrame phases', () => {
         expect(hold.logo.x).toBeCloseTo(W / 2);
         expect(hold.logo.y).toBeCloseTo(H * 0.37);
         expect(hold.logo.scale).toBeCloseTo(1);
+        expect(hold.logo.opacity).toBe(1);
+        expect(hold.ghost).toBe(0);
         expect(hold.bg).toBe(1);
         const end = at(PHASE.end);
         expect(end.logo.x).toBeCloseTo(spot.x + spot.w / 2);
@@ -141,6 +214,7 @@ describe('introFrame phases', () => {
         expect(k.ms.every((ms, i) => i === 0 || ms > k.ms[i - 1])).toBe(true);
         expect(k.ms[k.ms.length - 1]).toBeCloseTo(PHASE.end * 1000);
         const last = at(PHASE.end);
+        expect(k.ghost).toHaveLength(k.ms.length);
         expect(k.logoX[k.logoX.length - 1]).toBeCloseTo(last.logo.x - logoSize(W).w / 2);
         expect(k.bg[k.bg.length - 1]).toBe(0);
         for (const p of k.puffs) {
@@ -290,6 +364,13 @@ describe('overlay', () => {
     it('full mode draws the car and the smoke', async () => {
         await mount(<Intro mode="full" ready spot={spot} onDone={jest.fn()} />);
         expect(JSON.stringify(renderer?.toJSON())).toContain('RNSVG');
+    });
+
+    it('node budget: one animated view per puff, plus 6 (root, background, stage, car, grey mark, coloured mark), at most 120', async () => {
+        await mount(<Intro mode="full" ready spot={spot} onDone={jest.fn()} />);
+        const animated = renderer?.root.findAll((n) => n.type === (Animated.View as unknown)).length ?? 0;
+        expect(animated).toBe(PUFFS + 6);
+        expect(animated).toBeLessThanOrEqual(120);
     });
 
     it('the gate is OFF unless the build sets EXPO_PUBLIC_INTRO=1: the release shows no intro', async () => {

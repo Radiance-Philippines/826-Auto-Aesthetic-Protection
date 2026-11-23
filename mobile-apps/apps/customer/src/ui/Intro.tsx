@@ -12,6 +12,8 @@ import { carSize, decideIntro, headerLogoSpot, logoSize, PHASE, PUFF_BASE, puffI
  * keyframes of ONE native-driven value (`t`, milliseconds), so there is no per-frame JS state. The overlay sits above the
  * router in its own window while fonts and the sign-in restore load. It waits at the settled mark until the app is ready
  * (`ready`), then glides the mark onto the real header logo and fades the background away. A tap ends it (200 ms fade).
+ * Order: tyre smoke (one Animated.View per puff, PUFFS of them), the puffs flow into the 826 shape in grey, then the coloured mark
+ * cross-fades in over a tinted grey copy. Animated nodes: PUFFS + 6 (root, background, shake stage, car, grey mark, coloured mark).
  */
 export const SKIP_MS = 200;
 /** Never leave a blocking overlay up for ever if the app never reports ready */
@@ -174,6 +176,10 @@ export function Intro({ mode, ready, spot, onDone }: Props) {
                         <>
                             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: c.bg, opacity: ip(t, keys.ms, keys.bg) }]} />
                             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX: ip(t, keys.ms, keys.shakeX) }, { translateY: ip(t, keys.ms, keys.shakeY) }] }]}>
+                                {/* The smoke-grey mark under the puffs: only a hint, the puffs draw the shape; the colours come in after it is formed */}
+                                <Animated.View style={{ position: 'absolute', left: W / 2 - logo.w / 2, top: H * 0.37 - logo.h / 2, width: logo.w, height: logo.h, opacity: ip(t, keys.ms, keys.ghost.map((g) => g * c.intro.smokeGain)) }}>
+                                    <Image source={require('../../assets/logo-mark.png')} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={c.intro.smoke} blurRadius={2} />
+                                </Animated.View>
                                 {keys.puffs.map((p, i) => (puffInFront(i) ? null : <SmokePuff key={i} keys={p} t={t} color={c.intro.smoke} gain={c.intro.smokeGain} />))}
                                 <Animated.View
                                     style={{
