@@ -54,6 +54,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
+            ->defaultAvatarProvider(\App\Filament\AvatarProviders\InitialsAvatarProvider::class)
             ->path('admin')
             ->login(Login::class)
             ->passwordReset()
