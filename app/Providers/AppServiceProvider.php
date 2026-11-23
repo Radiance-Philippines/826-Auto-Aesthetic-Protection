@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Filament\Support\PanelDefaults;
 use App\Models\MailSetting;
+use App\Support\Live\LiveEvents;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -50,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
             config(['passkeys.relying_party.id' => $this->app->runningInConsole() ? parse_url((string) config('app.url'), PHP_URL_HOST) : request()->getHost()]);
         }
 
+        // Live updates over Radiance Flow (nothing happens until the app token is set)
+        LiveEvents::listen();
+
         $this->limitRequests();
     }
 
@@ -74,6 +78,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('passkey-options', fn (Request $request) => Limit::perMinute(20)->by('passkey-options|'.$request->ip()));
         // Each try counts, like the other sign-ins
         RateLimiter::for('app-sign-in', fn (Request $request) => Limit::perMinute(10)->by('app-sign-in|'.$request->ip()));
+        // A page asks again about every 4 minutes, plus reconnects; 20 a minute leaves room and stops a loop
+        RateLimiter::for('live-ticket', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->getAuthIdentifier() ? 'live-ticket|user:'.$request->user()->getAuthIdentifier() : $by('live-ticket')($request)));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));
     }
 }

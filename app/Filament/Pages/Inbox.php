@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RefreshesLive;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Branch;
 use App\Models\Conversation;
@@ -34,6 +35,23 @@ use UnitEnum;
  */
 class Inbox extends Page
 {
+    use RefreshesLive;
+
+    protected function liveArea(): string
+    {
+        return 'inbox';
+    }
+
+    protected function liveBranch(): ?int
+    {
+        return ctype_digit($this->branch) ? (int) $this->branch : null;
+    }
+
+    protected function liveRefreshed(): void
+    {
+        $this->refreshInbox();
+    }
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
     protected static string|UnitEnum|null $navigationGroup = 'Inbox';

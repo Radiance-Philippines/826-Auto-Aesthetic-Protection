@@ -27,6 +27,12 @@ export MAIL_CAPTURE_PATH="$PWD/$DB_DIR/mail.log"
 export LOG_CHANNEL=stderr
 export LOG_LEVEL=error
 export PHP_CLI_SERVER_WORKERS=4
+# Live updates: the app talks to the stand-in for Radiance Flow (tests/e2e/fake-flow.mjs) on its own port
+FLOW_PORT="${E2E_FLOW_PORT:-8052}"
+export FLOW_URL="http://127.0.0.1:${FLOW_PORT}"
+export FLOW_WS_URL="ws://127.0.0.1:${FLOW_PORT}/ws"
+export FLOW_APP_TOKEN="${E2E_FLOW_TOKEN:-e2e-app-token}"
+export FLOW_TICKET_SECRET="${E2E_FLOW_SECRET:-e2e-ticket-secret}"
 
 php artisan migrate:fresh --seed --seeder=E2eSeeder --force --no-interaction >/dev/null
 exec php artisan serve --host=127.0.0.1 --port="$PORT" --no-reload

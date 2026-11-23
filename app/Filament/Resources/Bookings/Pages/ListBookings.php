@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Bookings\Pages;
 
+use App\Filament\Concerns\RefreshesLive;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use Filament\Actions\CreateAction;
@@ -11,6 +12,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListBookings extends ListRecords
 {
+    use RefreshesLive;
+
+    protected function liveArea(): string
+    {
+        return 'bookings';
+    }
+
     protected static string $resource = BookingResource::class;
 
     protected function getHeaderActions(): array

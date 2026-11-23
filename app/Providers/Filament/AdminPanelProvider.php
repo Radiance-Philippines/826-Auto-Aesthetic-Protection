@@ -20,6 +20,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -72,6 +73,8 @@ class AdminPanelProvider extends PanelProvider
             // The bell: heads-ups from operations to sales
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
+            // Live updates from Radiance Flow: the bell, queue, bookings and inbox look again when something changes
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.live'))
             ->brandName('826 Auto Aesthetic & Protection')
             ->brandLogo(fn () => view('filament.brand'))
             ->brandLogoHeight('2.5rem')

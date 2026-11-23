@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RefreshesLive;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\BranchBlockResource;
 use App\Models\Booking;
@@ -28,6 +29,18 @@ use UnitEnum;
  */
 class Queue extends Page
 {
+    use RefreshesLive;
+
+    protected function liveArea(): string
+    {
+        return 'queue';
+    }
+
+    protected function liveBranch(): ?int
+    {
+        return $this->branch;
+    }
+
     /**
      * The board's columns: the status each holds, and the icon of the
      * button that moves a card out of it (its label names the next status).

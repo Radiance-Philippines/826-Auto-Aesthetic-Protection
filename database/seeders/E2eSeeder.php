@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Booking;
+use App\Models\BookingSetting;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\MailSetting;
@@ -69,6 +70,9 @@ class E2eSeeder extends Seeder
             'plate_number' => 'FULL1234',
         ]);
 
+        // The test customer holds a booking per browser project for the live-updates tests, so the default 3 upcoming would block the booking flow
+        BookingSetting::instance()->update(['max_upcoming_per_guest' => 10]);
+
         $this->seedTeam($cainta);
         $this->seedMailbox();
         $this->seedCustomer($cainta);
@@ -126,7 +130,7 @@ class E2eSeeder extends Seeder
 
     /**
      * Today at Cainta, one set per browser project: a unit to arrive, one in the
-     * queue for the detailers, one ready to leave, one to cancel, one only read (never changed).
+     * queue for the detailers, one ready to leave, one to cancel, one only read (never changed), three for the live-updates tests, and one for the signed-in test customer.
      */
     private function seedTodaysBookings(Branch $cainta): void
     {
@@ -139,6 +143,9 @@ class E2eSeeder extends Seeder
                 'exit' => ['ready', "E2E Exit {$project}", "EXT-{$project}"],
                 'cancel' => ['confirmed', "E2E Cancel {$project}", "CAN-{$project}"],
                 'roles' => ['confirmed', "E2E Roles {$project}", "ROL-{$project}"],
+                'live' => ['confirmed', "E2E Live {$project}", "LIV-{$project}"],
+                'liveList' => ['confirmed', "E2E LiveList {$project}", "LLS-{$project}"],
+                'liveDrop' => ['confirmed', "E2E LiveDrop {$project}", "LDR-{$project}"],
             ];
 
             foreach ($units as [$status, $name, $plate]) {
@@ -148,6 +155,14 @@ class E2eSeeder extends Seeder
                     'plate_number' => $plate,
                 ]);
             }
+
+            // The signed-in test customer's own booking, for the live-updates test on the site (/auth/local signs them in)
+            Booking::factory()->priced()->status('confirmed')->on($today->toDateString())->create([
+                'branch_id' => $cainta->id,
+                'guest_id' => Guest::demoCustomer()->id,
+                'name' => "E2E Mine {$project}",
+                'plate_number' => "MIN-{$project}",
+            ]);
         }
     }
 }
