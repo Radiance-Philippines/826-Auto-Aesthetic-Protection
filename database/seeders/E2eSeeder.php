@@ -85,7 +85,7 @@ class E2eSeeder extends Seeder
         $team = [
             'twofa@826auto.test' => ['Two Factor Admin', Access::SUPER_ADMIN],
             'emailfa@826auto.test' => ['Email Code Admin', Access::SUPER_ADMIN],
-            'operations@826auto.test' => ['Head Detailer', Access::OPERATIONS],
+            'operations@826auto.test' => ['Detailer', Access::OPERATIONS],
             'sales@826auto.test' => ['Sales Admin', Access::SALES_ADMIN],
             'manager@826auto.test' => ['Branch Manager', Access::BRANCH_MANAGER],
         ];
@@ -126,7 +126,7 @@ class E2eSeeder extends Seeder
 
     /**
      * Today at Cainta, one set per browser project: a unit to arrive, one in the
-     * queue for the head detailer, one ready to leave, one to cancel, one only read (never changed).
+     * queue for the detailers, one ready to leave, one to cancel, one only read (never changed).
      */
     private function seedTodaysBookings(Branch $cainta): void
     {

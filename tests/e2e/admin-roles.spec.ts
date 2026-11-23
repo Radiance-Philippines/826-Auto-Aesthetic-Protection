@@ -44,7 +44,7 @@ for (const role of ['owner', 'operations', 'sales', 'manager'] as const) {
 }
 
 test.describe('role differences on a booking', () => {
-    test('sales sees the sales actions, the head detailer only the queue steps', async ({ page, browser }, info) => {
+    test('sales sees the sales actions, a detailer only the queue steps', async ({ page, browser }, info) => {
         const name = unit(info, 'Roles');
 
         const check = async (email: string) => {

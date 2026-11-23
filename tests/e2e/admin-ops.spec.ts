@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 import { adminLogin, adminOpen, openBooking, row, TEAM, unit } from './admin-support';
 import { expectNoHorizontalOverflow } from './support';
 
-test.describe('admin queue (head detailer)', () => {
-    test('the head detailer moves a unit along the queue', async ({ page }, info) => {
+test.describe('admin queue (detailers)', () => {
+    test('a detailer moves a unit along the queue', async ({ page }, info) => {
         page.on('dialog', (dialog) => dialog.accept());
         await adminLogin(page, TEAM.operations);
         await adminOpen(page, '/admin/queue');
@@ -28,7 +28,7 @@ test.describe('admin queue (head detailer)', () => {
         await expect(card.getByRole('button')).toHaveCount(0);
     });
 
-    test('the head detailer cannot cancel a booking, only move it along', async ({ page }, info) => {
+    test('a detailer cannot cancel a booking, only move it along', async ({ page }, info) => {
         await adminLogin(page, TEAM.operations);
         await openBooking(page, unit(info, 'Roles'));
         await expect(page.getByRole('button', { name: 'Arrived', exact: true }).first()).toBeVisible();
