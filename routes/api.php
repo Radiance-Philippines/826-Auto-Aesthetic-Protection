@@ -16,6 +16,7 @@ Route::prefix('app')->name('app.')->group(function () {
     Route::post('sign-in/demo', [AppAuthController::class, 'demo'])->middleware('throttle:app-sign-in')->name('sign-in.demo');
 
     Route::get('catalog', [AppController::class, 'catalog'])->middleware('throttle:availability')->name('catalog');
+    Route::get('showcase', [AppController::class, 'showcase'])->middleware('throttle:availability')->name('showcase');
     Route::get('latest', [AppController::class, 'latest'])->middleware('throttle:availability')->name('latest');
 
     Route::middleware(['guest.token:required', 'throttle:my-bookings'])->group(function () {

@@ -8,14 +8,18 @@ use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\GuestToken;
+use App\Models\Photo;
 use App\Models\ReferralRedemption;
 use App\Models\ReferralSetting;
+use App\Models\Review;
 use App\Models\RewardRedemption;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\Video;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\BuildsShop;
 use Tests\TestCase;
 
@@ -194,6 +198,71 @@ class AppEndpointsTest extends TestCase
         SiteSetting::instance()->update(['apple_client_id' => 'ph.radianceph.aap826', 'google_ios_client_id' => 'ios.apps.googleusercontent.com']);
         config(['app.demo' => true]);
         $this->getJson('/api/app/catalog')->assertJsonPath('signIn', ['google' => true, 'apple' => true, 'demo' => true]);
+    }
+
+    // Showcase
+
+    public function test_showcase_is_public_and_empty_without_content(): void
+    {
+        $this->getJson('/api/app/showcase')->assertOk()->assertExactJson(['videos' => [], 'photos' => [], 'reviews' => []]);
+    }
+
+    public function test_showcase_shape_and_order(): void
+    {
+        Storage::fake('public');
+        Video::factory()->create(['title' => 'Second', 'youtube_url' => 'https://youtu.be/bbbbbbbbbbb', 'sort_order' => 2]);
+        Video::factory()->create(['title' => 'First', 'youtube_url' => 'https://www.youtube.com/watch?v=aaaaaaaaaaa', 'caption' => 'A caption', 'sort_order' => 1]);
+        Photo::factory()->create(['category' => 'ppf', 'caption' => 'Fresh film', 'sort_order' => 2]);
+        Photo::factory()->create(['category' => 'coating', 'sort_order' => 1]);
+        Review::factory()->approved()->create(['rating' => 4, 'body' => 'Older', 'approved_at' => now()->subDay()]);
+        Review::factory()->approved()->create(['rating' => 5, 'body' => 'Featured', 'is_featured' => true, 'approved_at' => now()->subDays(3)]);
+
+        $showcase = $this->getJson('/api/app/showcase')->assertOk()->assertHeader('Cache-Control', 'no-store, private')->json();
+
+        $this->assertKeys(['videos', 'photos', 'reviews'], $showcase, 'showcase');
+        $this->assertSame(['First', 'Second'], array_column($showcase['videos'], 'title'));
+        $this->assertKeys(['id', 'title', 'caption', 'youtubeId', 'thumbnail', 'url'], $showcase['videos'][0], 'video');
+        $this->assertSame('aaaaaaaaaaa', $showcase['videos'][0]['youtubeId']);
+        $this->assertSame('https://www.youtube.com/watch?v=aaaaaaaaaaa', $showcase['videos'][0]['url']);
+
+        $this->assertSame(['coating', 'ppf'], array_column($showcase['photos'], 'category'));
+        $this->assertKeys(['id', 'alt', 'category', 'categoryLabel', 'image'], $showcase['photos'][0], 'photo');
+        $this->assertSame('826: coating', $showcase['photos'][0]['alt']);
+        $this->assertSame('Fresh film', $showcase['photos'][1]['alt']);
+        $this->assertSame('Paint protection film', $showcase['photos'][1]['categoryLabel']);
+        $this->assertKeys(['src', 'srcset', 'thumb'], $showcase['photos'][0]['image'], 'image');
+        $this->assertStringStartsWith('http', $showcase['photos'][0]['image']['src']);
+        $this->assertStringStartsWith('http', $showcase['photos'][0]['image']['thumb']);
+
+        $this->assertSame(['Featured', 'Older'], array_column($showcase['reviews'], 'body'));
+        $this->assertKeys(['id', 'name', 'rating', 'body', 'photo', 'service', 'branch', 'date'], $showcase['reviews'][0], 'review');
+        $this->assertNull($showcase['reviews'][0]['photo']);
+        $this->assertStringNotContainsString('price', json_encode($showcase));
+    }
+
+    public function test_showcase_review_photo_url_is_absolute(): void
+    {
+        Storage::fake('public');
+        Review::factory()->approved()->create(['photo' => 'reviews/x.jpg']);
+
+        $photo = $this->getJson('/api/app/showcase')->json('reviews.0.photo');
+
+        $this->assertStringStartsWith('http', $photo['src']);
+        $this->assertStringStartsWith('http', $photo['thumb']);
+    }
+
+    public function test_showcase_hides_unpublished_videos_and_unapproved_reviews(): void
+    {
+        Video::factory()->create(['title' => 'Live']);
+        Video::factory()->create(['title' => 'Draft', 'is_published' => false]);
+        Review::factory()->approved()->create(['body' => 'Shown']);
+        Review::factory()->create(['body' => 'Pending one']);
+        Review::factory()->rejected()->create(['body' => 'Rejected one']);
+
+        $showcase = $this->getJson('/api/app/showcase')->assertOk()->json();
+
+        $this->assertSame(['Live'], array_column($showcase['videos'], 'title'));
+        $this->assertSame(['Shown'], array_column($showcase['reviews'], 'body'));
     }
 
     // Latest release

@@ -1,0 +1,142 @@
+import Constants from 'expo-constants';
+import { useFocusEffect } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { Download, LogOut, Trash2, UserRound } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
+import { api, problemText, type AppRelease } from '@/api';
+import { useAuth } from '@/context/auth';
+import { useCatalog } from '@/context/catalog';
+import { DEMO } from '@/lib/config';
+import { phoneOk } from '@/lib/wizard';
+import { c } from '@/theme';
+import { Button } from '@/ui/Button';
+import { Card } from '@/ui/Card';
+import { Field } from '@/ui/Field';
+import { Screen } from '@/ui/Screen';
+import { Sheet } from '@/ui/Sheet';
+import { FormError } from '@/ui/States';
+import { Text } from '@/ui/Text';
+
+export default function MeScreen() {
+    const { guest, setGuest, signOut, forget } = useAuth();
+    const { catalog } = useCatalog();
+    const [name, setName] = useState(guest?.name ?? '');
+    const [phone, setPhone] = useState(guest?.phone ?? '');
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [policy, setPolicy] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deleteProblem, setDeleteProblem] = useState<string | null>(null);
+    const [release, setRelease] = useState<AppRelease | null>(null);
+    const version = Constants.expoConfig?.version ?? '';
+    const code = Constants.expoConfig?.android?.versionCode ?? 0;
+
+    // The server may have filled in the number from a booking: show what it has
+    useFocusEffect(
+        useCallback(() => {
+            void api.me().then((result) => {
+                if (result.kind === 'ok') {
+                    setGuest(result.data);
+                    setName(result.data.name);
+                    setPhone(result.data.phone ?? '');
+                }
+            });
+        }, [setGuest]),
+    );
+
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+        void api.latestRelease().then((result) => {
+            if (result.kind === 'ok' && 'versionCode' in result.data && result.data.versionCode > code) setRelease(result.data as AppRelease);
+        });
+    }, [code]);
+
+    const save = async () => {
+        const found: Record<string, string> = {};
+        if (!name.trim()) found.name = 'Add your name.';
+        if (phone.trim() && !phoneOk(phone)) found.phone = 'Enter your mobile number, like 0917 123 4567.';
+        setErrors(found);
+        if (Object.keys(found).length) return;
+
+        setSaving(true);
+        const result = await api.updateMe({ name: name.trim(), ...(phone.trim() ? { phone: phone.trim() } : {}) });
+        setSaving(false);
+
+        if (result.kind === 'ok') {
+            setGuest(result.data);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+        } else if (result.kind === 'invalid') {
+            setErrors(Object.fromEntries(Object.entries(result.errors).map(([key, messages]) => [key, messages[0]])));
+        } else {
+            setErrors({ form: problemText(result) });
+        }
+    };
+
+    const deleteAccount = async () => {
+        setDeleteBusy(true);
+        setDeleteProblem(null);
+        const result = await api.deleteAccount();
+        setDeleteBusy(false);
+
+        if (result.kind === 'ok') {
+            setDeleting(false);
+            await forget();
+        } else {
+            // 409 carries the plain reason, e.g. a unit is still in the shop
+            setDeleteProblem(problemText(result));
+        }
+    };
+
+    return (
+        <Screen brand title="Me" tabs>
+            <Card style={{ gap: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' }}>
+                        <UserRound size={24} color={c.muted} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text v="title" numberOfLines={1}>
+                            {guest?.name}
+                        </Text>
+                        {guest?.email ? <Text v="small">{guest.email}</Text> : null}
+                    </View>
+                </View>
+                <Field label="Name" value={name} onChangeText={setName} autoCapitalize="words" error={errors.name} />
+                <Field label="Mobile number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="0917 123 4567" error={errors.phone} />
+                <FormError>{errors.form}</FormError>
+                <Button label={saved ? 'Saved' : 'Save'} loading={saving} onPress={save} />
+            </Card>
+
+            {release ? (
+                <Card style={{ gap: 8 }}>
+                    <Text v="title">{`Version ${release.version} is out`}</Text>
+                    {release.notes ? <Text v="small">{release.notes}</Text> : null}
+                    <Button kind="secondary" icon={Download} label="Download the update" onPress={() => void WebBrowser.openBrowserAsync(release.url)} />
+                </Card>
+            ) : null}
+
+            {catalog?.booking.policy ? <Button kind="secondary" label="Booking policy" onPress={() => setPolicy(true)} /> : null}
+            <Sheet open={policy} onClose={() => setPolicy(false)} title="Booking policy">
+                <Text>{catalog?.booking.policy}</Text>
+            </Sheet>
+
+            <Button kind="secondary" icon={LogOut} label="Sign out" onPress={() => void signOut()} testID="sign-out" />
+            <Button kind="danger" icon={Trash2} label="Delete my account" onPress={() => { setDeleteProblem(null); setDeleting(true); }} testID="delete-account" />
+
+            <Text v="small" style={{ textAlign: 'center' }}>
+                {`826 Auto Aesthetic · version ${version}${DEMO ? ' · demo' : ''}`}
+            </Text>
+
+            <Sheet open={deleting} onClose={() => setDeleting(false)} title="Delete my account?">
+                <Text color={c.muted}>This removes your name, email, number, referral code and sign-in from 826. Your past bookings stay with the shop for its records, but no longer carry your name. This can’t be undone.</Text>
+                <FormError>{deleteProblem}</FormError>
+                <Button kind="danger" icon={Trash2} label="Yes, delete my account" loading={deleteBusy} onPress={deleteAccount} testID="confirm-delete" />
+                <Button kind="secondary" label="Keep my account" onPress={() => setDeleting(false)} />
+            </Sheet>
+        </Screen>
+    );
+}
