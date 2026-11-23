@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
 
-import { adminLogin, adminOpen, row, submitLogin, TEAM, unit } from './admin-support';
+import { actionThenConfirm, adminLogin, adminOpen, openBooking, row, submitLogin, TEAM, unit } from './admin-support';
 import { signIn } from './support';
 
 /**
@@ -193,4 +193,188 @@ test('card 28 to 39: inbox, site content, dashboards, Facebook pages', async ({ 
         await adminOpen(page, '/admin');
         await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     });
+});
+
+/**
+ * Second review (cards 19, 23, 25, 30) after the fixes. These need the extra sample data
+ * (ReviewEvidenceSeeder, made when REVIEW_DIR is set). Each step returns the text it saw, which
+ * lands in log.jsonl next to the picture.
+ */
+const seen = async (page: Page, selector = 'main') => ((await page.locator(selector).first().innerText()).replace(/\s+/g, ' ').trim()).slice(0, 1800);
+/** Scroll down so the dashboard's lazy widgets load, then wait for the last "Loading..." to go */
+const loadAll = async (page: Page) => {
+    for (let y = 0; y < 8; y++) {
+        await page.mouse.wheel(0, 1200);
+        await page.waitForTimeout(400);
+    }
+
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText('Loading...')).toHaveCount(0, { timeout: 20_000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+};
+const tab = async (page: Page, name: RegExp, expected: RegExp) => {
+    await page.getByRole('tab', { name }).click();
+    await page.getByText(expected).first().waitFor({ timeout: 15_000 });
+    await page.waitForLoadState('networkidle');
+};
+/** A Filament select: open the field's button, then pick the option (by text, or the nth) */
+const choose = async (page: Page, label: string, option: string | number, search?: string) => {
+    const field = page.locator('.fi-fo-field').filter({ has: page.locator('label').filter({ hasText: new RegExp(`^\\s*${label}\\*?\\s*$`) }) }).first();
+    await field.locator('button').first().click();
+
+    if (search) {
+        await page.keyboard.type(search);
+        await page.waitForTimeout(800);
+    }
+
+    const options = page.getByRole('option');
+    await (typeof option === 'number' ? options.nth(option) : options.filter({ hasText: option }).first()).click();
+};
+const openCustomer = async (page: Page, name: string) => {
+    await adminOpen(page, '/admin/customers');
+    await page.getByPlaceholder('Search').first().fill(name);
+    await expect(row(page, name)).toHaveCount(1);
+    await row(page, name).getByRole('link', { name: 'View' }).click();
+    await page.waitForLoadState('networkidle');
+};
+
+test('review2 card 19: units, jobs count, last service, history', async ({ page }, info) => {
+    await adminLogin(page, TEAM.owner);
+    await step(info, page, 19, 'r2-owner-units-tab', async () => {
+        await openCustomer(page, 'E2E Customer');
+        await tab(page, /Units/, /Last service/);
+        return `OWNER ${await seen(page)}`;
+    }, { phone: true });
+    await step(info, page, 19, 'r2-owner-unit-history', async () => {
+        await row(page, 'CRM1234').getByRole('button', { name: 'History' }).click();
+        await page.locator('[role=dialog]').getByText('Reference').waitFor();
+        return `OWNER HISTORY ${await seen(page, '[role=dialog]')}`;
+    });
+
+    const manager = await page.context().browser()!.newContext({ viewport: info.project.use.viewport ?? undefined, baseURL: info.project.use.baseURL ?? undefined });
+    const managerPage = await manager.newPage();
+    managerPage.setDefaultTimeout(8_000);
+    await adminLogin(managerPage, TEAM.manager);
+    await step(info, managerPage, 19, 'r2-manager-unit-history-branch-scoped', async () => {
+        await openCustomer(managerPage, 'E2E Customer');
+        await tab(managerPage, /Units/, /Last service/);
+        const table = `MANAGER UNITS ${await seen(managerPage)}`;
+        await row(managerPage, 'CRM1234').getByRole('button', { name: 'History' }).click();
+        await managerPage.locator('[role=dialog]').getByText('Reference').waitFor();
+
+        return `${table} || MANAGER HISTORY ${await seen(managerPage, '[role=dialog]')}`;
+    });
+    await manager.close();
+});
+
+test('review2 card 23 and 30: dashboard referrers, rep column, points', async ({ page }, info) => {
+    await adminLogin(page, TEAM.owner);
+    await step(info, page, 23, 'r2-owner-dashboard-referrers-and-reps', async () => {
+        await adminOpen(page, '/admin');
+        await loadAll(page);
+        await page.getByText('Top referrers').first().waitFor();
+        return `OWNER ${await seen(page)}`;
+    }, { phone: true });
+    await step(info, page, 30, 'r2-owner-dashboard-sales-points', async () => {
+        await adminOpen(page, '/admin');
+        await loadAll(page);
+        await page.getByText('Points outstanding').first().scrollIntoViewIfNeeded();
+        return `OWNER ${await seen(page)}`;
+    }, { phone: true });
+    await step(info, page, 23, 'r2-customer-referral-tab-referrer', async () => {
+        await openCustomer(page, 'Maria Referrer');
+        await tab(page, /Referral/, /Used by|No one has used/);
+        return `MARIA ${await seen(page)}`;
+    });
+
+    const manager = await page.context().browser()!.newContext({ viewport: info.project.use.viewport ?? undefined, baseURL: info.project.use.baseURL ?? undefined });
+    const managerPage = await manager.newPage();
+    managerPage.setDefaultTimeout(8_000);
+    await adminLogin(managerPage, TEAM.manager);
+    await step(info, managerPage, 30, 'r2-manager-dashboard-scoped', async () => {
+        await adminOpen(managerPage, '/admin');
+        await loadAll(managerPage);
+        await managerPage.getByText('Points outstanding').first().scrollIntoViewIfNeeded();
+        return `MANAGER ${await seen(managerPage)}`;
+    });
+    await manager.close();
+});
+
+test('review2 card 25: manual transaction with a referral code', async ({ page }, info) => {
+    test.skip(info.project.name === 'phone', 'the saving steps run once, on desktop');
+    await adminLogin(page, TEAM.sales);
+
+    const fill = async (customer: string, plate: string, code: string, status = 'Ready') => {
+        await adminOpen(page, '/admin/manual-transaction');
+        await choose(page, 'Customer', customer, customer);
+        await page.locator('[id$="vehicle_year"]').fill('2022');
+        await page.locator('[id$="vehicle_model"]').fill('Toyota Vios');
+        await choose(page, 'Type', 0);
+        await page.locator('[id$="plate_number"]').fill(plate);
+        await choose(page, 'Size class', 1);
+        await page.getByText('Exterior detailing').first().click();
+        await page.waitForLoadState('networkidle');
+        await choose(page, 'Status', status);
+        await page.locator('[id$="referral_code"]').fill(code);
+    };
+    const save = async () => {
+        await page.getByRole('button', { name: 'Save transaction' }).click();
+        await page.waitForLoadState('networkidle');
+    };
+
+    await step(info, page, 25, 'r2-form-with-referral-field', async () => {
+        await adminOpen(page, '/admin/manual-transaction');
+        await page.locator('[id$="referral_code"]').waitFor();
+        return `FORM ${await seen(page)}`;
+    });
+    await step(info, page, 25, 'r2-bad-code-error', async () => {
+        await fill('Fresh Friend', 'FRE 9001', 'NOPE-0000');
+        await save();
+        await page.getByText(/couldn’t find that referral code/).waitFor();
+        return `URL ${page.url()} :: ${await page.getByText(/couldn’t find that referral code/).innerText()}`;
+    });
+    await step(info, page, 25, 'r2-own-code-error', async () => {
+        await fill('Maria Referrer', 'MAR 9002', 'MARIA-7K3Q');
+        await save();
+        await page.getByText(/own referral code/).waitFor();
+        return `URL ${page.url()} :: ${await page.getByText(/own referral code/).innerText()}`;
+    });
+    await step(info, page, 25, 'r2-not-first-booking-error', async () => {
+        await fill('E2E Customer', 'CRM1234', 'MARIA-7K3Q');
+        await save();
+        await page.getByText(/Referral codes are for your first booking only/).first().waitFor();
+        return `URL ${page.url()} :: ${await page.getByText(/Referral codes are for your first booking only/).first().innerText()}`;
+    });
+    await step(info, page, 25, 'r2-nothing-saved-after-errors', async () => {
+        await adminOpen(page, '/admin/bookings');
+        const found = await page.locator('table tbody tr').filter({ hasText: /FRE 9001|MAR 9002/ }).count();
+        return `Bookings with the rejected plates: ${found}`;
+    });
+    await step(info, page, 25, 'r2-valid-code-saved-ready', async () => {
+        await fill('Fresh Friend', 'FRE 9001', 'maria-7k3q');
+        await save();
+        await page.waitForURL(/\/admin\/bookings\/\d+/);
+        await page.waitForLoadState('networkidle');
+        return `SAVED ${await seen(page)}`;
+    });
+    await step(info, page, 25, 'r2-referral-tab-pending', async () => {
+        await openCustomer(page, 'Maria Referrer');
+        await tab(page, /Referral/, /Used by|No one has used/);
+        return `MARIA BEFORE EXIT ${await seen(page)}`;
+    });
+    // The sales role cannot move the queue, so the owner marks the job exited
+    const owner = await page.context().browser()!.newContext({ viewport: info.project.use.viewport ?? undefined, baseURL: info.project.use.baseURL ?? undefined });
+    const ownerPage = await owner.newPage();
+    ownerPage.setDefaultTimeout(8_000);
+    await adminLogin(ownerPage, TEAM.owner);
+    await step(info, ownerPage, 25, 'r2-exit-awards-points-once', async () => {
+        await openBooking(ownerPage, 'Fresh Friend');
+        await actionThenConfirm(ownerPage, 'Exited');
+        await expect(ownerPage.getByRole('button', { name: 'Exited', exact: true })).toHaveCount(0);
+        await openCustomer(ownerPage, 'Maria Referrer');
+        await tab(ownerPage, /Referral/, /Used by|No one has used/);
+
+        return `MARIA AFTER EXIT ${await seen(ownerPage)}`;
+    });
+    await owner.close();
 });

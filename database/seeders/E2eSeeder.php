@@ -73,6 +73,11 @@ class E2eSeeder extends Seeder
         $this->seedMailbox();
         $this->seedCustomer($cainta);
         $this->seedTodaysBookings($cainta);
+
+        // Extra sample data for the review screenshots, only when they are asked for
+        if (filled(getenv('REVIEW_DIR'))) {
+            $this->call(ReviewEvidenceSeeder::class);
+        }
     }
 
     /**
