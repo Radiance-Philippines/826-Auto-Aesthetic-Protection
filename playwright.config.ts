@@ -4,9 +4,9 @@ import net from 'node:net';
 import { defineConfig } from '@playwright/test';
 
 /** A free port, picked once: the workers load this file again and must see the same one */
-async function freePort(): Promise<number> {
-    if (process.env.E2E_PORT) {
-        return Number(process.env.E2E_PORT);
+async function freePort(variable = 'E2E_PORT'): Promise<number> {
+    if (process.env[variable]) {
+        return Number(process.env[variable]);
     }
 
     const port = await new Promise<number>((resolve, reject) => {
@@ -18,12 +18,14 @@ async function freePort(): Promise<number> {
         });
     });
 
-    process.env.E2E_PORT = String(port);
+    process.env[variable] = String(port);
 
     return port;
 }
 
 const port = await freePort();
+// The stand-in for Radiance Flow (live updates), on its own port
+const flowPort = await freePort('E2E_FLOW_PORT');
 
 // ribs02 has its Chromium already; no browser is downloaded in CI
 const ribsChromium = '/opt/flow-tools/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell';
@@ -53,13 +55,24 @@ export default defineConfig({
         { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
         { name: 'phone', use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
     ],
-    webServer: {
-        command: 'bash tests/e2e/serve.sh',
-        env: { E2E_PORT: String(port) },
-        url: `http://127.0.0.1:${port}/robots.txt`,
-        reuseExistingServer: false,
-        timeout: 180_000,
-        stdout: 'ignore',
-        stderr: 'pipe',
-    },
+    webServer: [
+        {
+            command: 'node tests/e2e/fake-flow.mjs',
+            env: { E2E_FLOW_PORT: String(flowPort) },
+            url: `http://127.0.0.1:${flowPort}/health`,
+            reuseExistingServer: false,
+            timeout: 30_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
+        {
+            command: 'bash tests/e2e/serve.sh',
+            env: { E2E_PORT: String(port), E2E_FLOW_PORT: String(flowPort) },
+            url: `http://127.0.0.1:${port}/robots.txt`,
+            reuseExistingServer: false,
+            timeout: 180_000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        },
+    ],
 });

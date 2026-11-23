@@ -9,6 +9,7 @@ import SignInBlock from '../components/SignInBlock';
 import VehicleSilhouette from '../components/VehicleSilhouette';
 import { guest } from '../lib/auth';
 import { copyText, fetchBookings, fetchMyReferral, LIVE_STAGES } from '../lib/bookings';
+import { useLive } from '../lib/live';
 import { copy } from '../lib/copy';
 import { peso, site } from '../lib/site';
 import { unitName } from '../lib/vehicles';
@@ -54,6 +55,8 @@ function ReferralCard() {
     const [copied, setCopied] = useState(false);
     const card = text.referral;
 
+    const [looked, setLooked] = useState(0);
+
     useEffect(() => {
         let cancelled = false;
 
@@ -66,7 +69,13 @@ function ReferralCard() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [looked]);
+
+    // Points change live: when a friend's booking exits, or the team redeems some
+    useLive(
+        (event) => event.type === 'rewards.changed' && setLooked((count) => count + 1),
+        () => setLooked((count) => count + 1),
+    );
 
     if (!referral?.code) {
         return null;
@@ -135,6 +144,19 @@ export default function Bookings() {
             cancelled = true;
         };
     }, [attempt]);
+
+    // A booking moved (the team confirmed it, the unit arrived): the list looks again, quietly
+    const lookAgain = () =>
+        fetchBookings().then((result) => {
+            if (result.kind === 'ok') {
+                setBookings(result.data.bookings);
+            }
+        });
+
+    useLive(
+        (event) => event.type.startsWith('booking.') && void lookAgain(),
+        () => void lookAgain(),
+    );
 
     const upcoming = (bookings ?? []).filter((booking) => LIVE_STAGES.includes(booking.stage));
     const past = (bookings ?? []).filter((booking) => !LIVE_STAGES.includes(booking.stage));

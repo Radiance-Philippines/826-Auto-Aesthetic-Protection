@@ -8,6 +8,8 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/js/app.tsx',
+                // Live updates in the admin (a render hook in AdminPanelProvider)
+                'resources/js/admin-live.ts',
                 // Filament admin theme (AdminPanelProvider::viteTheme)
                 'resources/css/filament/admin/theme.css',
             ],

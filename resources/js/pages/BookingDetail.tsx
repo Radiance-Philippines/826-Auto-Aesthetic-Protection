@@ -17,6 +17,7 @@ import { guest } from '../lib/auth';
 import { forget, type JobQuery, readyOn } from '../lib/availability';
 import { cancelBooking, fetchBooking, LIVE_STAGES, rescheduleBooking } from '../lib/bookings';
 import { copy } from '../lib/copy';
+import { useLive } from '../lib/live';
 import { longDate, shortDate, stamp } from '../lib/dates';
 import { BOOK_DRAFT, emptyBookDraft, saveDraft } from '../lib/draft';
 import { branchById, daysLabel, peso, services, site, vehicleTypeLabel } from '../lib/site';
@@ -376,6 +377,12 @@ export default function BookingDetail() {
         setLoad({ kind: 'loading' });
         refresh();
     }, [refresh]);
+
+    // The branch moved the booking (confirmed it, the unit arrived, ready): look again, unless a screenshot is going up
+    useLive(
+        (event) => event.type.startsWith('booking.') && event.payload.booking === Number(id) && !busyRef.current && void refresh(),
+        () => !busyRef.current && void refresh(),
+    );
 
     // Back to the tab after paying in GCash or Maya: a fresh look, unless a screenshot is going up
     useEffect(() => {

@@ -5,6 +5,7 @@ use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
 use App\Http\Controllers\HomeRequestController;
+use App\Http\Controllers\LiveTicketController;
 use App\Http\Controllers\MetaWebhookController;
 use App\Http\Controllers\MyBookingsController;
 use App\Http\Controllers\MyRewardsController;
@@ -70,6 +71,9 @@ Route::middleware('guest.token')->group(function () {
         Route::post('/{booking}/review', [ReviewController::class, 'store'])->whereNumber('booking')->middleware('throttle:reviews')->name('my-bookings.review');
     });
 });
+
+// A ticket for Radiance Flow's WebSocket (team in /admin, or a signed-in customer): live updates
+Route::get('/live/ticket', LiveTicketController::class)->middleware(['guest.token', 'throttle:live-ticket'])->name('live.ticket');
 
 // The team's view of a payment screenshot (signed in to /admin)
 Route::get('/admin-files/bookings/{booking}/proof', [AdminFileController::class, 'proof'])

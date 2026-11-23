@@ -18,7 +18,7 @@ export const TEAM = {
 export const TWO_FACTOR_SECRET = 'JBSWY3DPEHPK3PXP';
 
 /** The bookings E2eSeeder made for this browser project (the tests change them, so each project has its own) */
-export const unit = (info: TestInfo, kind: 'Arrive' | 'Queue' | 'Exit' | 'Cancel' | 'Roles') => `E2E ${kind} ${info.project.name}`;
+export const unit = (info: TestInfo, kind: 'Arrive' | 'Queue' | 'Exit' | 'Cancel' | 'Roles' | 'Live' | 'LiveList' | 'LiveDrop' | 'Mine') => `E2E ${kind} ${info.project.name}`;
 
 export const main = (page: Page) => page.locator('main.fi-main, main').first();
 
