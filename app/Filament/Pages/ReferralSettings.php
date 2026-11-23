@@ -7,9 +7,9 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\ReferralSetting;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
@@ -72,9 +72,11 @@ class ReferralSettings extends Page
                             ->helperText('Needs a discount below. Off hides the code box on the site.')
                             ->live()
                             ->columnSpanFull(),
-                        Select::make('discount_type')
+                        ToggleButtons::make('discount_type')
                             ->label('The friend gets')
                             ->options(ReferralSetting::TYPES)
+                            ->icons(['fixed' => Heroicon::OutlinedBanknotes, 'percent' => Heroicon::OutlinedReceiptPercent])
+                            ->inline()
                             ->required()
                             ->live(),
                         TextInput::make('discount_value')

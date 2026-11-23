@@ -7,8 +7,8 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\MailSetting;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
@@ -102,7 +102,7 @@ class EmailSettings extends Page
                     ->columns(2)
                     ->components([
                         TextInput::make('smtp_host')->label('Outgoing (SMTP) server')->required()->maxLength(190),
-                        Select::make('smtp_port')->label('SMTP port')->options([465 => '465 (SSL)', 587 => '587 (STARTTLS)'])->required()->native(false),
+                        ToggleButtons::make('smtp_port')->label('SMTP port')->options([465 => '465 (SSL)', 587 => '587 (STARTTLS)'])->icons([465 => Heroicon::OutlinedLockClosed, 587 => Heroicon::OutlinedShieldCheck])->inline()->required(),
                     ]),
             ]);
     }

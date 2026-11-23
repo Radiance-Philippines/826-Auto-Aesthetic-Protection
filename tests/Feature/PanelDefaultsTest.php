@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -36,7 +37,8 @@ class PanelDefaultsTest extends TestCase
 
         $table = Livewire::test(ListBookings::class)->instance()->getTable();
 
-        $this->assertFalse($table->getFilter('kind')->isNative());
+        // Two options (at the branch or home) are radio buttons in the filter, not a select
+        $this->assertNotInstanceOf(SelectFilter::class, $table->getFilter('kind'));
         $this->assertFalse($table->getFilter('status')->isNative());
         $this->assertFalse(Select::make('anything')->isNative());
 

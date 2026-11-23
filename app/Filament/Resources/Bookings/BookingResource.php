@@ -40,6 +40,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -220,9 +221,9 @@ class BookingResource extends Resource
                             Textarea::make('address')->rows(2)->maxLength(500)->required()->columnSpanFull(),
                             TextInput::make('area')->maxLength(120),
                             TextInput::make('landmark')->maxLength(200),
-                            Select::make('has_water')->label('Water hose')->options([1 => 'Yes', 0 => 'No']),
-                            Select::make('has_power')->label('Power outlet')->options([1 => 'Yes', 0 => 'No']),
-                            Select::make('has_shade')->label('Shade or garage')->options([1 => 'Yes', 0 => 'No']),
+                            ToggleButtons::make('has_water')->label('Water hose')->boolean()->inline(),
+                            ToggleButtons::make('has_power')->label('Power outlet')->boolean()->inline(),
+                            ToggleButtons::make('has_shade')->label('Shade or garage')->boolean()->inline(),
                         ]),
                 ])->columnSpan(['default' => 'full', 'lg' => 2]),
                 Group::make([
@@ -450,8 +451,16 @@ class BookingResource extends Resource
                     ->label('Branch')
                     ->options(fn () => self::branchOptions())
                     ->visible(fn () => count(self::branchOptions()) > 1),
-                SelectFilter::make('kind')
-                    ->options(Booking::KINDS),
+                // Two options, so radio buttons in the filter form; Reset clears it
+                Filter::make('kind')
+                    ->schema([
+                        ToggleButtons::make('kind')
+                            ->options(Booking::KINDS)
+                            ->icons(['onsite' => Heroicon::OutlinedBuildingStorefront, 'home' => Heroicon::OutlinedHome])
+                            ->grouped(),
+                    ])
+                    ->query(fn (Builder $query, array $data) => $query->when($data['kind'] ?? null, fn (Builder $query, string $kind) => $query->where('kind', $kind)))
+                    ->indicateUsing(fn (array $data): ?string => filled($data['kind'] ?? null) ? 'Kind: '.(Booking::KINDS[$data['kind']] ?? $data['kind']) : null),
                 SelectFilter::make('status')
                     ->options(Booking::STATUSES)
                     ->multiple(),
