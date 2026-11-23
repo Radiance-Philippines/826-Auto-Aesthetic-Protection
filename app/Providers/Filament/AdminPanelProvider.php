@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\AvatarProviders\InitialsAvatarProvider;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
@@ -54,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->defaultAvatarProvider(\App\Filament\AvatarProviders\InitialsAvatarProvider::class)
+            ->defaultAvatarProvider(InitialsAvatarProvider::class)
             ->path('admin')
             ->login(Login::class)
             ->passwordReset()
