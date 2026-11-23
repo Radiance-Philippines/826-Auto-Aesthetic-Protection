@@ -8,7 +8,10 @@ use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\MailSetting;
+use App\Models\ReferralRedemption;
+use App\Models\ReferralSetting;
 use App\Models\User;
+use App\Support\Referrals;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -172,5 +175,139 @@ class ManualTransactionTest extends TestCase
         Livewire::test(ManualTransactionPage::class)->fillForm($this->form(['services' => [$this->detail->id], 'amount_paid' => 2500, 'payment_method' => 'cash']))->call('save');
 
         $this->get('/admin/bookings/'.Booking::sole()->id)->assertOk()->assertSee('Came in by manual entry')->assertSee('Cash')->assertDontSee('Reservation fee');
+    }
+
+    private function referral(string $type = 'fixed', int $value = 500, int $points = 100, bool $enabled = true): Guest
+    {
+        ReferralSetting::instance()->update(['enabled' => $enabled, 'discount_type' => $type, 'discount_value' => $value, 'owner_points' => $points]);
+        $owner = Guest::factory()->create(['name' => 'Juan dela Cruz']);
+        Referrals::codeFor($owner);
+
+        return $owner->refresh();
+    }
+
+    public function test_a_referral_code_takes_its_discount_off_first_and_awards_the_owner_once_when_saved_exited(): void
+    {
+        $owner = $this->referral();
+        $this->actingAs($this->staff);
+
+        Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['services' => [$this->detail->id, $this->coating->id], 'discount' => 200, 'referral_code' => strtolower($owner->referral_code)]))
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $booking = Booking::sole();
+        // 2,500 + 18,000, less the code's 500 and the typed 200
+        $this->assertSame([19800, 700, $owner->id], [$booking->total_price, $booking->discount_amount, $booking->referral_guest_id]);
+
+        $redemption = ReferralRedemption::sole();
+        $this->assertSame([$owner->id, $booking->guest_id, $booking->id, 500, 100, 'awarded'], [$redemption->code_guest_id, $redemption->used_by_guest_id, $redemption->booking_id, $redemption->discount_amount, $redemption->points_awarded, $redemption->status()]);
+        $this->assertSame(100, $owner->pointsBalance());
+
+        // Saving the booking again does not award twice
+        $booking->update(['admin_note' => 'again']);
+        $booking->update(['status' => 'ready']);
+        $booking->update(['status' => 'exited']);
+        $this->assertSame(100, $owner->pointsBalance());
+        $this->assertSame(1, ReferralRedemption::count());
+    }
+
+    public function test_a_percent_code_and_a_job_still_in_progress_awards_when_it_exits(): void
+    {
+        $owner = $this->referral('percent', 10, 40);
+        $this->actingAs($this->staff);
+
+        Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['status' => 'in_progress', 'services' => [$this->detail->id], 'referral_code' => $owner->referral_code]))
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $booking = Booking::sole();
+        $this->assertSame([2250, 250], [$booking->total_price, $booking->discount_amount]);
+        $this->assertSame('pending', ReferralRedemption::sole()->status());
+        $this->assertSame(0, $owner->pointsBalance());
+
+        $booking->update(['status' => 'exited']);
+        $this->assertSame(40, $owner->pointsBalance());
+    }
+
+    public function test_the_typed_discount_cannot_take_more_than_the_price_with_a_code(): void
+    {
+        $owner = $this->referral('fixed', 2000, 10);
+        $this->actingAs($this->staff);
+
+        Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['services' => [$this->detail->id], 'discount' => 900, 'referral_code' => $owner->referral_code]))
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame([0, 2500], [Booking::sole()->total_price, Booking::sole()->discount_amount]);
+    }
+
+    public function test_a_customer_with_an_earlier_booking_cannot_use_a_code(): void
+    {
+        $owner = $this->referral();
+        $guest = Guest::factory()->create(['phone' => '0917 111 2222', 'branch_id' => $this->branch->id]);
+        Booking::factory()->create(['branch_id' => $this->branch->id, 'guest_id' => $guest->id, 'status' => 'exited']);
+        // A cancelled one does not count
+        Booking::factory()->create(['branch_id' => $this->branch->id, 'guest_id' => $guest->id, 'status' => 'cancelled']);
+        $this->actingAs($this->staff);
+        $form = $this->form(['new_customer' => false, 'guest_id' => $guest->id, 'services' => [$this->detail->id], 'referral_code' => $owner->referral_code]);
+
+        $page = Livewire::test(ManualTransactionPage::class)->fillForm($form)->call('save')->assertHasFormErrors(['referral_code']);
+
+        $this->assertSame('Referral codes are for your first booking only.', $page->errors()->first('data.referral_code'));
+        $this->assertSame([2, 0], [Booking::count(), ReferralRedemption::count()]);
+
+        // With only the cancelled booking left, the code works
+        Booking::where('status', 'exited')->delete();
+        Livewire::test(ManualTransactionPage::class)->fillForm($form)->call('save')->assertHasNoFormErrors();
+        $this->assertSame(1, ReferralRedemption::count());
+    }
+
+    public function test_a_customer_cannot_use_their_own_code_or_one_that_does_not_exist(): void
+    {
+        $owner = $this->referral();
+        $owner->update(['phone' => '0917 333 4444', 'branch_id' => $this->branch->id]);
+        $this->actingAs($this->staff);
+
+        $page = Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['new_customer' => false, 'guest_id' => $owner->id, 'services' => [$this->detail->id], 'referral_code' => $owner->referral_code]))
+            ->call('save')
+            ->assertHasFormErrors(['referral_code']);
+        $this->assertSame('You can’t use your own referral code.', $page->errors()->first('data.referral_code'));
+
+        Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['services' => [$this->detail->id], 'referral_code' => 'NOPE-0000']))
+            ->call('save')
+            ->assertHasFormErrors(['referral_code']);
+
+        // Nothing was saved, not even the new customer
+        $this->assertSame([0, 1], [Booking::count(), Guest::count()]);
+    }
+
+    public function test_the_referral_field_is_hidden_while_referral_is_off_or_has_no_discount(): void
+    {
+        $this->actingAs($this->staff);
+
+        $this->referral(enabled: false);
+        Livewire::test(ManualTransactionPage::class)->assertFormFieldHidden('referral_code');
+
+        ReferralSetting::instance()->update(['enabled' => true, 'discount_value' => null]);
+        Livewire::test(ManualTransactionPage::class)->assertFormFieldHidden('referral_code');
+
+        ReferralSetting::instance()->update(['discount_value' => 500]);
+        Livewire::test(ManualTransactionPage::class)->assertFormFieldVisible('referral_code');
+    }
+
+    public function test_no_code_means_no_redemption(): void
+    {
+        $this->referral();
+        $this->actingAs($this->staff);
+
+        Livewire::test(ManualTransactionPage::class)->fillForm($this->form(['services' => [$this->detail->id]]))->call('save')->assertHasNoFormErrors();
+
+        $this->assertSame(0, ReferralRedemption::count());
+        $this->assertNull(Booking::sole()->referral_guest_id);
     }
 }

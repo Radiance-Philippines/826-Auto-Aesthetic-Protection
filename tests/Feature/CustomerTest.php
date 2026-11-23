@@ -6,14 +6,17 @@ use App\Filament\Resources\Bookings\Pages\CreateBooking;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
+use App\Filament\Resources\Customers\RelationManagers\ReferralRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\UnitsRelationManager;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Guest;
+use App\Models\ReferralRedemption;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\Vehicle;
 use Carbon\CarbonImmutable;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as GoogleUser;
@@ -263,5 +266,94 @@ class CustomerTest extends TestCase
         }
 
         $this->get("/admin/customers/{$guest->id}")->assertOk()->assertSee('MARIA-7K3Q')->assertSee('services are covered now');
+    }
+
+    public function test_a_unit_shows_its_jobs_last_service_and_history_at_the_branches_you_see(): void
+    {
+        $guest = Guest::factory()->create();
+        $unit = Vehicle::factory()->create(['guest_id' => $guest->id, 'model' => 'Honda City']);
+        $empty = Vehicle::factory()->create(['guest_id' => $guest->id]);
+        $make = fn (Branch $branch, string $status, ?string $exited, ?int $price, string $service) => tap(
+            Booking::factory()->create(['guest_id' => $guest->id, 'vehicle_id' => $unit->id, 'branch_id' => $branch->id, 'status' => $status, 'exited_at' => $exited, 'drop_off_on' => '2026-11-01', 'total_price' => $price, 'priced_at' => $price ? now() : null]),
+            fn (Booking $booking) => $booking->items()->create(['service_name' => $service, 'price' => $price]),
+        );
+        $first = $make($this->branch, 'exited', '2026-09-05 12:00:00', 2500, 'Exterior detailing');
+        $second = $make($this->branch, 'exited', '2026-10-20 12:00:00', 18000, 'Graphene coating');
+        $make($this->branch, 'confirmed', null, null, 'Interior detailing');
+        // Another unit's booking and another branch's booking are not in this staff member's history
+        $make($this->sanMateo, 'exited', '2026-11-10 12:00:00', 999, 'San Mateo wash');
+        Booking::factory()->create(['guest_id' => $guest->id, 'vehicle_id' => $empty->id, 'branch_id' => $this->branch->id, 'exited_at' => '2026-11-12 12:00:00', 'status' => 'exited']);
+
+        $this->actingAs($this->staff);
+
+        $table = Livewire::test(UnitsRelationManager::class, ['ownerRecord' => $guest, 'pageClass' => ViewCustomer::class])
+            ->assertCanRenderTableColumn('jobs_count')
+            ->assertCanRenderTableColumn('last_service_at')
+            ->assertTableColumnStateSet('jobs_count', 3, $unit)
+            ->assertTableColumnStateSet('jobs_count', 1, $empty)
+            ->assertTableColumnFormattedStateSet('last_service_at', 'Oct 20, 2026', $unit)
+            ->assertTableColumnFormattedStateSet('last_service_at', 'Nov 12, 2026', $empty)
+            ->assertTableActionVisible('history', $unit)
+            ->assertTableActionHasIcon('history', Heroicon::OutlinedClipboardDocumentList, $unit)
+            ->mountTableAction('history', $unit)
+            ->assertMountedActionModalSee($first->reference)
+            ->assertMountedActionModalSee($second->reference)
+            ->assertMountedActionModalSee('Exterior detailing')
+            ->assertMountedActionModalSee('Graphene coating')
+            ->assertMountedActionModalSee('Interior detailing')
+            ->assertMountedActionModalSee('Oct 20, 2026')
+            ->assertMountedActionModalSee('₱18,000')
+            ->assertMountedActionModalSee('Size needed')
+            ->assertMountedActionModalSee('Cainta')
+            ->assertMountedActionModalSee('/admin/bookings/'.$second->id, escape: false)
+            ->assertMountedActionModalDontSee('San Mateo wash')
+            ->assertMountedActionModalDontSee('₱999');
+
+        // The owner sees the San Mateo job too
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(UnitsRelationManager::class, ['ownerRecord' => $guest, 'pageClass' => ViewCustomer::class])
+            ->assertTableColumnStateSet('jobs_count', 4, $unit)
+            ->assertTableColumnFormattedStateSet('last_service_at', 'Nov 10, 2026', $unit)
+            ->mountTableAction('history', $unit)
+            ->assertMountedActionModalSee('San Mateo wash');
+    }
+
+    public function test_a_unit_with_no_finished_job_has_no_last_service_date(): void
+    {
+        $guest = Guest::factory()->create();
+        $unit = Vehicle::factory()->create(['guest_id' => $guest->id]);
+        $this->actingAs($this->staff);
+
+        Livewire::test(UnitsRelationManager::class, ['ownerRecord' => $guest, 'pageClass' => ViewCustomer::class])
+            ->assertTableColumnStateSet('jobs_count', 0, $unit)
+            ->assertTableColumnStateSet('last_service_at', null, $unit)
+            ->mountTableAction('history', $unit)
+            ->assertMountedActionModalSee('No bookings for this unit at your branches.');
+    }
+
+    public function test_the_referral_tab_shows_who_used_the_code_the_booking_the_status_and_the_points(): void
+    {
+        $owner = Guest::factory()->create(['name' => 'Juan dela Cruz']);
+        $awarded = Booking::factory()->create(['guest_id' => Guest::factory()->create(['name' => 'Maria Santos'])->id, 'branch_id' => $this->branch->id, 'status' => 'exited']);
+        $pending = Booking::factory()->create(['guest_id' => Guest::factory()->create(['name' => 'Pedro Reyes'])->id, 'branch_id' => $this->branch->id, 'status' => 'confirmed']);
+        $voided = Booking::factory()->create(['guest_id' => Guest::factory()->create(['name' => 'Ana Lim'])->id, 'branch_id' => $this->branch->id, 'status' => 'cancelled']);
+        $rows = [
+            [$awarded, ['points_awarded' => 100, 'awarded_at' => now()]],
+            [$pending, []],
+            [$voided, ['voided_at' => now()]],
+        ];
+        $redemptions = collect($rows)->map(fn (array $row) => ReferralRedemption::create(['code_guest_id' => $owner->id, 'used_by_guest_id' => $row[0]->guest_id, 'booking_id' => $row[0]->id, ...$row[1]]));
+
+        $this->actingAs($this->staff);
+
+        Livewire::test(ReferralRelationManager::class, ['ownerRecord' => $owner, 'pageClass' => ViewCustomer::class])
+            ->assertCanSeeTableRecords($redemptions)
+            ->assertTableColumnStateSet('usedBy.name', 'Maria Santos', $redemptions[0])
+            ->assertTableColumnStateSet('booking.reference', $awarded->reference, $redemptions[0])
+            ->assertTableColumnStateSet('status', 'Awarded', $redemptions[0])
+            ->assertTableColumnStateSet('points_awarded', 100, $redemptions[0])
+            ->assertTableColumnStateSet('usedBy.name', 'Pedro Reyes', $redemptions[1])
+            ->assertTableColumnStateSet('status', 'Pending', $redemptions[1])
+            ->assertTableColumnStateSet('status', 'Voided', $redemptions[2]);
     }
 }

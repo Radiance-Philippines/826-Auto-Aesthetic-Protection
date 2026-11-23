@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\Guest;
 use App\Models\ReferralRedemption;
 use App\Models\Review;
+use App\Models\RewardRedemption;
 use App\Models\User;
 use App\Support\Access;
 use App\Support\InboxAccess;
@@ -180,7 +181,7 @@ final class Insights
     // Sales
 
     /**
-     * @return array{units: int, sales: int, average: int|null, discounts: int, collected: int, ended: int, lost: int, lostRate: float|null, newCustomers: int, repeatCustomers: int, redemptions: int, points: int}
+     * @return array{units: int, sales: int, average: int|null, discounts: int, collected: int, ended: int, lost: int, lostRate: float|null, newCustomers: int, repeatCustomers: int, redemptions: int, points: int, redeemed: int, outstanding: int, earnedEver: int}
      */
     public function sales(): array
     {
@@ -206,6 +207,13 @@ final class Insights
             ->selectRaw('count(*) as redemptions, coalesce(sum(points_awarded), 0) as points')
             ->first();
 
+        $earnedEver = (int) ReferralRedemption::query()->whereIn('code_guest_id', $this->guests()->select('guests.id'))->sum('points_awarded');
+        $redeemedEver = (int) RewardRedemption::query()->whereIn('guest_id', $this->guests()->select('guests.id'))->sum('points');
+        $redeemed = (int) RewardRedemption::query()
+            ->whereIn('guest_id', $this->guests()->select('guests.id'))
+            ->whereBetween('created_at', [$this->period->start(), $this->period->end()])
+            ->sum('points');
+
         return [
             'units' => $units,
             'sales' => (int) $done->sales,
@@ -219,6 +227,9 @@ final class Insights
             'repeatCustomers' => $repeat,
             'redemptions' => (int) $referral->redemptions,
             'points' => (int) $referral->points,
+            'redeemed' => $redeemed,
+            'outstanding' => $earnedEver - $redeemedEver,
+            'earnedEver' => $earnedEver,
         ];
     }
 
@@ -517,7 +528,7 @@ final class Insights
     }
 
     /**
-     * @return array{new: int|null, total: int|null, top: list<array{name: string, units: int, spend: int}>|null, warranty: int|null, rating: float|null, reviews: int|null}
+     * @return array{new: int|null, total: int|null, top: list<array{name: string, units: int, spend: int}>|null, referrers: list<array{name: string, used: int, points: int}>|null, warranty: int|null, rating: float|null, reviews: int|null}
      */
     public function customers(): array
     {
@@ -527,6 +538,7 @@ final class Insights
             'new' => $customers ? $this->guests()->whereBetween('guests.created_at', [$this->period->start(), $this->period->end()])->count() : null,
             'total' => $customers ? $this->guests()->count() : null,
             'top' => $customers && $this->can('bookings.sales') ? $this->topCustomers() : null,
+            'referrers' => $customers && $this->can('bookings.sales') ? $this->topReferrers() : null,
             'warranty' => $this->can('warranty') ? $this->warrantyEnding() : null,
         ] + ($this->can('reviews') ? $this->approvedReviews() : ['rating' => null, 'reviews' => null]);
     }
@@ -562,6 +574,32 @@ final class Insights
     }
 
     /**
+     * The customers whose codes were used on the most finished jobs in the
+     * period, with the points those jobs awarded them.
+     *
+     * @return list<array{name: string, used: int, points: int}>
+     */
+    private function topReferrers(): array
+    {
+        $rows = ReferralRedemption::query()
+            ->whereIn('booking_id', $this->finished()->select('bookings.id'))
+            ->whereIn('code_guest_id', Guest::query()->visibleTo($this->user)->select('guests.id'))
+            ->whereNull('voided_at')
+            ->toBase()
+            ->selectRaw('code_guest_id, count(*) as used, coalesce(sum(points_awarded), 0) as points')
+            ->groupBy('code_guest_id')
+            ->orderByDesc('used')
+            ->orderByDesc('points')
+            ->orderBy('code_guest_id')
+            ->limit(10)
+            ->get();
+
+        $names = Guest::query()->whereIn('id', $rows->pluck('code_guest_id'))->pluck('name', 'id');
+
+        return $rows->map(fn ($row) => ['name' => $names[$row->code_guest_id] ?? 'Customer', 'used' => (int) $row->used, 'points' => (int) $row->points])->all();
+    }
+
+    /**
      * Finished jobs with a service whose warranty ends within the next 30 days.
      */
     private function warrantyEnding(): int
@@ -593,10 +631,11 @@ final class Insights
     // Staff
 
     /**
-     * Finished jobs for each person's own customers, and the status moves
-     * recorded under their name, in the period.
+     * Finished jobs for each person's own customers, the referral codes those
+     * customers used on them, and the status moves recorded under their
+     * name, in the period.
      *
-     * @return list<array{name: string, role: string, jobs: int, sales: int, moves: int}>
+     * @return list<array{name: string, role: string, jobs: int, sales: int, moves: int, referrals: int}>
      */
     public function staff(): array
     {
@@ -618,7 +657,17 @@ final class Insights
             ->groupBy('user_id')
             ->pluck('total', 'user_id');
 
-        $users = User::query()->whereIn('id', $reps->keys()->merge($moves->keys())->unique())->get()->keyBy('id');
+        $referrals = ReferralRedemption::query()
+            ->whereIn('booking_id', $this->finished()->select('bookings.id'))
+            ->whereNull('voided_at')
+            ->join('guests', 'guests.id', '=', 'referral_redemptions.used_by_guest_id')
+            ->whereNotNull('guests.sales_rep_id')
+            ->toBase()
+            ->selectRaw('guests.sales_rep_id as user_id, count(*) as total')
+            ->groupBy('guests.sales_rep_id')
+            ->pluck('total', 'user_id');
+
+        $users = User::query()->whereIn('id', $reps->keys()->merge($moves->keys())->merge($referrals->keys())->unique())->get()->keyBy('id');
 
         return $users
             ->map(fn (User $user) => [
@@ -627,6 +676,7 @@ final class Insights
                 'jobs' => (int) ($reps[$user->id]->jobs ?? 0),
                 'sales' => (int) ($reps[$user->id]->sales ?? 0),
                 'moves' => (int) ($moves[$user->id] ?? 0),
+                'referrals' => (int) ($referrals[$user->id] ?? 0),
             ])
             ->sort(fn (array $a, array $b) => [$b['jobs'], $b['moves']] <=> [$a['jobs'], $a['moves']])
             ->values()

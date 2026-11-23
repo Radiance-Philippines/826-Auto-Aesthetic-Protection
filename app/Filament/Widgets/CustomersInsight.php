@@ -48,6 +48,17 @@ class CustomersInsight extends InsightWidget
             ];
         }
 
+        if ($data['referrers'] !== null) {
+            $blocks[] = [
+                'title' => 'Top referrers',
+                'help' => 'Customers whose referral code was used on finished jobs in this period, and the points those jobs awarded them.',
+                'columns' => ['Code owner', 'Times used', 'Points awarded'],
+                'rows' => array_map(fn (array $row) => [$row['name'], (string) $row['used'], (string) $row['points']], $data['referrers']),
+                'empty' => 'No referral codes were used on finished jobs in this period.',
+                'wide' => true,
+            ];
+        }
+
         return $blocks;
     }
 }

@@ -19,6 +19,7 @@ use App\Models\Conversation;
 use App\Models\Guest;
 use App\Models\ReferralRedemption;
 use App\Models\Review;
+use App\Models\RewardRedemption;
 use App\Models\User;
 use App\Support\Dashboard\Insights;
 use App\Support\Dashboard\Period;
@@ -477,12 +478,113 @@ class DashboardTest extends TestCase
         }
 
         $owner = collect($this->insights(User::factory()->owner()->create())->staff())->keyBy('name');
-        $this->assertSame(['name' => $rep->name, 'role' => 'Sales admin', 'jobs' => 2, 'sales' => 7000, 'moves' => 0], $owner[$rep->name]);
+        $this->assertSame(['name' => $rep->name, 'role' => 'Sales admin', 'jobs' => 2, 'sales' => 7000, 'moves' => 0, 'referrals' => 0], $owner[$rep->name]);
         $this->assertSame(3, $owner[$manager->name]['moves']);
 
         // The manager only sees Cainta's: the San Mateo move is not theirs to count
         $scoped = collect($this->insights($manager)->staff())->keyBy('name');
         $this->assertSame(2, $scoped[$manager->name]['moves']);
+    }
+
+    public function test_points_redeemed_and_outstanding_come_from_the_rows_for_the_customers_you_can_see(): void
+    {
+        $this->fixture();
+        // g2's code earned 50. Another customer only San Mateo sees earned 30 and spent 5
+        $far = Guest::factory()->create(['name' => 'Ana Lim', 'branch_id' => $this->sanMateo->id]);
+        $farJob = $this->job($this->sanMateo, '2026-11-15 12:00:00', 2000, ['guest_id' => $this->g1->id]);
+        ReferralRedemption::create(['code_guest_id' => $far->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $farJob->id, 'points_awarded' => 30, 'awarded_at' => '2026-11-15 12:00:00']);
+        // Voided and pending ones earned nothing
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => Booking::factory()->create(['branch_id' => $this->cainta->id, 'status' => 'cancelled'])->id, 'voided_at' => '2026-11-14 12:00:00']);
+
+        foreach ([[$this->g2, 20, '2026-11-12 10:00:00'], [$this->g2, 10, '2026-10-01 10:00:00'], [$far, 5, '2026-11-14 10:00:00']] as [$guest, $points, $at]) {
+            RewardRedemption::forceCreate(['guest_id' => $guest->id, 'points' => $points, 'note' => 'test', 'created_at' => $at]);
+        }
+
+        $owner = $this->insights(User::factory()->owner()->create())->sales();
+        // In the period: 20 + 5; everything earned 80, everything spent 35
+        $this->assertSame([25, 45, 80], [$owner['redeemed'], $owner['outstanding'], $owner['earnedEver']]);
+
+        $this->assertSame([0, 45], [$this->insights(User::factory()->owner()->create(), ['period' => 'today'])->sales()['redeemed'], $this->insights(User::factory()->owner()->create(), ['period' => 'today'])->sales()['outstanding']]);
+
+        // Cainta's manager sees g2 (booked there) but not Ana: 50 - 30
+        $cainta = $this->insights($this->staff('branch_manager'))->sales();
+        $this->assertSame([20, 20, 50], [$cainta['redeemed'], $cainta['outstanding'], $cainta['earnedEver']]);
+
+        $sanMateo = $this->insights($this->staff('branch_manager', $this->sanMateo))->sales();
+        $this->assertSame([25, 45, 80], [$sanMateo['redeemed'], $sanMateo['outstanding'], $sanMateo['earnedEver']]);
+    }
+
+    public function test_the_sales_boxes_show_points_redeemed_and_outstanding_only_to_sales_users(): void
+    {
+        $this->fixture();
+        RewardRedemption::forceCreate(['guest_id' => $this->g2->id, 'points' => 20, 'note' => 'test', 'created_at' => '2026-11-12 10:00:00']);
+        $this->actingAs(User::factory()->owner()->create());
+
+        Livewire::test(SalesOverview::class)
+            ->assertSee('Points redeemed')
+            ->assertSee('Points outstanding')
+            ->assertSee('Points customers spent in this period')
+            ->assertSee('minus all redeemed');
+
+        $this->actingAs($this->staff('operations'));
+        $this->assertFalse(SalesOverview::canView());
+    }
+
+    public function test_top_referrers_count_finished_jobs_in_the_period_and_their_points(): void
+    {
+        $this->fixture();
+        // g2's code: A (50 points) + a second job in the period (30) + one before the period + one still booked
+        $second = $this->job($this->cainta, '2026-11-12 12:00:00', 1500, ['guest_id' => $this->g1->id]);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $second->id, 'points_awarded' => 30, 'awarded_at' => '2026-11-12 12:00:00']);
+        $old = $this->job($this->cainta, '2026-10-01 12:00:00', 1500, ['guest_id' => $this->g1->id]);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $old->id, 'points_awarded' => 99, 'awarded_at' => '2026-10-01 12:00:00']);
+        $open = Booking::factory()->create(['branch_id' => $this->cainta->id, 'status' => 'confirmed']);
+        ReferralRedemption::create(['code_guest_id' => $this->g1->id, 'used_by_guest_id' => $this->g2->id, 'booking_id' => $open->id]);
+        // A code owner only San Mateo sees
+        $far = Guest::factory()->create(['name' => 'Ana Lim', 'branch_id' => $this->sanMateo->id]);
+        $farJob = $this->job($this->sanMateo, '2026-11-15 12:00:00', 2000);
+        ReferralRedemption::create(['code_guest_id' => $far->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $farJob->id, 'points_awarded' => 10, 'awarded_at' => '2026-11-15 12:00:00']);
+
+        $owner = $this->insights(User::factory()->owner()->create())->customers()['referrers'];
+        $this->assertSame([['name' => 'Jun Reyes', 'used' => 2, 'points' => 80], ['name' => 'Ana Lim', 'used' => 1, 'points' => 10]], $owner);
+
+        // Cainta's manager: the San Mateo job and its owner are not theirs
+        $this->assertSame([['name' => 'Jun Reyes', 'used' => 2, 'points' => 80]], $this->insights($this->staff('branch_manager'))->customers()['referrers']);
+
+        // Needs sales and customers: operations has neither, sales admin has both
+        $this->assertNull($this->insights($this->staff('operations'))->customers()['referrers']);
+        $this->assertNotNull($this->insights($this->staff('sales_admin'))->customers()['referrers']);
+
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(CustomersInsight::class)->assertSee('Top referrers')->assertSee('Jun Reyes')->assertSee('Times used');
+    }
+
+    public function test_each_sales_rep_s_referrals_are_the_finished_jobs_where_their_customer_used_a_code(): void
+    {
+        $this->fixture();
+        $rep = $this->staff('sales_admin');
+        $other = $this->staff('sales_admin');
+        // g1 used a code on A (fixture), and is the rep's customer; g2 is the other rep's
+        $this->g1->update(['sales_rep_id' => $rep->id]);
+        $this->g2->update(['sales_rep_id' => $other->id]);
+        $second = $this->job($this->cainta, '2026-11-12 12:00:00', 1500, ['guest_id' => $this->g1->id]);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $second->id, 'points_awarded' => 30, 'awarded_at' => '2026-11-12 12:00:00']);
+        // Not finished, before the period, voided and at another branch: none count
+        $open = Booking::factory()->create(['branch_id' => $this->cainta->id, 'status' => 'confirmed']);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $open->id]);
+        $old = $this->job($this->cainta, '2026-10-01 12:00:00', 1500);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $old->id, 'points_awarded' => 5, 'awarded_at' => '2026-10-01 12:00:00']);
+        $far = $this->job($this->sanMateo, '2026-11-15 12:00:00', 2000);
+        ReferralRedemption::create(['code_guest_id' => $this->g2->id, 'used_by_guest_id' => $this->g1->id, 'booking_id' => $far->id, 'points_awarded' => 5, 'awarded_at' => '2026-11-15 12:00:00']);
+
+        $all = collect($this->insights(User::factory()->owner()->create())->staff())->keyBy('name');
+        $this->assertSame([3, 0], [$all[$rep->name]['referrals'], $all[$other->name]['referrals']]);
+
+        $scoped = collect($this->insights($this->staff('branch_manager'))->staff())->keyBy('name');
+        $this->assertSame(2, $scoped[$rep->name]['referrals']);
+
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(StaffInsight::class)->assertSee('Referrals');
     }
 
     // Who sees what

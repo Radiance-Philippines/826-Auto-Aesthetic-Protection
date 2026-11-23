@@ -17,7 +17,9 @@ use Illuminate\Validation\ValidationException;
  * A job done outside the site (walk-in or phone, even one already
  * finished), entered by the team afterwards: no cap or lead-time checks,
  * no emails to the customer. The prices are the ones the team types in
- * (they start from the rates for the unit's size class).
+ * (they start from the rates for the unit's size class). A referral code
+ * follows the same rules as on the site (Referrals), and its owner's points
+ * come when the booking exits, even if it is saved already exited.
  */
 final class ManualTransaction
 {
@@ -51,7 +53,7 @@ final class ManualTransaction
     /**
      * Saves the job as a booking with source "manual".
      *
-     * @param  array{branch_id: int|string, guest_id?: int|string|null, name?: string|null, phone?: string|null, vehicle_year: int|string, vehicle_model: string, vehicle_type: string, plate_number: string, vehicle_size_id: int|string, services: list<int|string>, prices?: array<int|string, mixed>, service_date: string, status?: string, discount?: int|string|null, amount_paid?: int|string|null, payment_method?: string|null, payment_reference?: string|null, admin_note?: string|null}  $data
+     * @param  array{branch_id: int|string, guest_id?: int|string|null, name?: string|null, phone?: string|null, vehicle_year: int|string, vehicle_model: string, vehicle_type: string, plate_number: string, vehicle_size_id: int|string, services: list<int|string>, prices?: array<int|string, mixed>, service_date: string, status?: string, discount?: int|string|null, amount_paid?: int|string|null, payment_method?: string|null, payment_reference?: string|null, admin_note?: string|null, referral_code?: string|null}  $data
      */
     public static function record(User $user, array $data): Booking
     {
@@ -87,6 +89,7 @@ final class ManualTransaction
                 $guest->update(['phone' => $data['phone']]);
             }
 
+            $owner = filled($data['referral_code'] ?? null) ? Referrals::ownerFor($guest, (string) $data['referral_code']) : null;
             $vehicle = Reservations::vehicleFor($guest, [...$data, 'vehicle_size_id' => $size->id]);
             $finished = in_array($status, ['arrived', 'in_progress', 'quality_check', 'ready', 'exited'], true);
 
@@ -135,6 +138,15 @@ final class ManualTransaction
                     'warranty_months' => $service->warranty_months,
                     'sort_order' => $index,
                 ]);
+            }
+
+            if ($owner) {
+                Referrals::redeem($booking, $owner);
+                // The code's discount comes off first; the typed discount takes what is left
+                $referral = Referrals::discountFor($booking, $subtotal) ?? 0;
+                $total = min($subtotal, $referral + $discount);
+                $booking->update(['total_price' => $subtotal - $total, 'discount_amount' => $total ?: null]);
+                Referrals::syncStatus($booking);
             }
 
             return $booking;

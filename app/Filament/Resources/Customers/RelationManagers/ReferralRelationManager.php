@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Customers\RelationManagers;
 
+use App\Filament\Resources\Bookings\BookingResource;
+use App\Models\Booking;
 use App\Models\ReferralRedemption;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -24,7 +26,9 @@ class ReferralRelationManager extends RelationManager
             ->emptyStateHeading('No one has used this code yet')
             ->columns([
                 TextColumn::make('usedBy.name')->label('Used by'),
-                TextColumn::make('booking.reference')->label('Booking'),
+                TextColumn::make('booking.reference')
+                    ->label('Booking')
+                    ->url(fn (ReferralRedemption $record) => $record->booking && Booking::query()->visibleTo(auth()->user())->whereKey($record->booking_id)->exists() ? BookingResource::getUrl('view', ['record' => $record->booking]) : null),
                 TextColumn::make('status')
                     ->badge()
                     ->state(fn (ReferralRedemption $record) => ucfirst($record->status()))
@@ -36,7 +40,7 @@ class ReferralRelationManager extends RelationManager
                 TextColumn::make('discount_amount')
                     ->label('Discount')
                     ->formatStateUsing(fn (?int $state) => $state === null ? '—' : '₱'.number_format($state)),
-                TextColumn::make('points_awarded')->label('Points'),
+                TextColumn::make('points_awarded')->label('Points')->placeholder('—'),
             ]);
     }
 }

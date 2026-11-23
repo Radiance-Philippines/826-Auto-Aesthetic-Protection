@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\Guest;
+use App\Models\ReferralSetting;
 use App\Models\Service;
 use App\Models\VehicleSize;
 use App\Support\ManualTransaction;
@@ -192,6 +193,12 @@ class ManualTransactionPage extends Page
                             ->integer()
                             ->minValue(0)
                             ->maxValue(10_000_000),
+                        TextInput::make('referral_code')
+                            ->label('Referral code (optional)')
+                            ->maxLength(40)
+                            ->helperText(fn () => 'For a customer’s first booking only: '.ReferralSetting::current()->label().' for them, and the code’s owner earns points when the job is Exited.')
+                            ->visible(fn () => ReferralSetting::current()->isActive())
+                            ->columnSpanFull(),
                         TextInput::make('amount_paid')
                             ->label('Amount paid')
                             ->prefix('₱')
@@ -254,6 +261,12 @@ class ManualTransactionPage extends Page
         try {
             $booking = ManualTransaction::record(auth()->user(), $data);
         } catch (ValidationException $e) {
+            if (isset($e->errors()['referral_code'])) {
+                $this->addError('data.referral_code', $e->errors()['referral_code'][0]);
+
+                return;
+            }
+
             Notification::make()->danger()->title('Not saved')->body(collect($e->errors())->flatten()->first())->persistent()->send();
 
             return;

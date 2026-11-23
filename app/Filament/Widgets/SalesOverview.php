@@ -70,6 +70,12 @@ class SalesOverview extends StatsOverviewWidget
             $none ? null : Stat::make('Referral codes used', $sales['redemptions'])
                 ->description($sales['points'].' points awarded to the code owners, from the jobs counted in Sales.')
                 ->descriptionIcon(Heroicon::OutlinedGift),
+            $sales['earnedEver'] === 0 && $sales['redeemed'] === 0 ? null : Stat::make('Points redeemed', $sales['redeemed'])
+                ->description('Points customers spent in this period, on discounts or adjustments.')
+                ->descriptionIcon(Heroicon::OutlinedArrowTrendingDown),
+            $sales['earnedEver'] === 0 && $sales['redeemed'] === 0 ? null : Stat::make('Points outstanding', $sales['outstanding'])
+                ->description('All points earned by code owners, minus all redeemed, whatever the period.')
+                ->descriptionIcon(Heroicon::OutlinedScale),
         ];
 
         return array_values(array_filter($stats));
