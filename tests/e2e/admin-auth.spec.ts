@@ -13,8 +13,8 @@ test.describe('admin sign-in', () => {
     });
 
     test('the admin pages send a visitor to the sign-in page', async ({ page }) => {
-        await page.goto('/admin/bookings');
-        await expect(page).toHaveURL(/\/admin\/login/);
+        await page.goto('/owner/bookings');
+        await expect(page).toHaveURL(/\/login/);
     });
 
     test('a wrong password is refused with a message and stays on the sign-in page', async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe('admin sign-in', () => {
     test('a team member signs in, sees the dashboard, and signs out', async ({ page }) => {
         const problems = watchProblems(page);
         await adminLogin(page);
-        await expect(page).toHaveURL(/\/admin\/?$/);
+        await expect(page).toHaveURL(/\/owner\/?$/);
         await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
         await expectNoHorizontalOverflow(page);
 
@@ -38,8 +38,8 @@ test.describe('admin sign-in', () => {
 
     test('a customer signed in on the site cannot open the admin', async ({ page }) => {
         await signIn(page);
-        await page.goto('/admin/bookings');
-        await expect(page).toHaveURL(/\/admin\/login/);
+        await page.goto('/owner/bookings');
+        await expect(page).toHaveURL(/\/login/);
     });
 });
 

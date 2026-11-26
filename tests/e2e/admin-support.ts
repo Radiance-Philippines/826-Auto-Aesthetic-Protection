@@ -14,6 +14,9 @@ export const TEAM = {
     manager: 'manager@826auto.test',
 } as const;
 
+/** The panel each role works in (app/Support/Panels.php BY_ROLE): the super admin's home is /owner */
+export const PANEL = { owner: 'owner', twoFactor: 'owner', emailCode: 'owner', operations: 'operations', sales: 'sales', manager: 'operations' } as const;
+
 /** The base32 secret E2eSeeder gives the two-factor admin */
 export const TWO_FACTOR_SECRET = 'JBSWY3DPEHPK3PXP';
 
@@ -32,7 +35,7 @@ export async function submitLogin(page: Page, email: string, password = PASSWORD
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 }
 
-/** Sign in to /admin as one of the seeded team members (no two-factor) and wait for the panel */
+/** Sign in (every role signs in at /admin/login) as one of the seeded team members (no two-factor) and wait for their own panel */
 export async function adminLogin(page: Page, email: string = TEAM.owner, password = PASSWORD) {
     await submitLogin(page, email, password);
     await page.waitForURL((url) => !url.pathname.endsWith('/login'));
@@ -98,13 +101,13 @@ export function inviteLinkFor(email: string): string | null {
 export const row = (page: Page, text: string) => page.locator('table tbody tr').filter({ hasText: text });
 
 /** Open a booking from the Bookings list by the customer's name */
-export async function openBooking(page: Page, name: string) {
-    await adminOpen(page, '/admin/bookings');
+export async function openBooking(page: Page, name: string, panel: 'sales' | 'operations' = 'sales') {
+    await adminOpen(page, `/${panel}/bookings`);
     await page.getByPlaceholder('Search').first().fill(name);
     const found = row(page, name);
     await expect(found).toHaveCount(1);
     await found.getByRole('link', { name: 'View' }).click();
-    await page.waitForURL(/\/admin\/bookings\/\d+/);
+    await page.waitForURL(new RegExp(`/${panel}/bookings/\\d+`));
     await page.waitForLoadState('networkidle');
 }
 

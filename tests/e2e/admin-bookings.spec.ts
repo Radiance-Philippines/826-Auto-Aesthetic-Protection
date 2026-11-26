@@ -6,7 +6,7 @@ import { expectNoHorizontalOverflow } from './support';
 test.describe('admin bookings', () => {
     test('the list shows the seeded bookings with their status and branch', async ({ page }, info) => {
         await adminLogin(page, TEAM.sales);
-        await adminOpen(page, '/admin/bookings');
+        await adminOpen(page, '/sales/bookings');
         const found = row(page, unit(info, 'Arrive'));
         await expect(found).toHaveCount(1);
         await expect(found).toContainText('Cainta');
