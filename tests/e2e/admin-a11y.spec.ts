@@ -21,16 +21,16 @@ const KNOWN: Record<string, string> = {
 
 const PAGES = [
     { name: 'login', path: '/admin/login', signedIn: false },
-    { name: 'dashboard', path: '/admin' },
-    { name: 'queue', path: '/admin/queue' },
-    { name: 'bookings', path: '/admin/bookings' },
-    { name: 'customers', path: '/admin/customers' },
-    { name: 'warranty', path: '/admin/warranty' },
-    { name: 'manual-transaction', path: '/admin/manual-transaction' },
-    { name: 'users', path: '/admin/users' },
-    { name: 'email-settings', path: '/admin/email-settings' },
-    { name: 'branches', path: '/admin/branches' },
-    { name: 'reviews', path: '/admin/reviews' },
+    { name: 'dashboard', path: '/owner' },
+    { name: 'queue', path: '/operations/queue' },
+    { name: 'bookings', path: '/sales/bookings' },
+    { name: 'customers', path: '/sales/customers' },
+    { name: 'warranty', path: '/sales/warranty' },
+    { name: 'manual-transaction', path: '/sales/manual-transaction' },
+    { name: 'users', path: '/owner/users' },
+    { name: 'email-settings', path: '/system/email-settings' },
+    { name: 'branches', path: '/owner/branches' },
+    { name: 'reviews', path: '/owner/reviews' },
 ] as const;
 
 for (const { name, path, ...rest } of PAGES) {

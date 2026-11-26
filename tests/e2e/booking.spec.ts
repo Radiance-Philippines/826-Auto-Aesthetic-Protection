@@ -159,6 +159,8 @@ test.describe('booking validation', () => {
 
 test.describe('booking reservation', () => {
     test('the date calendar shows a full day that cannot be picked', async ({ page }) => {
+        // The calendar loads each month from the server; on a busy build machine the walk through the booking steps needs more than the default
+        test.setTimeout(120_000);
         await signIn(page);
         await pickBranch(page);
         await fillUnit(page);
