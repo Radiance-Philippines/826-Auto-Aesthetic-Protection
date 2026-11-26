@@ -146,3 +146,22 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run `vendor/bin/phpunit` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
 
 </laravel-boost-guidelines>
+
+## Web UI: UI SDK with the shadcn look (non-negotiable)
+
+Owner rule for every developer (2026-11-21, widened 2026-11-26). Full recipe: blueprints `DESIGN_SKILLS.md` § UI SDK
+(https://github.com/Radiance-Philippines/blueprints/blob/main/DESIGN_SKILLS.md).
+
+- Every web component's behavior (keyboard, focus, selection, dismissal, popups, drag and drop, ARIA) comes from
+  UI SDK (https://github.com/vercel-labs/ui): `@ui-sdk/core` plus the adapter for the stack (`@ui-sdk/react`,
+  `@ui-sdk/vue`, `@ui-sdk/svelte`, `@ui-sdk/solid`, or `@ui-sdk/web` web components for Blade, PHP and plain HTML).
+  Load the `ui-sdk` skill before building one; install packages on ribs02.
+- New components and new screens use it. Existing shadcn/Radix parts move over when their screen is touched.
+- Backend and admin panels keep the shadcn look: import `@ui-sdk/core/web.css` as `layer(components)` after Tailwind,
+  map the `--ui-*` tokens to shadcn's variables (`--ui-background: var(--background)`, `--ui-primary: var(--primary)`,
+  `--ui-border: var(--border)`, `--ui-ring: var(--ring)`, `--ui-radius: var(--radius)`, and the rest), style each
+  `data-slot` part with the shadcn component's Tailwind classes, and render lucide icons as `<svg>`. A panel moved
+  from shadcn screenshots the same at rest on laptop, tablet and phone; only behavior changes.
+- Public pages keep their own design on top of UI SDK behavior.
+- House rules still apply: a leading icon on every button, input hints (FORMS_BLUEPRINT.md), every UI state,
+  reduced motion.
