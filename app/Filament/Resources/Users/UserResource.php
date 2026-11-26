@@ -32,6 +32,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Throwable;
 use UnitEnum;
 
@@ -153,9 +154,9 @@ class UserResource extends Resource
                     ->description(fn (User $record) => ($record->isOwner() ? 'Every branch' : ($record->branches->pluck('name')->implode(', ') ?: 'No branch yet')).(is_array($record->permissions) ? ' · own access list' : '')),
                 TextColumn::make('sample')
                     ->label('Sample')
-                    ->state(fn (User $record) => $record->isSample() ? 'Sample' : null)
+                    ->state(fn (User $record) => $record->isSample() ? 'Sample' : 'No')
                     ->badge()
-                    ->color('warning'),
+                    ->color(fn (string $state) => $state === 'Sample' ? 'warning' : 'gray'),
                 TextColumn::make('two_factor')
                     ->label('2FA')
                     ->state(fn (User $record) => $record->hasTwoFactor() ? 'On' : 'Off')
@@ -172,10 +173,10 @@ class UserResource extends Resource
                     ->description(fn (User $record) => $record->isPendingInvite() ? $record->invited_at->diffForHumans() : null),
                 TextColumn::make('impersonation_events_max_created_at')
                     ->label('Last viewed as')
-                    ->since()
-                    ->placeholder('Never')
+                    ->state(fn (User $record) => $record->impersonation_events_max_created_at ? Carbon::parse($record->impersonation_events_max_created_at)->diffForHumans() : 'Never')
                     ->toggleable(),
             ])
+            ->filtersTriggerAction(fn (Action $action, Table $table) => $action->extraAttributes(['aria-label' => 'Filter '.$table->getActiveFiltersCount()]))
             ->filters([
                 Filter::make('sample')
                     ->label('Sample accounts only')

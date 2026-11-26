@@ -32,7 +32,8 @@ test.describe('admin sign-in', () => {
 
         await page.getByRole('button', { name: 'User menu' }).click();
         await page.locator('button, a').filter({ hasText: /^\s*Sign out\s*$/ }).first().click();
-        await expect(page).toHaveURL(/\/admin\/login/);
+        // Each panel has its own sign-in page: a person who signed out of the owner panel lands on that panel's login
+        await expect(page).toHaveURL(/\/owner\/login/);
         expect(problems()).toEqual([]);
     });
 
