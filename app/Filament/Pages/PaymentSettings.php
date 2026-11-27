@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\PaymentSetting;
+use App\Support\UploadRules;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -121,8 +122,8 @@ class PaymentSettings extends Page
                     ->disk(PaymentSetting::DISK)
                     ->directory('payments')
                     ->visibility('public')
-                    ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])
-                    ->maxSize(5120)
+                    ->acceptedFileTypes(UploadRules::TYPES)
+                    ->maxSize(UploadRules::QR_MAX_KB)
                     ->imagePreviewHeight('180')
                     ->helperText("Your {$label} QR (from the app: “Receive” or “QR”). Kept exactly as uploaded so it scans."),
                 TextInput::make("{$key}_name")

@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Support\ImagePipeline;
+use App\Support\UploadRules;
 use Filament\Forms\Components\FileUpload;
 
 /**
@@ -13,8 +14,6 @@ use Filament\Forms\Components\FileUpload;
  */
 class ImageUpload
 {
-    public const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
     public static function make(string $name, string $directory): FileUpload
     {
         return FileUpload::make($name)
@@ -22,8 +21,8 @@ class ImageUpload
             ->disk('public')
             ->directory($directory)
             ->visibility('public')
-            ->acceptedFileTypes(self::TYPES)
-            ->maxSize(20480)
+            ->acceptedFileTypes(UploadRules::TYPES)
+            ->maxSize(UploadRules::PHOTO_MAX_KB)
             ->helperText('JPG, PNG or WebP, up to 20 MB.')
             ->automaticallyResizeImagesMode('contain')
             ->automaticallyResizeImagesToWidth((string) ImagePipeline::MASTER_MAX_EDGE)
