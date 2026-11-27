@@ -16,7 +16,7 @@ class UnderConstructionTest extends TestCase
 
     private const PIN = '482913';
 
-    private const PAGES = ['/', '/gallery', '/book', '/download', '/r/ABC123', '/no-such-page'];
+    private const PAGES = ['/', '/gallery', '/book', '/r/ABC123', '/no-such-page'];
 
     protected function setUp(): void
     {
@@ -108,16 +108,13 @@ class UnderConstructionTest extends TestCase
         $this->getJson('/api/app/catalog', [AppPin::HEADER => self::PIN])->assertStatus(423)->assertJsonPath('message', 'Too many tries. Wait a minute, then try again.');
     }
 
-    public function test_the_apk_downloads_are_behind_the_pin(): void
+    public function test_the_download_page_and_apks_stay_open_for_testers(): void
     {
         config(['app.site_pin' => self::PIN]);
 
-        foreach (['/download/826-auto-1.0.0.apk', '/download/826-team-1.0.0.apk', '/download/826-owner-1.0.0.apk'] as $apk) {
-            $this->get($apk)->assertOk()->assertSee('Under construction');
-        }
-
-        // Past the gate there is no such release in this test
-        $this->post('/unlock', ['pin' => self::PIN]);
+        $this->get('/download')->assertOk()->assertDontSee('Under construction');
+        // No such release in this test: the file route answers for itself, not the gate
         $this->get('/download/826-auto-1.0.0.apk')->assertNotFound();
+        $this->get('/download/826-operations-1.0.0.apk')->assertNotFound();
     }
 }

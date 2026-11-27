@@ -9,15 +9,15 @@ use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * /download: the page for the customers' Android app, and the APKs (only
- * a published release; the files stay on the private disk). The team app
- * is not listed on the page: its direct link is shared with the team.
+ * /download: the page for the customers' Android app and the operations
+ * app, and the APKs (only a published release; the files stay on the private
+ * disk). The other team apps are not listed: their direct links are shared.
  */
 class DownloadController extends Controller
 {
     public function page(): View
     {
-        return view('download', ['release' => AppRelease::latestPublished()]);
+        return view('download', ['release' => AppRelease::latestPublished(), 'operations' => AppRelease::latestPublished('operations')]);
     }
 
     public function apk(string $version): StreamedResponse

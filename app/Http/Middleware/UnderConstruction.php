@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * While SITE_PIN is set, the website's pages and the APK downloads show
- * "Under construction" until the team enters the PIN. The customer app has
- * its own check (AppPin); the admin, the team apps and webhooks sign in or
- * sign themselves.
+ * While SITE_PIN is set, the website's pages show "Under construction" until
+ * the team enters the PIN. The download page and APKs stay open for testers;
+ * the customer app has its own check (AppPin); the admin, the team apps and
+ * webhooks sign in or sign themselves.
  */
 class UnderConstruction
 {

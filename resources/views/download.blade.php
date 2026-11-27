@@ -14,7 +14,7 @@
         }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; gap: 16px; display: grid; place-items: center; align-content: center; padding: 24px 16px; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-        main { width: 100%; max-width: 30rem; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; }
+        main, section { width: 100%; max-width: 30rem; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; }
         img { display: block; width: 72px; height: auto; margin-bottom: 16px; }
         h1 { margin: 0 0 8px; font-size: 1.5rem; line-height: 1.2; }
         p { margin: 0 0 12px; color: var(--muted); }
@@ -50,5 +50,21 @@
         <p>The Android app isn’t ready to download yet. Android only for now.</p>
     @endif
 </main>
+@if ($operations)
+    <section aria-labelledby="operations">
+        <h2 id="operations" style="margin:0 0 8px;font-size:1.5rem;line-height:1.2">826 Operations</h2>
+        <p>For the shop team: the queue and each unit. Sign in with your 826 staff account.</p>
+        <a class="button" href="{{ $operations->downloadUrl() }}">Download 826 Operations (version {{ $operations->version }})</a>
+        <dl>
+            <dt>Version</dt><dd>{{ $operations->version }}</dd>
+            @if ($operations->size)
+                <dt>Size</dt><dd>{{ number_format($operations->size / 1048576, 1) }} MB</dd>
+            @endif
+            @if ($operations->sha256)
+                <dt>SHA-256</dt><dd><code>{{ $operations->sha256 }}</code></dd>
+            @endif
+        </dl>
+    </section>
+@endif
 </body>
 </html>

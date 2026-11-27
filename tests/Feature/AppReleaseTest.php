@@ -57,6 +57,20 @@ class AppReleaseTest extends TestCase
             ->assertSee('noindex', false);
     }
 
+    public function test_the_download_page_offers_the_operations_app_too_when_published(): void
+    {
+        $this->release();
+        $this->get('/download')->assertDontSee('826 Operations');
+
+        AppRelease::factory()->forApp('operations')->create(['apk_path' => 'apks/ops.apk', 'version' => '0.2.2', 'version_code' => 5]);
+        AppRelease::factory()->forApp('owner')->create(['apk_path' => 'apks/owner.apk', 'version' => '9.1.0', 'version_code' => 1]);
+
+        $this->get('/download')
+            ->assertSee('826 Operations')
+            ->assertSee(url('/download/826-operations-0.2.2.apk'), false)
+            ->assertDontSee('9.1.0');
+    }
+
     public function test_the_apk_downloads_only_when_published(): void
     {
         $this->release();
