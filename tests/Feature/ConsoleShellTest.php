@@ -2,16 +2,21 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\BookingSettings;
+use App\Filament\Resources\Users\UserResource;
+use App\Filament\Resources\VehicleSizes\VehicleSizeResource;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\SecuritySetting;
 use App\Models\User;
+use App\Support\AdminConsole;
 use App\Support\CurrentBranch;
 use App\Support\Impersonation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\StaffApi;
 use Tests\TestCase;
 
@@ -225,6 +230,29 @@ class ConsoleShellTest extends TestCase
         $this->actingAs($detailer)->withSession([Impersonation::IMPERSONATOR => $this->staffUser('sales_admin', $this->cainta)->id, Impersonation::TARGET => $detailer->id]);
 
         $this->getJson('/console/api/operations/me')->assertStatus(419);
+    }
+
+    public function test_settings_and_users_screens_are_closed_while_viewing_as_someone(): void
+    {
+        $this->actingAs(User::factory()->owner()->create());
+
+        // No ported screen is one of these yet: the rule the later ones get from ConsoleScreen
+        foreach ([BookingSettings::class, UserResource::class] as $class) {
+            AdminConsole::authorize($class);
+        }
+
+        AdminConsole::authorize(VehicleSizeResource::class);
+        session()->put(Impersonation::IMPERSONATOR, 1);
+        AdminConsole::authorize(VehicleSizeResource::class);
+
+        foreach ([BookingSettings::class, UserResource::class] as $class) {
+            try {
+                AdminConsole::authorize($class);
+                $this->fail("{$class} stayed open");
+            } catch (HttpException $refused) {
+                $this->assertSame([403, 'Not available while viewing as someone else.'], [$refused->getStatusCode(), $refused->getMessage()]);
+            }
+        }
     }
 
     public function test_addresses_follow_the_folder_the_app_is_served_from(): void
