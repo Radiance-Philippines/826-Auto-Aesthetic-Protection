@@ -22,7 +22,10 @@ return new class extends Migration
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
 
-            $table->index('credential_id', 'passkeys_credential_id_index');
+            // A text column: MySQL can only index the start of it
+            in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true)
+                ? $table->rawIndex('credential_id(255)', 'passkeys_credential_id_index')
+                : $table->index('credential_id', 'passkeys_credential_id_index');
         });
 
         Schema::create('security_events', function (Blueprint $table) {

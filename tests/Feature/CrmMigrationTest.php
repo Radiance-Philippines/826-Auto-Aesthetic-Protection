@@ -36,9 +36,7 @@ class CrmMigrationTest extends TestCase
         }
 
         // SQLite rebuilds a table to make a column nullable; a real migrate runs outside a transaction, with foreign keys off
-        DB::statement('PRAGMA foreign_keys = OFF');
-        $this->artisan('migrate')->assertSuccessful();
-        DB::statement('PRAGMA foreign_keys = ON');
+        Schema::withoutForeignKeyConstraints(fn () => $this->artisan('migrate')->assertSuccessful()->run());
 
         $maria = Guest::findOrFail($guest);
         $this->assertSame(['g-1', 'Maria Santos', 'maria@example.com', '+63 917 123 4567', 'google'], [$maria->google_id, $maria->name, $maria->email, $maria->phone, $maria->source]);

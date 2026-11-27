@@ -59,6 +59,8 @@ return new class extends Migration
         });
 
         Schema::table('bookings', function (Blueprint $table) {
+            // MySQL keeps an index under every foreign key: give branch_id its own before the old one goes
+            $table->index('branch_id');
             $table->dropIndex(['branch_id', 'kind', 'starts_at', 'ends_at']);
         });
 
@@ -171,6 +173,13 @@ return new class extends Migration
             $table->renameColumn('exited_at', 'completed_at');
             $table->index(['branch_id', 'kind', 'starts_at', 'ends_at']);
         });
+
+        // The index up() added for MySQL; databases migrated before it never had one
+        if (Schema::hasIndex('bookings', 'bookings_branch_id_index')) {
+            Schema::table('bookings', function (Blueprint $table) {
+                $table->dropIndex('bookings_branch_id_index');
+            });
+        }
 
         Schema::table('bookings', function (Blueprint $table) {
             $table->dropConstrainedForeignId('vehicle_id');

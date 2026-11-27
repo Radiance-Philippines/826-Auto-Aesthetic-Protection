@@ -178,7 +178,8 @@ class InboxTest extends TestCase
         $this->assertSame(1793520000, $conversation->last_inbound_at->getTimestamp());
 
         $message = ConversationMessage::sole();
-        $this->assertSame(['in', 'May slot pa po?', [['type' => 'image', 'url' => 'https://scontent.xx.fbcdn.net/photo.jpg', 'name' => null]]], [$message->direction, $message->body, $message->attachments]);
+        // assertEquals: MySQL's JSON column returns an object's keys in its own order
+        $this->assertEquals(['in', 'May slot pa po?', [['type' => 'image', 'url' => 'https://scontent.xx.fbcdn.net/photo.jpg', 'name' => null]]], [$message->direction, $message->body, $message->attachments]);
 
         Http::assertSent(fn (Request $request) => $request->hasHeader('Authorization', 'Bearer '.self::PAGE_TOKEN)
             && str_contains($request->url(), 'appsecret_proof='.MetaClient::appSecretProof(self::PAGE_TOKEN, self::APP_SECRET)));
