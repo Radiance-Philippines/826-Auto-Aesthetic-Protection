@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminFileController;
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AvailabilityController;
+use App\Http\Controllers\BranchSelectionController;
 use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
@@ -116,6 +117,9 @@ Route::get('/live/ticket', LiveTicketController::class)->middleware(['guest.toke
 Route::get('/admin-files/bookings/{booking}/proof', [AdminFileController::class, 'proof'])
     ->whereNumber('booking')
     ->name('admin.bookings.proof');
+
+// The admin's branch selector (#695)
+Route::post('/panel-branch', BranchSelectionController::class)->middleware(['auth', 'throttle:60,1'])->name('panel.branch');
 
 // Sign in to /admin with a passkey: the one-time challenge, then the signed answer
 Route::prefix('admin-passkeys')->controller(PasskeyLoginController::class)->group(function () {

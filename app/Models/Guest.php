@@ -149,11 +149,11 @@ class Guest extends Authenticatable implements CanResetPasswordContract
      */
     public function scopeVisibleTo(Builder $query, ?User $user): void
     {
-        if ($user?->isOwner()) {
+        $ids = $user ? $user->scopedBranchIds() : [];
+
+        if ($ids === null) {
             return;
         }
-
-        $ids = $user?->branchIds() ?? [];
 
         $query->where(fn (Builder $scope) => $scope
             ->whereIn('guests.branch_id', $ids)

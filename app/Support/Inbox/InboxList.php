@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Conversation;
 use App\Models\MetaSetting;
 use App\Models\User;
+use App\Support\CurrentBranch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -44,7 +45,7 @@ final class InboxList
      */
     public static function showsAllTab(User $user, Collection $tabs): bool
     {
-        return $user->isOwner() || $tabs->count() > 1;
+        return CurrentBranch::for($user) === null && ($user->isOwner() || $tabs->count() > 1);
     }
 
     /**

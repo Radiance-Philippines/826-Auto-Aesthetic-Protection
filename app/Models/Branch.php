@@ -142,8 +142,10 @@ class Branch extends Model
      */
     public function scopeVisibleTo(Builder $query, ?User $user): void
     {
-        if (! $user?->isOwner()) {
-            $query->whereIn('id', $user?->branchIds() ?? []);
+        $ids = $user ? $user->scopedBranchIds() : [];
+
+        if ($ids !== null) {
+            $query->whereIn('id', $ids);
         }
     }
 

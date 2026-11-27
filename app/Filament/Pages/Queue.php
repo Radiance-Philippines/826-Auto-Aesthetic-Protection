@@ -8,6 +8,7 @@ use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\BranchBlockResource;
 use App\Models\Booking;
 use App\Models\Branch;
+use App\Support\CurrentBranch;
 use App\Support\QueueBoard;
 use App\Support\Reservations;
 use App\Support\Schedule\Availability;
@@ -84,7 +85,8 @@ class Queue extends Page
     public function mount(): void
     {
         $branches = $this->branchOptions();
-        $this->branch ??= array_key_first($branches);
+        // The top selector wins over a ?branch= left in the address
+        $this->branch = CurrentBranch::for(auth()->user()) ?? $this->branch ?? array_key_first($branches);
 
         abort_unless($this->branch === null || auth()->user()->canManageBranch($this->branch), 403);
 

@@ -15,6 +15,7 @@
             </div>
         @endif
 
+        @unless ($this->branchChosen())
         {{-- One tab per branch --}}
         <nav class="flex gap-1 overflow-x-auto pb-1" aria-label="Branches">
             @if ($this->showsAllTab())
@@ -43,6 +44,7 @@
                 </button>
             @endforeach
         </nav>
+        @endunless
 
         <div class="grid min-h-[32rem] gap-4 lg:h-[calc(100dvh-16rem)] lg:grid-cols-[22rem_minmax(0,1fr)]">
             {{-- Conversation list --}}

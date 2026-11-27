@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\Access;
+use App\Support\CurrentBranch;
 use App\Support\Panels;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
@@ -276,6 +277,23 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function branchIds(): array
     {
         return $this->branchIdCache ??= $this->branches()->pluck('branches.id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
+     * The branches this person's lists and numbers cover: the one chosen in
+     * the admin's selector, else all of theirs. Null means no limit.
+     *
+     * @return list<int>|null
+     */
+    public function scopedBranchIds(): ?array
+    {
+        $chosen = CurrentBranch::for($this);
+
+        if ($chosen !== null) {
+            return [$chosen];
+        }
+
+        return $this->isOwner() ? null : $this->branchIds();
     }
 
     public function canManageBranch(int|Branch|null $branch): bool

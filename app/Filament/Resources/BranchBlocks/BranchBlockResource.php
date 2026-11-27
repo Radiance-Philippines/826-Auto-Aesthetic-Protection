@@ -7,6 +7,7 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\Pages\ManageBranchBlocks;
 use App\Models\BranchBlock;
+use App\Support\CurrentBranch;
 use App\Support\Panels;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -66,6 +67,7 @@ class BranchBlockResource extends Resource
             Select::make('branch_id')
                 ->label('Branch')
                 ->options(fn () => BookingResource::branchOptions())
+                ->default(fn () => CurrentBranch::for(auth()->user()))
                 ->placeholder(fn () => auth()->user()?->canAccessArea('shop') ? 'Every branch' : 'Pick a branch')
                 ->required(fn () => ! auth()->user()?->canAccessArea('shop'))
                 ->helperText(fn () => auth()->user()?->canAccessArea('shop') ? 'Leave blank to close every branch (Christmas, Holy Week).' : null),

@@ -175,7 +175,7 @@ final class Insights
     private function reviews(): Builder
     {
         return Review::query()
-            ->when(! $this->user->isOwner(), fn (Builder $query) => $query->whereIn('branch_id', $this->user->branchIds()))
+            ->when($this->user->scopedBranchIds() !== null, fn (Builder $query) => $query->whereIn('branch_id', $this->user->scopedBranchIds()))
             ->when($this->branchId !== null, fn (Builder $query) => $query->where('branch_id', $this->branchId));
     }
 

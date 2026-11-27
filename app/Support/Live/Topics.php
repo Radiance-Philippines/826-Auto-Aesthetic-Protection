@@ -46,7 +46,7 @@ final class Topics
      */
     public static function forUser(User $user): array
     {
-        $branchIds = $user->isOwner() ? Branch::query()->pluck('id')->map(fn ($id) => (int) $id)->all() : $user->branchIds();
+        $branchIds = $user->scopedBranchIds() ?? Branch::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
         $topics = [self::notify($user->id)];
 
         foreach ($branchIds as $id) {

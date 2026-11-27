@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Guest;
 use App\Models\User;
+use App\Support\CurrentBranch;
 use App\Support\Inbox\Inbox as InboxService;
 use App\Support\Inbox\InboxException;
 use App\Support\Inbox\InboxList;
@@ -137,6 +138,14 @@ class Inbox extends Page
         if ($this->conversation !== null) {
             $this->open($this->conversation);
         }
+    }
+
+    /**
+     * A branch chosen in the top selector already scopes the list: no tabs then.
+     */
+    public function branchChosen(): bool
+    {
+        return CurrentBranch::for(auth()->user()) !== null;
     }
 
     /**

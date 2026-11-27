@@ -24,11 +24,11 @@ trait ScopedToStaffBranches
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user?->isOwner()) {
+        $ids = $user ? $user->scopedBranchIds() : [];
+
+        if ($ids === null) {
             return $query;
         }
-
-        $ids = $user?->branchIds() ?? [];
         $column = $query->getModel()->qualifyColumn('branch_id');
 
         return $query->where(fn (Builder $scope) => $scope
