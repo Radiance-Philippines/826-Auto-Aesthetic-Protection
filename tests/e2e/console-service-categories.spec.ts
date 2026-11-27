@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { adminLogin, TEAM } from './admin-support';
+import { settled } from './console-sheet';
 import { expectAccessible } from './console-support';
 import { expectNoHorizontalOverflow, watchProblems } from './support';
 
@@ -35,6 +36,7 @@ test('add, correct and delete a category; one with services cannot be deleted', 
 
     await row.getByRole('button', { name: `Edit ${name}` }).click();
     const edit = page.getByRole('dialog', { name: `Edit ${name}` });
+    await settled(edit);
     await edit.getByRole('switch', { name: 'Shown on the site' }).click();
     await expectAccessible(page);
     await edit.getByRole('button', { name: 'Save changes' }).click();

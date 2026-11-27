@@ -1,6 +1,7 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import { adminLogin, TEAM } from './admin-support';
+import { settled } from './console-sheet';
 import { expectAccessible } from './console-support';
 import { expectNoHorizontalOverflow, watchProblems } from './support';
 
@@ -14,23 +15,6 @@ async function typeDate(page: Page, label: string, value: string) {
     const input = page.getByRole('textbox', { name: label });
     await input.fill(value);
     await input.press('Tab');
-}
-
-/** On a phone a dialog is a sheet that scrolls into place: touching it on the way would swipe it away */
-async function settled(dialog: Locator) {
-    let last = Number.NaN;
-    await expect
-        .poll(
-            async () => {
-                const top = (await dialog.boundingBox())?.y ?? Number.NaN;
-                const still = top === last;
-                last = top;
-
-                return still;
-            },
-            { intervals: [250] },
-        )
-        .toBe(true);
 }
 
 const ahead = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
