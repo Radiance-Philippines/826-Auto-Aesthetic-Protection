@@ -53,6 +53,8 @@ test('add, correct and delete a category; one with services cannot be deleted', 
 
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveClass(/dark/);
+    // Colour transitions (and the toast's) have to finish before axe reads contrast
+    await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== 'running'));
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);
     await expectAccessible(page);
