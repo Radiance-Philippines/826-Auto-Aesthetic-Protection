@@ -43,7 +43,7 @@ class VideoResource extends Resource
                 ->placeholder('https://www.youtube.com/watch?v=…')
                 ->required()
                 ->maxLength(255)
-                ->rule(fn () => fn (string $attribute, mixed $value, \Closure $fail) => YouTube::videoId($value) ?: $fail('Paste a YouTube link (youtube.com or youtu.be, starting with https://).'))
+                ->rule(fn () => YouTube::rule())
                 ->helperText('Videos are not uploaded here. Upload to YouTube first, then paste its link.'),
             TextInput::make('title')->required()->maxLength(120),
             TextInput::make('caption')->maxLength(200)->helperText('Optional, shown under the video.'),
