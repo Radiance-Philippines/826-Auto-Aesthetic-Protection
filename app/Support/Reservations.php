@@ -111,8 +111,13 @@ final class Reservations
         $attributes = [
             'year' => (int) $details['vehicle_year'],
             'model' => trim((string) $details['vehicle_model']),
-            'type' => (string) $details['vehicle_type'],
         ];
+
+        // Not always asked: a saved unit keeps the type it has
+        if (filled($details['vehicle_type'] ?? null)) {
+            $attributes['type'] = (string) $details['vehicle_type'];
+        }
+
         $plate = Booking::normalizePlate((string) $details['plate_number']);
         $vehicle = $guest?->vehicles()->where('plate_number', $plate)->first();
 
@@ -123,7 +128,7 @@ final class Reservations
                 $vehicle->fill(['vehicle_size_id' => null, 'size_reviewed_at' => null]);
             }
         } else {
-            $vehicle = new Vehicle([...$attributes, 'plate_number' => $plate, 'guest_id' => $guest?->id]);
+            $vehicle = new Vehicle(['type' => '', ...$attributes, 'plate_number' => $plate, 'guest_id' => $guest?->id]);
         }
 
         if (filled($details['vehicle_size_id'] ?? null)) {
@@ -513,7 +518,7 @@ final class Reservations
             'vehicle_id' => $vehicle->id,
             'vehicle_year' => $vehicle->year,
             'vehicle_model' => $vehicle->model,
-            'vehicle_type' => $vehicle->type,
+            'vehicle_type' => $vehicle->type ?: null,
             'plate_number' => $vehicle->plate_number,
         ];
     }

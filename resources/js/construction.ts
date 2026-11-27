@@ -1,4 +1,6 @@
 import '@ui-sdk/web/input';
+import '@fontsource-variable/archivo/wdth-italic.css';
+import '@fontsource-variable/archivo/wght.css';
 
 // The PIN field stays out of sight for visitors. The team brings it up with
 // Ctrl+0 (Cmd+0 on a Mac), or five taps on the logo on a phone.
@@ -6,7 +8,7 @@ const form = document.querySelector<HTMLFormElement>('form[data-pin]')!;
 
 const show = () => {
     form.hidden = false;
-    form.querySelector('input[name="pin"]')!.focus();
+    form.querySelector<HTMLInputElement>('input[name="pin"]')!.focus();
 };
 
 document.addEventListener('keydown', (event) => {
@@ -19,7 +21,7 @@ document.addEventListener('keydown', (event) => {
 let taps = 0;
 let first = 0;
 
-document.querySelector('img')!.addEventListener('click', () => {
+document.querySelector('[data-logo]')!.addEventListener('click', () => {
     if (Date.now() - first > 3000) {
         first = Date.now();
         taps = 0;

@@ -94,8 +94,14 @@ export default function Navbar() {
             {site.demo && (
                 <p className="flex min-h-8 items-center justify-center gap-2 bg-surface-3 px-4 py-1 text-center text-[0.8125rem] leading-tight text-text">
                     <span className="eyebrow text-[0.68rem]">{copy.demo.label}</span>
-                    <span className="sm:hidden">{copy.demo.short}</span>
-                    <span className="hidden sm:inline">{copy.demo.body}</span>
+                    {site.demoSaves ? (
+                        <span>{copy.demo.savesBookings}</span>
+                    ) : (
+                        <>
+                            <span className="sm:hidden">{copy.demo.short}</span>
+                            <span className="hidden sm:inline">{copy.demo.body}</span>
+                        </>
+                    )}
                 </p>
             )}
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-[4.5rem] sm:px-8 xl:px-12" aria-label={copy.nav.main}>

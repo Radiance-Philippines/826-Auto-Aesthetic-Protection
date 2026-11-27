@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\UnderConstruction;
 use App\Mail\CustomerBookingUpdate;
 use App\Mail\TeamBookingAlert;
 use App\Models\Booking;
@@ -206,7 +207,7 @@ class OnsiteBookingTest extends TestCase
     {
         $this->reserve(['phone' => '123', 'plate_number' => '', 'vehicle_model' => '', 'vehicle_year' => '', 'vehicle_type' => '', 'consent' => false])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['phone', 'plate_number', 'vehicle_model', 'vehicle_year', 'vehicle_type', 'consent']);
+            ->assertJsonValidationErrors(['phone', 'plate_number', 'vehicle_model', 'vehicle_year', 'consent']);
 
         $this->reserve(['vehicle_type' => 'spaceship', 'vehicle_year' => 1900])->assertUnprocessable()->assertJsonValidationErrors(['vehicle_type', 'vehicle_year']);
 
@@ -307,6 +308,31 @@ class OnsiteBookingTest extends TestCase
 
         $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
         $this->assertSame(0, Booking::count());
+    }
+
+    public function test_a_demo_keeps_a_booking_from_a_browser_that_entered_the_team_pin(): void
+    {
+        config(['app.demo' => true, 'app.site_pin' => '482913']);
+        Mail::fake();
+        MailSetting::instance()->update(['address' => 'hello@826auto.test', 'password' => 'secret']);
+        $unlocked = [UnderConstruction::SESSION => UnderConstruction::mark('482913')];
+
+        // A visitor who isn't signed in: kept for the team, with no booking page to open
+        $this->withSession($unlocked)->postJson('/api/bookings', $this->reservation(['email' => 'someone@example.com']))
+            ->assertCreated()
+            ->assertExactJson(['ok' => true, 'demo' => true, 'saved' => true]);
+
+        $this->assertSame(['demo', null, null], [Booking::sole()->source, Booking::sole()->email, Booking::sole()->guest_id]);
+        Mail::assertNothingSent();
+    }
+
+    public function test_a_unit_needs_no_type_and_a_saved_one_keeps_its_own(): void
+    {
+        $this->reserve(['vehicle_type' => null])->assertCreated()->assertJsonPath('booking.vehicle.type', null);
+        $this->assertSame('', Vehicle::sole()->type);
+
+        Vehicle::sole()->update(['type' => 'suv']);
+        $this->reserve(['vehicle_type' => null, 'date' => '2026-11-18'])->assertCreated()->assertJsonPath('booking.vehicle.type', 'suv');
     }
 
     public function test_later_service_changes_leave_booked_items_alone(): void

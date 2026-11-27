@@ -104,7 +104,7 @@ final class ManualTransaction
                 'ready_on' => $date,
                 'vehicle_year' => $vehicle->year,
                 'vehicle_model' => $vehicle->model,
-                'vehicle_type' => $vehicle->type,
+                'vehicle_type' => $vehicle->type ?: null,
                 'plate_number' => $vehicle->plate_number,
                 'vehicle_size_id' => $size->id,
                 'vehicle_size_name' => $size->name,

@@ -17,7 +17,7 @@ import { fetchMonth, forget, type JobQuery, jobKey, readyOn } from '../lib/avail
 import { copy } from '../lib/copy';
 import { longDate, shortDate } from '../lib/dates';
 import { BOOK_DRAFT, type BookDraft, clearDraft, emailLooksWrong, emptyBookDraft, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
-import { bookableBranches, branchById, branchBySlug, categories, estimateOf, hoursRange, hoursToday, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
+import { bookableBranches, branchById, branchBySlug, branchChoices, categories, estimateOf, hoursRange, hoursToday, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import { fetchMyVehicles, unitName } from '../lib/vehicles';
 import type { CustomerBooking, Estimate, MonthAvailability, SavedVehicle } from '../types';
@@ -60,7 +60,6 @@ function problemsOn(step: StepKey, draft: BookDraft): Problems {
     if (step === 'vehicle' && draft.vehicleId === null) {
         if (!draft.year) problems.vehicle_year = errors.year;
         if (!draft.model.trim()) problems.vehicle_model = errors.model;
-        if (!draft.type) problems.vehicle_type = errors.type;
         if (!draft.plate.trim()) problems.plate_number = errors.plate;
         else if (plateLooksWrong(draft.plate)) problems.plate_number = errors.plateFormat;
     }
@@ -116,13 +115,16 @@ function startingDraft(params: URLSearchParams): BookDraft {
                   name: saved.name,
                   phone: saved.phone,
                   email: saved.email,
-                  branchId: presetBranch?.bookable ? presetBranch.id : bookableBranches.length === 1 ? bookableBranches[0].id : null,
+                  branchId: presetBranch?.bookable ? presetBranch.id : null,
                   serviceIds: presetService ? [presetService.id] : [],
+                  onlyService: presetService?.id ?? null,
               }
             : saved;
 
-    if (!draft.branchId && bookableBranches.length === 1) {
-        draft.branchId = bookableBranches[0].id;
+    const only = branchChoices(draft).filter((branch) => branch.bookable);
+
+    if (!draft.branchId && only.length === 1) {
+        draft.branchId = only[0].id;
     }
 
     // A shared referral link (/r/CODE → ?ref=CODE): only a code-shaped value goes in the box; the server checks it when the booking is sent
@@ -195,7 +197,7 @@ function Summary({ draft, unit, estimate, ready, onEdit, compact = false }: { dr
 
             {/* The unit: its type drawn, the year and model and the plate */}
             <div className="px-5 pt-5 sm:px-6">
-                <div className={`mx-auto max-w-[16rem] ${unit?.type ? 'text-text/80' : 'text-text/15'}`}>
+                <div className={`mx-auto max-w-[16rem] ${unit ? 'text-text/80' : 'text-text/15'}`}>
                     <VehicleSilhouette type={unit?.type} className="ticket-car w-full" />
                 </div>
                 {name ? (
@@ -286,7 +288,7 @@ export default function Book() {
     const [server, setServer] = useState<FieldErrors>({});
     const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [demoDone, setDemoDone] = useState<{ readyLabel: string | null } | null>(null);
+    const [demoDone, setDemoDone] = useState<{ readyLabel: string | null; saved?: boolean } | null>(null);
     const [apiEstimate, setApiEstimate] = useState<{ key: string; estimate: Estimate } | null>(null);
     const [monthData, setMonthData] = useState<{ key: string; months: Record<string, MonthAvailability> }>({ key: '', months: {} });
     // The signed-in customer's saved units (null while they load); nobody else has any
@@ -432,13 +434,13 @@ export default function Book() {
         setSubmitting(true);
         setFormError(null);
 
-        const result = await postJson<{ ok: boolean; booking?: CustomerBooking; demo?: boolean; readyLabel?: string }>('/bookings', {
+        const result = await postJson<{ ok: boolean; booking?: CustomerBooking; demo?: boolean; saved?: boolean; readyLabel?: string }>('/bookings', {
             branch: branch.id,
             services: draft.serviceIds,
             date: draft.date,
             ...(draft.vehicleId !== null
                 ? { vehicle_id: draft.vehicleId }
-                : { vehicle_year: Number(draft.year), vehicle_model: draft.model.trim(), vehicle_type: draft.type, plate_number: draft.plate.trim().toUpperCase() }),
+                : { vehicle_year: Number(draft.year), vehicle_model: draft.model.trim(), plate_number: draft.plate.trim().toUpperCase() }),
             name: draft.name.trim(),
             phone: draft.phone.trim(),
             email: draft.email.trim() || null,
@@ -453,7 +455,7 @@ export default function Book() {
         if (result.kind === 'ok') {
             if (result.data.demo) {
                 clearDraft(BOOK_DRAFT);
-                setDemoDone({ readyLabel: result.data.readyLabel ?? null });
+                setDemoDone({ readyLabel: result.data.readyLabel ?? null, saved: result.data.saved });
                 window.scrollTo(0, 0);
                 return;
             }
@@ -539,8 +541,8 @@ export default function Book() {
                 <span className="grid size-12 place-items-center rounded-full bg-accent text-on-accent">
                     <Check className="size-6" />
                 </span>
-                <h1 className="font-display mt-6 text-[clamp(2rem,7vw,3rem)]">{text.demo.title}</h1>
-                <p className="mt-4 text-lg leading-relaxed text-muted">{text.demo.body(demoDone.readyLabel)}</p>
+                <h1 className="font-display mt-6 text-[clamp(2rem,7vw,3rem)]">{demoDone.saved ? text.demo.savedTitle : text.demo.title}</h1>
+                <p className="mt-4 text-lg leading-relaxed text-muted">{demoDone.saved ? text.demo.saved : text.demo.body(demoDone.readyLabel)}</p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                     <Button to="/">{copy.nav.home}</Button>
                     <button
@@ -573,7 +575,7 @@ export default function Book() {
                 {bookableBranches.length === 0 && <Notice className="mb-5">{text.branch.noneOpen}</Notice>}
                 <fieldset aria-labelledby={titleId} aria-describedby={errorFor('branch') ? 'branch-error' : undefined}>
                     <div className="grid gap-3 sm:grid-cols-2">
-                        {site.branches.map((option) => {
+                        {branchChoices(draft).map((option) => {
                             const range = hoursRange(hoursToday(option));
 
                             return (

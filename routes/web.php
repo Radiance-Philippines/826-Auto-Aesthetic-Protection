@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminFileController;
 use App\Http\Controllers\AppAuthController;
 use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\BranchSelectionController;
+use App\Http\Controllers\BranchServicesController;
 use App\Http\Controllers\CustomerAuthController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\GuestAuthController;
@@ -125,6 +126,9 @@ Route::get('/admin-files/bookings/{booking}/proof', [AdminFileController::class,
 
 // The admin's branch selector (#695)
 Route::post('/panel-branch', BranchSelectionController::class)->middleware(['auth', 'throttle:60,1'])->name('panel.branch');
+
+// Which services a branch offers, saved from the admin's Services page
+Route::post('/panel-branch/{branch}/services', BranchServicesController::class)->whereNumber('branch')->middleware(['auth', 'throttle:60,1'])->name('panel.branch.services');
 
 // Sign in to /admin with a passkey: the one-time challenge, then the signed answer
 Route::prefix('admin-passkeys')->controller(PasskeyLoginController::class)->group(function () {

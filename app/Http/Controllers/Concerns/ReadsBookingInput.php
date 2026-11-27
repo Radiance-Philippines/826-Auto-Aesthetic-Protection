@@ -112,7 +112,8 @@ trait ReadsBookingInput
             'vehicle_id' => ['nullable', 'integer'],
             'vehicle_year' => ['required_without:vehicle_id', 'nullable', 'integer', 'between:1950,'.(now()->year + 1)],
             'vehicle_model' => ['required_without:vehicle_id', 'nullable', 'string', 'max:80'],
-            'vehicle_type' => ['required_without:vehicle_id', 'nullable', Rule::in(array_keys(Booking::VEHICLE_TYPES))],
+            // Not asked on the website (the team sees the unit); the app may still send it
+            'vehicle_type' => ['nullable', Rule::in(array_keys(Booking::VEHICLE_TYPES))],
             'plate_number' => ['required_without:vehicle_id', 'nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9 -]+$/'],
         ];
     }
@@ -132,7 +133,6 @@ trait ReadsBookingInput
             'vehicle_year.integer' => 'Use a year, like 2021.',
             'vehicle_year.between' => 'That year doesn’t look right. Check it.',
             'vehicle_model.required_without' => 'Add your car’s make and model, like Toyota Vios.',
-            'vehicle_type.required_without' => 'Pick the type of your car.',
             'vehicle_type.in' => 'Pick the type of your car from the list.',
             'plate_number.required_without' => 'Add your plate number.',
             'plate_number.regex' => 'Use letters and numbers only for the plate.',

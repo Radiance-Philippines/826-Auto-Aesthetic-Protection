@@ -30,7 +30,6 @@ async function fillUnit(page: Page) {
     await main(page).getByRole('combobox', { name: 'Year' }).click();
     await page.getByRole('option', { name: UNIT.year, exact: true }).click();
     await main(page).getByLabel('Make and model').fill(UNIT.model);
-    await main(page).locator('input[name="vehicle_type"][value="sedan"]').check({ force: true });
     await main(page).getByLabel('Plate number').fill(UNIT.plate);
     await next(page).click();
 }
@@ -95,7 +94,6 @@ test.describe('booking validation', () => {
         await next(page).click();
         await expect(main(page).getByText('Pick your unit’s year.')).toBeVisible();
         await expect(main(page).getByText('Add your unit’s make and model, like Toyota Vios.')).toBeVisible();
-        await expect(main(page).getByText('Pick your unit’s type.')).toBeVisible();
         await expect(main(page).getByText('Add your plate number.')).toBeVisible();
         await expect(heading(page, 'Which unit are we working on?')).toBeVisible();
 
@@ -107,7 +105,6 @@ test.describe('booking validation', () => {
         await main(page).getByRole('combobox', { name: 'Year' }).click();
         await page.getByRole('option', { name: UNIT.year, exact: true }).click();
         await main(page).getByLabel('Make and model').fill(UNIT.model);
-        await main(page).locator('input[name="vehicle_type"][value="sedan"]').check({ force: true });
         await main(page).getByLabel('Plate number').fill(UNIT.plate);
         await next(page).click();
 

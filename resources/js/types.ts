@@ -177,6 +177,8 @@ export type SiteData = {
     base: string;
     /** A preview copy: sample schedules, nothing is saved */
     demo: boolean;
+    /** The demo, opened with the team's PIN: bookings are kept */
+    demoSaves: boolean;
     settings: Settings;
     auth: AuthData;
     catalog: { categories: Category[] };

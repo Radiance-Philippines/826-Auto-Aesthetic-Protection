@@ -169,7 +169,6 @@ export default function HomeService() {
         if (draft.area === OTHER && !draft.areaOther.trim()) problems.area_other = text.errors.areaOther;
         if (!draft.year) problems.vehicle_year = e.year;
         if (!draft.model.trim()) problems.vehicle_model = e.model;
-        if (!draft.type) problems.vehicle_type = e.type;
         if (!draft.plate.trim()) problems.plate_number = e.plate;
         else if (plateLooksWrong(draft.plate)) problems.plate_number = e.plateFormat;
         if (!draft.name.trim()) problems.name = e.name;
@@ -220,7 +219,6 @@ export default function HomeService() {
             email: draft.email.trim() || null,
             vehicle_year: Number(draft.year),
             vehicle_model: draft.model.trim(),
-            vehicle_type: draft.type,
             plate_number: draft.plate.trim().toUpperCase(),
             message: draft.message.trim() || null,
             consent: true,

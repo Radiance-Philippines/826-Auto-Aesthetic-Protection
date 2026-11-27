@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Console\Commands\DemoData;
 use App\Http\Controllers\Concerns\ReadsBookingInput;
+use App\Http\Middleware\UnderConstruction;
 use App\Models\Booking;
 use App\Support\Notifier;
 use App\Support\Reservations;
@@ -60,11 +61,11 @@ class ReservationController extends Controller
         $quote = Reservations::quote($branch, $this->serviceIds($request));
         $date = $this->dateFrom($details['date']);
 
-        // A demo checks everything like the real site, then keeps nothing, except a booking
-        // from the signed-in app, so the shop's Queue can be tried with it
+        // A demo checks everything like the real site, then keeps nothing, except a booking from
+        // the signed-in app or from a browser that entered the team's PIN, so the admin can be tried
         $demo = (bool) config('app.demo');
 
-        if ($demo && $request->attributes->get('guest_token') === null) {
+        if ($demo && $request->attributes->get('guest_token') === null && ! UnderConstruction::opened($request)) {
             $result = Availability::check($branch, $date);
 
             if ($result !== 'ok') {
@@ -94,6 +95,11 @@ class ReservationController extends Controller
             $kind = $booking->status === 'awaiting_payment' ? 'hold' : 'reserved';
             Notifier::team($booking, $booking->needsSizeReview() ? 'size_review' : $kind);
             Notifier::customer($booking, $kind);
+        }
+
+        // Kept from a demo visitor who isn't signed in: there's no booking page to send them to
+        if (! $guest) {
+            return response()->json(['ok' => true, 'demo' => true, 'saved' => true], 201);
         }
 
         return response()->json(['ok' => true, 'booking' => $this->fresh($booking)->toCustomer()], 201);

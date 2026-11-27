@@ -1,9 +1,6 @@
 import { copy } from '../lib/copy';
-import { vehicleTypes } from '../lib/site';
 import { vehicleYears } from '../lib/vehicles';
 import { ErrorText, SelectField, TextField } from './Form';
-import { Check } from './Icons';
-import VehicleSilhouette from './VehicleSilhouette';
 
 export type UnitValue = { year: string; model: string; type: string; plate: string };
 
@@ -19,8 +16,8 @@ const YEARS = vehicleYears().map((year) => ({ value: String(year), label: String
 const text = copy.book.vehicle;
 
 /**
- * What 826 needs to know about a unit: year, make and model, type (drawn)
- * and plate. No size: the team sets that after they've seen the unit.
+ * What 826 needs to know about a unit: year, make and model, and plate.
+ * No type or size: the team sets that after they've seen the unit.
  */
 export default function UnitFields({ value, onChange, errorFor }: Props) {
     return (
@@ -40,37 +37,6 @@ export default function UnitFields({ value, onChange, errorFor }: Props) {
                 />
             </div>
 
-            <fieldset className="mt-6" aria-describedby={errorFor('vehicle_type') ? 'type-error' : undefined}>
-                <legend className="font-semibold">{text.type}</legend>
-                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                    {vehicleTypes.map((option) => {
-                        const checked = value.type === option.key;
-
-                        return (
-                            <label
-                                key={option.key}
-                                className={`choice press relative flex min-h-11 cursor-pointer flex-col items-center gap-2 rounded-card border px-3 pt-3.5 pb-3 has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-accent ${
-                                    checked ? 'is-checked border-accent ring-1 ring-accent' : 'border-field/55 hover:border-text/55'
-                                }`}
-                            >
-                                <input type="radio" name="vehicle_type" value={option.key} checked={checked} onChange={() => onChange({ type: option.key }, ['vehicle_type'])} className="peer sr-only" />
-                                <span className={`block w-full ${checked ? 'text-accent' : 'text-text/45'}`}>
-                                    <VehicleSilhouette type={option.key} className="w-full" />
-                                </span>
-                                <span className="flex items-center gap-1.5 text-center leading-snug font-semibold">
-                                    {checked && <Check className="size-4 text-accent" />}
-                                    {option.label}
-                                </span>
-                            </label>
-                        );
-                    })}
-                </div>
-                {errorFor('vehicle_type') && (
-                    <span data-error-anchor tabIndex={-1}>
-                        <ErrorText id="type-error">{errorFor('vehicle_type')}</ErrorText>
-                    </span>
-                )}
-            </fieldset>
 
             <TextField
                 className="mt-6 sm:max-w-sm"

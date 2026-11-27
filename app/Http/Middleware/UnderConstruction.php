@@ -17,14 +17,22 @@ class UnderConstruction
 
     public function handle(Request $request, Closure $next): Response
     {
-        $pin = (string) config('app.site_pin');
-
-        // The session keeps a hash of the PIN it was opened with, so a new PIN locks the site again
-        if ($pin === '' || hash_equals(self::mark($pin), (string) $request->session()->get(self::SESSION))) {
+        if (blank(config('app.site_pin')) || self::opened($request)) {
             return $next($request);
         }
 
         return response()->view('under-construction');
+    }
+
+    /**
+     * This browser entered the current PIN. The session keeps a hash of the PIN
+     * it was opened with, so a new PIN locks the site again.
+     */
+    public static function opened(Request $request): bool
+    {
+        $pin = (string) config('app.site_pin');
+
+        return $pin !== '' && $request->hasSession() && hash_equals(self::mark($pin), (string) $request->session()->get(self::SESSION));
     }
 
     public static function mark(string $pin): string

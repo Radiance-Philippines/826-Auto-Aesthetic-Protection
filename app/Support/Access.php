@@ -43,6 +43,7 @@ final class Access
         'content' => 'Photos and videos',
         'inbox' => 'Messenger inbox',
         'dashboard' => 'Dashboard',
+        'branch.services' => 'Choose which services their branches offer',
         'shop' => 'Branches, services, categories, sizes, backjob types and closures for every branch',
         'settings' => 'Settings pages',
         'users' => 'Users',
@@ -52,7 +53,7 @@ final class Access
      * @var array<string, list<string>>
      */
     private const DEFAULTS = [
-        self::BRANCH_MANAGER => ['bookings.view', 'bookings.sales', 'queue.update', 'customers.view', 'customers.write', 'warranty', 'reviews', 'closures', 'inbox', 'dashboard'],
+        self::BRANCH_MANAGER => ['bookings.view', 'bookings.sales', 'queue.update', 'customers.view', 'customers.write', 'warranty', 'reviews', 'closures', 'inbox', 'dashboard', 'branch.services'],
         self::OPERATIONS => ['bookings.view', 'queue.update', 'customers.view', 'warranty', 'dashboard'],
         self::SALES_ADMIN => ['bookings.view', 'bookings.sales', 'customers.view', 'customers.write', 'warranty', 'reviews', 'inbox', 'dashboard'],
     ];

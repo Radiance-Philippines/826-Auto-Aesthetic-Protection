@@ -9,7 +9,7 @@ document.addEventListener('valuechange', (event) => {
     if (form) {
         const value = (event as CustomEvent<{ value: string }>).detail.value;
 
-        form.elements.namedItem('branch')!.setAttribute('value', value === 'all' ? '' : value);
+        form.querySelector<HTMLInputElement>('input[name="branch"]')!.value = value === 'all' ? '' : value;
         form.requestSubmit();
     }
 }, true);

@@ -66,7 +66,8 @@ class HomeServiceTest extends TestCase
     {
         $this->request(['vehicle_year' => '', 'vehicle_model' => '', 'vehicle_type' => '', 'plate_number' => ''])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number']);
+            ->assertJsonValidationErrors(['vehicle_year', 'vehicle_model', 'plate_number'])
+            ->assertJsonMissingValidationErrors('vehicle_type');
     }
 
     public function test_only_services_that_can_be_done_at_home(): void

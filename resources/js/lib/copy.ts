@@ -33,6 +33,7 @@ export const copy = {
         label: 'Demo',
         body: 'Sample schedules. Nothing you send here is saved.',
         short: 'Sample site. Nothing is saved.',
+        savesBookings: 'Sample schedules. Only bookings are saved.',
     },
     theme: {
         label: 'Dark mode',
@@ -320,7 +321,7 @@ export const copy = {
             eyebrow: 'Booking',
             title: 'Reserve your date without the back-and-forth',
             branch: { title: 'Choose a branch', body: 'Pick the shop you’ll drive to. Each one shows its own hours.' },
-            vehicle: { title: 'Tell us about your unit', body: 'Year, make and model, type and plate, so the team knows what to expect. We review its size and send the price.' },
+            vehicle: { title: 'Tell us about your unit', body: 'Year, make and model, and plate, so the team knows what to expect. We review its size and send the price.' },
             services: { title: 'Pick your services', body: 'See about how many days the work takes as you go.' },
             date: { title: 'Choose a drop-off date', body: 'Only open days show, with about when your unit will be ready.' },
             fee: (label: string | null, minutes: number) => ({
@@ -474,14 +475,13 @@ export const copy = {
         },
         vehicle: {
             title: 'Which unit are we working on?',
-            body: 'The year, model and type help the team know what to expect. We review your unit’s size after you book, then send the price.',
+            body: 'The year and model help the team know what to expect. We review your unit’s size after you book, then send the price.',
             saved: 'Your saved units',
             addAnother: 'Add another unit',
             newUnit: 'New unit',
             loading: 'Loading your units…',
             year: { label: 'Year', placeholder: 'Pick the year' },
             model: { label: 'Make and model', hint: 'Like Toyota Vios or Mitsubishi Montero', placeholder: 'Toyota Vios' },
-            type: 'Type',
             plate: { label: 'Plate number', hint: 'Or the conduction sticker number for a new unit', placeholder: 'ABC 1234' },
             reviewed: 'Size reviewed',
             notReviewed: 'We review its size after you book',
@@ -556,7 +556,6 @@ export const copy = {
             vehicle: 'Pick a unit, or add a new one.',
             year: 'Pick your unit’s year.',
             model: 'Add your unit’s make and model, like Toyota Vios.',
-            type: 'Pick your unit’s type.',
             plate: 'Add your plate number.',
             plateFormat: 'Use letters and numbers only for the plate.',
             services: 'Pick at least one service.',
@@ -574,6 +573,8 @@ export const copy = {
         },
         demo: {
             title: 'That would be booked',
+            savedTitle: 'Booking saved',
+            saved: 'The team can see it in the admin. No email is sent from the demo.',
             body: (ready: string | null) =>
                 `On the live site, your date would now be reserved${ready ? ` (${ready.charAt(0).toLowerCase()}${ready.slice(1)})` : ''} and you’d land on your booking page. This demo saves nothing.`,
             again: 'Start over',

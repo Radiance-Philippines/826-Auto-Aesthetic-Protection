@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\BookingSettings;
+use App\Filament\Pages\BranchServices;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\EmailSettings;
 use App\Filament\Pages\GoogleSignInSettings;
@@ -80,6 +81,7 @@ final class PanelPages
             Panels::OPERATIONS => [
                 Dashboard::class, Queue::class,
                 BookingResource::class, CustomerResource::class, Warranty::class, BranchBlockResource::class, Inbox::class, ReviewResource::class, ManualTransactionPage::class,
+                BranchServices::class,
             ],
             Panels::SYSTEM => [
                 SystemHealth::class, AppReleaseResource::class, MetaSettings::class, GoogleSignInSettings::class, EmailSettings::class, SecuritySettings::class,
@@ -106,7 +108,7 @@ final class PanelPages
      */
     public static function workPages(): array
     {
-        return [Queue::class, Warranty::class, Inbox::class, ManualTransactionPage::class];
+        return [Queue::class, Warranty::class, Inbox::class, ManualTransactionPage::class, BranchServices::class];
     }
 
     /**

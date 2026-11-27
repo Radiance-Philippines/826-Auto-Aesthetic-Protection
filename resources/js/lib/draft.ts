@@ -71,6 +71,8 @@ export type BookDraft = {
     type: string;
     plate: string;
     serviceIds: number[];
+    /** The service whose link started this: only branches offering it are shown while it stays picked */
+    onlyService?: number | null;
     date: string | null;
     name: string;
     phone: string;

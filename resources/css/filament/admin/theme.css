@@ -134,3 +134,16 @@ button.branch-trigger {
         @apply min-h-11;
     }
 }
+
+/* A branch's services (BranchServices): UI SDK checkboxes with the shadcn look */
+.offer-row {
+    @apply flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-white/10;
+}
+
+.offer-row ui-checkbox {
+    @apply flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border border-gray-400 outline-none focus-visible:ring-2 focus-visible:ring-primary-600 data-checked:border-primary-600 data-checked:bg-primary-600 data-checked:text-white dark:border-white/30;
+}
+
+.offer-row ui-checkbox-indicator svg {
+    @apply size-3;
+}

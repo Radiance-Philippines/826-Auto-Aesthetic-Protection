@@ -24,6 +24,10 @@ export const bookableBranches = site.branches.filter((branch) => branch.bookable
 /** Branches that come to the customer */
 export const homeBranches = site.branches.filter((branch) => branch.homeService.offered);
 
+/** The branch step's list: from a service's link, only the branches that offer it */
+export const branchChoices = ({ onlyService, serviceIds }: { onlyService?: number | null; serviceIds: number[] }) =>
+    onlyService && serviceIds.includes(onlyService) ? site.branches.filter((branch) => branch.serviceIds.includes(onlyService)) : site.branches;
+
 /** Open branches where a service can be booked */
 export const branchesOffering = (service: Service): Branch[] => site.branches.filter((branch) => branch.serviceIds.includes(service.id));
 

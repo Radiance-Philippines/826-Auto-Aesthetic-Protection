@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\UnderConstruction;
 use App\Models\Booking;
 use App\Models\BookingSetting;
 use App\Models\Branch;
@@ -267,6 +268,8 @@ class SiteController extends Controller
                 // "" at a domain's root, "/demo/826" when served from a folder
                 'base' => rtrim((string) parse_url(url('/'), PHP_URL_PATH), '/'),
                 'demo' => (bool) config('app.demo'),
+                // The demo, opened with the team's PIN, keeps bookings (see ReservationController)
+                'demoSaves' => config('app.demo') && UnderConstruction::opened($request),
                 'settings' => $settings->toSite(),
                 'auth' => [
                     'googleEnabled' => GoogleSignIn::enabled(),
