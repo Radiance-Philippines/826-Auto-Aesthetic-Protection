@@ -37,6 +37,7 @@ test('a branch manager sees their branch and saves its services', async ({ page 
     await expectNoHorizontalOverflow(page);
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);
     await expectAccessible(page);

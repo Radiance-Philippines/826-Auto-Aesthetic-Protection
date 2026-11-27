@@ -52,6 +52,7 @@ test('add, correct and delete a category; one with services cannot be deleted', 
     await expect(page.getByRole('button', { name: 'Add a category' })).toBeFocused();
 
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);
     await expectAccessible(page);
