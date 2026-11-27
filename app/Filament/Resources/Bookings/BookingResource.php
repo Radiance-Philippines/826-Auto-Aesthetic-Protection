@@ -13,11 +13,10 @@ use App\Models\Booking;
 use App\Models\BookingEvent;
 use App\Models\Branch;
 use App\Models\PaymentSetting;
-use App\Models\Service;
 use App\Models\VehicleSize;
+use App\Support\BookingDesk;
 use App\Support\ManualTransaction;
 use App\Support\Schedule\Availability;
-use App\Support\Schedule\Estimate;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\BulkAction;
@@ -94,21 +93,12 @@ class BookingResource extends Resource
 
     public static function statusColor(string $status): string
     {
-        return match ($status) {
-            'requested', 'payment_review' => 'warning',
-            'awaiting_payment' => 'info',
-            'confirmed' => 'primary',
-            'arrived', 'in_progress' => 'info',
-            'quality_check' => 'warning',
-            'ready', 'exited' => 'success',
-            'no_show' => 'danger',
-            default => 'gray',
-        };
+        return BookingDesk::statusColor($status);
     }
 
     public static function statusLabel(Booking $record): string
     {
-        return $record->stage() === 'expired' ? Booking::STATUSES['expired'] : (Booking::STATUSES[$record->status] ?? $record->status);
+        return BookingDesk::statusLabel($record);
     }
 
     /**
@@ -118,29 +108,15 @@ class BookingResource extends Resource
      */
     public static function branchOptions(): array
     {
-        return Branch::query()->visibleTo(auth()->user())->ordered()->pluck('name', 'id')->all();
+        return BookingDesk::branchOptions(auth()->user());
     }
 
     /**
-     * The services a branch offers that can be booked, as
-     * "Graphene coating · 3 days".
-     *
      * @return array<int, string>
      */
     public static function serviceOptions(mixed $branchId, bool $home = false): array
     {
-        if (blank($branchId)) {
-            return [];
-        }
-
-        return Service::query()
-            ->bookable()
-            ->whereHas('branches', fn (Builder $branches) => $branches->whereKey($branchId))
-            ->when($home, fn (Builder $services) => $services->where('home_service_ok', true))
-            ->ordered()
-            ->get()
-            ->mapWithKeys(fn (Service $service) => [$service->id => "{$service->name} · ".(new Estimate((int) $service->estimate_days))->label()])
-            ->all();
+        return BookingDesk::serviceOptions($branchId, $home);
     }
 
     /**
@@ -504,24 +480,9 @@ class BookingResource extends Resource
             ]);
     }
 
-    /**
-     * "0917 758 6820" → "tel:+639177586820"; null when it isn't a number.
-     */
     public static function phoneUrl(?string $phone): ?string
     {
-        $digits = preg_replace('/\D/', '', (string) $phone);
-
-        if (strlen($digits) < 7) {
-            return null;
-        }
-
-        $number = match (true) {
-            str_starts_with($digits, '63') => "+{$digits}",
-            str_starts_with($digits, '09') => '+63'.substr($digits, 1),
-            default => (str_starts_with(trim((string) $phone), '+') ? '+' : '').$digits,
-        };
-
-        return "tel:{$number}";
+        return BookingDesk::phoneUrl($phone);
     }
 
     public static function getPages(): array

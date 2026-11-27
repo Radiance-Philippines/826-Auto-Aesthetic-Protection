@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Bookings\Pages;
 
 use App\Filament\Concerns\RefreshesLive;
 use App\Filament\Resources\Bookings\BookingResource;
-use App\Models\Booking;
+use App\Support\BookingDesk;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -30,7 +30,7 @@ class ListBookings extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'upcoming';
+        return BookingDesk::DEFAULT_TAB;
     }
 
     /**
@@ -38,38 +38,12 @@ class ListBookings extends ListRecords
      */
     public function getTabs(): array
     {
-        $scoped = fn () => BookingResource::getEloquentQuery();
-        $today = today();
+        return collect(BookingDesk::TABS)->map(function (string $label, string $key) {
+            $tab = Tab::make($label)->modifyQueryUsing(fn (Builder $query) => BookingDesk::tab($query, $key));
 
-        return [
-            'action' => Tab::make('Needs you')
-                ->badge(fn () => $scoped()->needsAction()->count() ?: null)
-                ->badgeColor('warning')
-                ->modifyQueryUsing(fn (Builder $query) => $query->needsAction()),
-            'size' => Tab::make('Needs size review')
-                ->badge(fn () => $scoped()->needsSizeReview()->count() ?: null)
-                ->badgeColor('warning')
-                ->modifyQueryUsing(fn (Builder $query) => $query->needsSizeReview()),
-            'today' => Tab::make('Today')
-                ->modifyQueryUsing(fn (Builder $query) => $query->open()->where('drop_off_on', $today->toDateString())),
-            'in_shop' => Tab::make('In the shop')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', Booking::IN_SHOP)),
-            'upcoming' => Tab::make('Upcoming')
-                ->modifyQueryUsing(fn (Builder $query) => $query->open()
-                    ->where(fn (Builder $open) => $open->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now()))
-                    ->where(fn (Builder $future) => $future->where('drop_off_on', '>=', $today->toDateString())->orWhereNull('drop_off_on'))),
-            'holds' => Tab::make('Unpaid holds')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'awaiting_payment')->where(fn (Builder $hold) => $hold->whereNull('hold_expires_at')->orWhere('hold_expires_at', '>', now()))),
-            'home' => Tab::make('Home service')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('kind', 'home')->open()),
-            'past' => Tab::make('Done')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['exited', 'no_show'])->reorder('drop_off_on', 'desc')),
-            'cancelled' => Tab::make('Cancelled')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where(fn (Builder $closed) => $closed
-                    ->whereIn('status', ['cancelled', 'declined', 'expired'])
-                    ->orWhere(fn (Builder $lapsed) => $lapsed->lapsedHolds()))
-                    ->reorder('updated_at', 'desc')),
-            'all' => Tab::make('All'),
-        ];
+            return in_array($key, BookingDesk::COUNTED_TABS, true)
+                ? $tab->badge(fn () => BookingDesk::tab(BookingResource::getEloquentQuery(), $key)->count() ?: null)->badgeColor('warning')
+                : $tab;
+        })->all();
     }
 }

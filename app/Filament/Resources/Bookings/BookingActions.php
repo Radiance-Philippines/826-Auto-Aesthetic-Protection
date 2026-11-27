@@ -5,10 +5,9 @@ namespace App\Filament\Resources\Bookings;
 use App\Models\Booking;
 use App\Models\PaymentSetting;
 use App\Models\VehicleSize;
-use App\Support\Notifier;
+use App\Support\BookingDesk;
 use App\Support\Reservations;
 use App\Support\Schedule\Availability;
-use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
@@ -48,7 +47,7 @@ final class BookingActions
             ->label(fn (Booking $record) => $record->status === 'payment_review' ? 'Payment checked: confirm' : 'Mark fee paid')
             ->icon(Heroicon::OutlinedBanknotes)
             ->color('success')
-            ->visible(fn (Booking $record) => in_array($record->stage(), ['awaiting_payment', 'payment_review'], true))
+            ->visible(fn (Booking $record) => BookingDesk::offers('markPaid', $record))
             ->modalHeading(fn (Booking $record) => "Confirm {$record->name}’s booking?")
             ->modalDescription(fn (Booking $record) => $record->status === 'payment_review'
                 ? 'Check the screenshot against your GCash or Maya first. The customer gets an email that they’re booked.'
@@ -79,7 +78,7 @@ final class BookingActions
             ->label('Ask for another screenshot')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->status === 'payment_review')
+            ->visible(fn (Booking $record) => BookingDesk::offers('rejectProof', $record))
             ->modalDescription(fn () => 'The customer sees your reason and has '.PaymentSetting::instance()->holdMinutes().' minutes to upload again before the slot opens up. Their screenshot is deleted.')
             ->schema([
                 TextInput::make('reason')
@@ -135,7 +134,7 @@ final class BookingActions
             ->label($label)
             ->icon($icon)
             ->color($color)
-            ->visible(fn (Booking $record) => $record->nextStatus() === $next)
+            ->visible(fn (Booking $record) => BookingDesk::offers($name, $record))
             ->requiresConfirmation()
             ->modalDescription($description)
             ->action(fn (Booking $record) => Reservations::advance($record));
@@ -152,7 +151,7 @@ final class BookingActions
             ->label(fn (Booking $record) => $record->size_reviewed_at ? 'Change size' : 'Review unit')
             ->icon(Heroicon::OutlinedScale)
             ->color(fn (Booking $record) => $record->needsSizeReview() ? 'warning' : 'gray')
-            ->visible(fn (Booking $record) => $record->isOpen())
+            ->visible(fn (Booking $record) => BookingDesk::offers('setSize', $record))
             ->modalHeading(fn (Booking $record) => 'Review '.($record->vehicleLabel() ?: 'the unit'))
             ->modalDescription('Pick the size class once you have seen the unit. It sets the price from each service’s rates, and the customer gets an email with it. Their saved unit keeps the size, so next time it’s priced at once.')
             ->fillForm(fn (Booking $record) => ['vehicle_size_id' => $record->vehicle_size_id])
@@ -189,7 +188,7 @@ final class BookingActions
             ->label('No-show')
             ->icon(Heroicon::OutlinedUserMinus)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->status === 'confirmed' && $record->drop_off_on?->isBefore(today()))
+            ->visible(fn (Booking $record) => BookingDesk::offers('noShow', $record))
             ->requiresConfirmation()
             ->modalDescription('The customer didn’t come. The day no longer counts toward the cap.')
             ->action(fn (Booking $record) => $record->update(['status' => 'no_show']));
@@ -202,7 +201,7 @@ final class BookingActions
             ->label(fn (Booking $record) => $record->status === 'requested' ? 'Decline' : 'Cancel booking')
             ->icon(Heroicon::OutlinedXMark)
             ->color('danger')
-            ->visible(fn (Booking $record) => $record->isOpen())
+            ->visible(fn (Booking $record) => BookingDesk::offers('cancelBooking', $record))
             ->modalDescription(fn (Booking $record) => $record->paid_at
                 ? 'The day opens up again. Sort out the reservation fee with the customer yourself.'
                 : 'The day opens up again. The customer gets an email.')
@@ -212,17 +211,7 @@ final class BookingActions
                     ->maxLength(250),
             ])
             ->modalSubmitActionLabel(fn (Booking $record) => $record->status === 'requested' ? 'Decline' : 'Cancel booking')
-            ->action(function (Booking $record, array $data) {
-                if ($record->status === 'requested') {
-                    $record->update(['status' => 'declined', 'cancelled_by' => 'staff', 'cancel_reason' => $data['reason'] ?? null]);
-                    Notifier::customer($record, 'declined');
-
-                    return;
-                }
-
-                Reservations::cancel($record, 'staff', $data['reason'] ?? null);
-                Notifier::customer($record, 'cancelled');
-            });
+            ->action(fn (Booking $record, array $data) => BookingDesk::cancel($record, $data['reason'] ?? null));
     }
 
     /**
@@ -236,7 +225,7 @@ final class BookingActions
             ->label('Move')
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->isOnsite() && in_array($record->status, ['awaiting_payment', 'payment_review', 'confirmed'], true) && $record->stage() !== 'expired')
+            ->visible(fn (Booking $record) => BookingDesk::offers('reschedule', $record))
             ->fillForm(fn (Booking $record) => ['drop_off_on' => $record->drop_off_on?->toDateString()])
             ->schema([
                 DatePicker::make('drop_off_on')
@@ -254,7 +243,7 @@ final class BookingActions
             ->modalSubmitActionLabel('Move')
             ->action(function (Booking $record, array $data, Action $action) {
                 try {
-                    Reservations::reschedule($record, CarbonImmutable::parse($data['drop_off_on']), byCustomer: false, force: (bool) ($data['force'] ?? false));
+                    BookingDesk::reschedule($record, CarbonImmutable::parse($data['drop_off_on']), (bool) ($data['force'] ?? false));
                 } catch (ValidationException $e) {
                     Notification::make()->danger()->title('Not moved')->body(collect($e->errors())->flatten()->first())->send();
                     $action->halt();
@@ -263,7 +252,6 @@ final class BookingActions
                     $action->halt();
                 }
 
-                Notifier::customer($record->refresh(), 'rescheduled');
                 Notification::make()->success()->title('Moved')->body($record->whenLabel())->send();
             });
     }
@@ -279,7 +267,7 @@ final class BookingActions
             ->label('Assigned to')
             ->icon(Heroicon::OutlinedUser)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->isOpen())
+            ->visible(fn (Booking $record) => BookingDesk::offers('assignedTo', $record))
             ->modalHeading('Who is on this unit?')
             ->modalSubmitActionLabel('Save')
             ->fillForm(fn (Booking $record) => ['assigned_to' => $record->assigned_to])
@@ -307,7 +295,7 @@ final class BookingActions
             ->label('Change ready date')
             ->icon(Heroicon::OutlinedClock)
             ->color('gray')
-            ->visible(fn (Booking $record) => $record->canChangeReadyDate())
+            ->visible(fn (Booking $record) => BookingDesk::offers('changeReadyDate', $record))
             ->fillForm(fn (Booking $record) => ['ready_on' => $record->ready_on?->toDateString()])
             ->schema([
                 DatePicker::make('ready_on')
@@ -331,7 +319,7 @@ final class BookingActions
             ->label('Schedule')
             ->icon(Heroicon::OutlinedCalendarDays)
             ->color('primary')
-            ->visible(fn (Booking $record) => $record->isHome() && in_array($record->status, ['requested', 'awaiting_payment', 'confirmed'], true))
+            ->visible(fn (Booking $record) => BookingDesk::offers('scheduleHome', $record))
             ->fillForm(fn (Booking $record) => [
                 'drop_off_on' => $record->drop_off_on?->toDateString() ?? $record->preferred_date?->toDateString(),
                 'ready_on' => $record->ready_on?->toDateString(),
@@ -347,22 +335,12 @@ final class BookingActions
             ])
             ->modalSubmitActionLabel('Schedule')
             ->action(function (Booking $record, array $data) {
-                $payments = PaymentSetting::instance();
-                $askFee = ($data['ask_fee'] ?? false) && $record->status === 'requested' && $payments->feeAmount() > 0;
-                $visit = CarbonImmutable::parse($data['drop_off_on'])->startOfDay();
-                $ready = filled($data['ready_on'] ?? null)
-                    ? CarbonImmutable::parse($data['ready_on'])->startOfDay()
-                    : OpenCalendar::for($record->branch, $visit, $visit)->readyOn($visit, (int) $record->total_days);
-
-                $record->update([
-                    'drop_off_on' => $visit,
-                    'ready_on' => $ready ?? $visit,
-                    'status' => $record->status === 'requested' ? ($askFee ? 'awaiting_payment' : 'confirmed') : $record->status,
-                    'amount_due' => $askFee ? $payments->feeAmount() : $record->amount_due,
-                    'hold_expires_at' => null,
-                    'read_at' => $record->read_at ?? now(),
-                ]);
-                Notifier::customer($record, 'home_scheduled');
+                BookingDesk::scheduleHome(
+                    $record,
+                    CarbonImmutable::parse($data['drop_off_on']),
+                    filled($data['ready_on'] ?? null) ? CarbonImmutable::parse($data['ready_on']) : null,
+                    (bool) ($data['ask_fee'] ?? false),
+                );
 
                 Notification::make()->success()->title('Scheduled')->body($record->whenLabel())->send();
             });
@@ -382,11 +360,7 @@ final class BookingActions
         return Action::make('text')
             ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
             ->color('gray')
-            ->url(function (Booking $record) {
-                $number = BookingResource::phoneUrl($record->phone);
-
-                return $number === null ? null : 'sms:'.substr($number, 4).'?body='.rawurlencode("Hi {$record->name}, this is 826 {$record->branch?->name} about your booking {$record->reference}.");
-            })
+            ->url(fn (Booking $record) => BookingDesk::smsUrl($record))
             ->visible(fn (Booking $record) => BookingResource::phoneUrl($record->phone) !== null);
     }
 
@@ -395,7 +369,7 @@ final class BookingActions
         return Action::make('email')
             ->icon(Heroicon::OutlinedEnvelope)
             ->color('gray')
-            ->url(fn (Booking $record) => $record->email ? 'mailto:'.$record->email.'?subject='.rawurlencode("Your 826 booking {$record->reference}") : null)
+            ->url(fn (Booking $record) => BookingDesk::mailUrl($record))
             ->visible(fn (Booking $record) => filled($record->email));
     }
 

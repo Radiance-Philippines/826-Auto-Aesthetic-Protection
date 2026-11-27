@@ -4,10 +4,7 @@ namespace App\Filament\Resources\Bookings\Pages;
 
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
-use App\Models\Branch;
-use App\Models\Guest;
-use App\Support\Reservations;
-use Carbon\CarbonImmutable;
+use App\Support\BookingDesk;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -29,49 +26,8 @@ class CreateBooking extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Model
     {
-        $branch = Branch::query()->visibleTo(auth()->user())->findOrFail($data['branch_id']);
-        $home = ($data['kind'] ?? 'onsite') === 'home';
-
         try {
-            $quote = Reservations::quote($branch, array_map('intval', $data['services'] ?? []), home: $home);
-        } catch (ValidationException $e) {
-            $this->failWith($e);
-        }
-
-        // The same phone number is the same customer: their units and history stay together
-        $guest = Guest::findOrCreateByPhone($data['name'], $data['phone'], $branch->id, $data['email'] ?? null, in_array($data['source'] ?? null, ['walk_in', 'phone'], true) ? $data['source'] : 'admin');
-
-        $details = [
-            ...$data,
-            'admin_note' => $data['admin_note'] ?? null,
-        ];
-
-        if ($home) {
-            $booking = Reservations::requestHomeService($branch, $guest, $quote, [
-                ...$details,
-                'preferred_date' => $data['preferred_date'] ?? (filled($data['drop_off_on'] ?? null) ? CarbonImmutable::parse($data['drop_off_on'])->toDateString() : today()->toDateString()),
-                'preferred_window' => $data['preferred_window'] ?? 'any',
-            ], byStaff: true);
-
-            $booking->update(array_filter([
-                'source' => $data['source'],
-                'admin_note' => $data['admin_note'] ?? null,
-                'read_at' => now(),
-            ], fn ($value) => $value !== null));
-
-            return $booking;
-        }
-
-        try {
-            return Reservations::reserve(
-                $branch,
-                $guest,
-                $quote,
-                CarbonImmutable::parse($data['drop_off_on']),
-                $details,
-                source: $data['source'] ?? 'admin',
-                force: (bool) ($data['force'] ?? false),
-            );
+            return BookingDesk::book(auth()->user(), $data);
         } catch (ValidationException $e) {
             $this->failWith($e);
         } catch (LockTimeoutException) {
@@ -98,6 +54,6 @@ class CreateBooking extends CreateRecord
         /** @var Booking $booking */
         $booking = $this->getRecord();
 
-        return $booking->isHome() ? 'Home service request added' : 'Booked: '.$booking->whenLabel();
+        return BookingDesk::bookedTitle($booking);
     }
 }
