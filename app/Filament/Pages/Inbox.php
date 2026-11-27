@@ -476,15 +476,7 @@ class Inbox extends Page
      */
     private function assignableUsers(): array
     {
-        $branchId = $this->activeConversation?->branch_id;
-
-        return User::query()
-            ->whereHas('branches', fn ($branches) => $branches->whereKey($branchId))
-            ->orderBy('name')
-            ->get()
-            ->filter(fn (User $user): bool => InboxAccess::allows($user))
-            ->pluck('name', 'id')
-            ->all();
+        return InboxList::assignable($this->activeConversation?->branch_id);
     }
 
     public function linkCustomerAction(): Action

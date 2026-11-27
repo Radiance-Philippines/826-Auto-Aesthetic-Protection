@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\MetaSetting;
 use App\Models\User;
 use App\Support\CurrentBranch;
+use App\Support\InboxAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -106,6 +107,22 @@ final class InboxList
         return $tab && ! $tab->hasFacebookPage()
             ? "{$tab->name} has no connected Facebook Page yet (Branches → Facebook page)."
             : null;
+    }
+
+    /**
+     * Who a chat can be assigned to: its branch's staff who may use the inbox (never another branch's people).
+     *
+     * @return array<int, string>
+     */
+    public static function assignable(?int $branchId): array
+    {
+        return User::query()
+            ->whereHas('branches', fn ($branches) => $branches->whereKey($branchId))
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (User $user): bool => InboxAccess::allows($user))
+            ->pluck('name', 'id')
+            ->all();
     }
 
     /**
