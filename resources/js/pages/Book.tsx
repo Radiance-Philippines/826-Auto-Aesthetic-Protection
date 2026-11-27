@@ -16,7 +16,7 @@ import { accountPagePath, guest, signInNeeded } from '../lib/auth';
 import { fetchMonth, forget, type JobQuery, jobKey, readyOn } from '../lib/availability';
 import { copy } from '../lib/copy';
 import { longDate, shortDate } from '../lib/dates';
-import { BOOK_DRAFT, type BookDraft, clearDraft, emailLooksWrong, emptyBookDraft, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
+import { BOOK_DRAFT, type BookDraft, clearDraft, emailLooksWrong, emptyBookDraft, limitPhone, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
 import { bookableBranches, branchById, branchBySlug, branchChoices, categories, estimateOf, hoursRange, hoursToday, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import { fetchMyVehicles, unitName } from '../lib/vehicles';
@@ -795,7 +795,7 @@ export default function Book() {
                         hint={text.details.phone.hint}
                         placeholder={text.details.phone.placeholder}
                         value={draft.phone}
-                        onChange={(value) => update({ phone: value }, ['phone'])}
+                        onChange={(value) => update({ phone: limitPhone(value) }, ['phone'])}
                         error={errorFor('phone')}
                         type="tel"
                         inputMode="tel"

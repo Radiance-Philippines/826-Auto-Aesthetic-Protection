@@ -12,7 +12,7 @@ import { fetchProfile, useLoad } from '../../lib/account';
 import { type FieldErrors, patchJson, postJson } from '../../lib/api';
 import { afterSignOut, guest, passwordProblem, signOut } from '../../lib/auth';
 import { copy } from '../../lib/copy';
-import { phoneProblem } from '../../lib/draft';
+import { limitPhone, phoneProblem } from '../../lib/draft';
 import { site } from '../../lib/site';
 import type { MyProfile } from '../../types';
 
@@ -83,7 +83,7 @@ function Details({ profile }: { profile: MyProfile }) {
 
             <div className="mt-6 grid gap-5">
                 <TextField label={text.name} value={name} onChange={setName} error={errors.name?.[0]} autoComplete="name" name="name" maxLength={120} required />
-                <TextField label={text.phone} hint={text.phoneHint} value={phone} onChange={setPhone} error={errors.phone?.[0]} type="tel" inputMode="tel" autoComplete="tel" name="phone" maxLength={40} />
+                <TextField label={text.phone} hint={text.phoneHint} value={phone} onChange={(value) => setPhone(limitPhone(value))} error={errors.phone?.[0]} type="tel" inputMode="tel" autoComplete="tel" name="phone" maxLength={40} />
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">

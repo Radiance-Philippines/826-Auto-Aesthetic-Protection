@@ -481,7 +481,7 @@ export const copy = {
             newUnit: 'New unit',
             loading: 'Loading your units…',
             year: { label: 'Year', placeholder: 'Pick the year' },
-            model: { label: 'Make and model', hint: 'Like Toyota Vios or Mitsubishi Montero', placeholder: 'Toyota Vios' },
+            model: { label: 'Make and model', hint: 'Pick a suggestion, or type yours', placeholder: 'Toyota Vios', notListed: 'Not on the list. Keep what you typed.' },
             plate: { label: 'Plate number', hint: 'Or the conduction sticker number for a new unit', placeholder: 'ABC 1234' },
             reviewed: 'Size reviewed',
             notReviewed: 'We review its size after you book',

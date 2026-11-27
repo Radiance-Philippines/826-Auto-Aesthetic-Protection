@@ -3,7 +3,7 @@ import { type ChangeEvent, type InputHTMLAttributes, type KeyboardEvent, type Re
 import { copy } from '../lib/copy';
 import { Check, ChevronDown, Warning } from './Icons';
 
-const control =
+export const control =
     'block w-full rounded-control border bg-surface-2 px-3.5 text-[1rem] text-text outline-none transition-[border-color,box-shadow] duration-150 focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:outline-none disabled:opacity-60';
 
 export function ErrorText({ id, children }: { id?: string; children: ReactNode }) {

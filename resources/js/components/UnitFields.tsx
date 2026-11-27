@@ -1,6 +1,7 @@
 import { copy } from '../lib/copy';
 import { vehicleYears } from '../lib/vehicles';
-import { ErrorText, SelectField, TextField } from './Form';
+import { SelectField, TextField } from './Form';
+import ModelField from './ModelField';
 
 export type UnitValue = { year: string; model: string; type: string; plate: string };
 
@@ -24,17 +25,7 @@ export default function UnitFields({ value, onChange, errorFor }: Props) {
         <div>
             <div className="grid gap-5 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
                 <SelectField label={text.year.label} placeholder={text.year.placeholder} value={value.year} onChange={(year) => onChange({ year }, ['vehicle_year'])} options={YEARS} error={errorFor('vehicle_year')} name="vehicle_year" />
-                <TextField
-                    label={text.model.label}
-                    hint={text.model.hint}
-                    placeholder={text.model.placeholder}
-                    value={value.model}
-                    onChange={(model) => onChange({ model }, ['vehicle_model'])}
-                    error={errorFor('vehicle_model')}
-                    autoComplete="off"
-                    maxLength={80}
-                    name="vehicle_model"
-                />
+                <ModelField value={value.model} onChange={(model) => onChange({ model }, ['vehicle_model'])} error={errorFor('vehicle_model')} />
             </div>
 
 

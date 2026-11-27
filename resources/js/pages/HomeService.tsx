@@ -14,7 +14,7 @@ import { accountPagePath, guest, signInNeeded } from '../lib/auth';
 import { pageCars } from '../lib/cars';
 import { copy } from '../lib/copy';
 import { addDays, addMonths, daysInMonth, isoDate, longDate, manilaToday, monthStart, parseDate } from '../lib/dates';
-import { clearDraft, emailLooksWrong, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
+import { clearDraft, emailLooksWrong, limitPhone, loadDraft, phoneProblem, plateLooksWrong, saveDraft } from '../lib/draft';
 import { branchById, branchBySlug, estimateOf, homeBranches, serviceById, serviceBySlug, servicesAt, site, vehicleTypeLabel } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 import { unitName } from '../lib/vehicles';
@@ -487,7 +487,7 @@ export default function HomeService() {
                                 hint={copy.book.details.phone.hint}
                                 placeholder={copy.book.details.phone.placeholder}
                                 value={draft.phone}
-                                onChange={(value) => update({ phone: value }, ['phone'])}
+                                onChange={(value) => update({ phone: limitPhone(value) }, ['phone'])}
                                 error={errors.phone}
                                 type="tel"
                                 inputMode="tel"

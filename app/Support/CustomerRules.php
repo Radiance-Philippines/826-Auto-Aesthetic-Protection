@@ -37,12 +37,19 @@ final class CustomerRules
      */
     public static function phone(): array
     {
-        return ['nullable', 'string', 'max:40', 'regex:/^\+?[\d\s().-]+$/', function (string $attribute, mixed $value, Closure $fail) {
-            $digits = strlen(preg_replace('/\D/', '', (string) $value));
+        return ['nullable', 'string', 'max:20', 'regex:/^\+?[\d\s().-]+$/', self::mobile()];
+    }
 
-            if ($value !== null && ($digits < 10 || $digits > 13)) {
+    /**
+     * A Philippine mobile number: 09XX XXX XXXX or +63 9XX XXX XXXX, written
+     * with or without spaces, dashes, dots or brackets.
+     */
+    public static function mobile(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            if ($value !== null && preg_match('/^(0|\+?63)9\d{9}$/', preg_replace('/[\s().-]/', '', (string) $value)) !== 1) {
                 $fail('Enter your mobile number, like 0917 123 4567.');
             }
-        }];
+        };
     }
 }

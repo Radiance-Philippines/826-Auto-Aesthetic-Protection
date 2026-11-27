@@ -9,6 +9,7 @@ import { User } from '../components/Icons';
 import { accountPagePath, emailSignIn, guest, postAuth, passwordProblem, safeReturn, signInHref } from '../lib/auth';
 import { copy } from '../lib/copy';
 import { emailProblem, optionalPhoneProblem } from '../lib/customerAuth';
+import { limitPhone } from '../lib/draft';
 import { site } from '../lib/site';
 import usePageTitle from '../lib/usePageTitle';
 
@@ -115,7 +116,7 @@ export default function Register() {
                             required
                         />
                         <PasswordField id={ids.password} label={auth.password} hint={auth.passwordHint} value={password} onChange={setPassword} error={fieldErrors[ids.password]} autoComplete="new-password" />
-                        <TextField id={ids.phone} name="phone" label={auth.phone} hint={auth.phoneHint} value={phone} onChange={setPhone} error={fieldErrors[ids.phone]} type="tel" inputMode="tel" autoComplete="tel" maxLength={40} enterKeyHint="done" optional />
+                        <TextField id={ids.phone} name="phone" label={auth.phone} hint={auth.phoneHint} value={phone} onChange={(value) => setPhone(limitPhone(value))} error={fieldErrors[ids.phone]} type="tel" inputMode="tel" autoComplete="tel" maxLength={40} enterKeyHint="done" optional />
                     </div>
                     <button type="submit" disabled={busy} className={buttonClass('accent', 'mt-6 w-full sm:w-auto sm:min-w-[14rem]')}>
                         <User className="size-5" /> {busy ? text.submitting : text.submit}

@@ -80,6 +80,30 @@ async function fillDetails(page: Page, agree = true) {
 }
 
 test.describe('booking validation', () => {
+    test('make and model suggests units and still takes one that is not listed', async ({ page }) => {
+        await signIn(page);
+        await pickBranch(page);
+        await expect(heading(page, 'Which unit are we working on?')).toBeVisible();
+        const another = main(page).getByText('Add another unit');
+        if (await another.isVisible()) {
+            await another.click();
+        }
+
+        const model = main(page).getByLabel('Make and model');
+        await model.pressSequentially('camr');
+        await expect(page.getByRole('option', { name: 'Toyota Camry' })).toBeVisible();
+        await expect(page.getByRole('option')).toHaveCount(1);
+        await model.press('ArrowDown');
+        await model.press('Enter');
+        await expect(model).toHaveValue('Toyota Camry');
+
+        await model.fill('Owner-type jeep');
+        await expect(page.getByText('Not on the list. Keep what you typed.')).toBeVisible();
+        await model.press('Tab');
+        await expect(model).toHaveValue('Owner-type jeep');
+        await expect(page.getByRole('option')).toHaveCount(0);
+    });
+
     test('every step says what is missing before it moves on', async ({ page }) => {
         await signIn(page);
         await pickBranch(page);
@@ -131,6 +155,9 @@ test.describe('booking validation', () => {
         await expect(main(page).getByText('Agree to the privacy notice to continue.')).toBeVisible();
 
         await main(page).getByLabel('Full name').fill(PERSON.name);
+        // Digits past a full mobile number are not taken, nor are letters
+        await main(page).getByLabel('Mobile number').fill('4135135135135');
+        await expect(main(page).getByLabel('Mobile number')).toHaveValue('41351351351');
         await main(page).getByLabel('Mobile number').fill('12');
         await main(page).getByLabel(/^Email/).fill('not-an-email');
         await main(page).getByRole('checkbox').check({ force: true });

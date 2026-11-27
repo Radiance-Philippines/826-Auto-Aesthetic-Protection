@@ -42,7 +42,7 @@ export function clearDraft(key: string): void {
     }
 }
 
-/** A Philippine mobile or landline as the server takes it: 10 to 13 digits, with spaces, dashes, dots or brackets */
+/** A Philippine mobile number as the server takes it: 09XX XXX XXXX or +63 9XX XXX XXXX */
 export function phoneProblem(value: string): 'missing' | 'format' | null {
     const trimmed = value.trim();
 
@@ -50,9 +50,25 @@ export function phoneProblem(value: string): 'missing' | 'format' | null {
         return 'missing';
     }
 
-    const digits = trimmed.replace(/\D/g, '').length;
+    return /^\+?[\d\s().-]+$/.test(trimmed) && /^(0|\+?63)9\d{9}$/.test(trimmed.replace(/[\s().-]/g, '')) ? null : 'format';
+}
 
-    return /^\+?[\d\s().-]+$/.test(trimmed) && digits >= 10 && digits <= 13 ? null : 'format';
+/** What the phone box keeps of what was typed or pasted: no letters, and no digit past a full number (11, or 12 with 63) */
+export function limitPhone(value: string): string {
+    const clean = value.replace(/[^\d\s+().-]/g, '');
+    const longest = /^\s*\+?63/.test(clean) ? 12 : 11;
+    let digits = 0;
+    let kept = '';
+
+    for (const char of clean) {
+        if (/\d/.test(char) && ++digits > longest) {
+            break;
+        }
+
+        kept += char;
+    }
+
+    return kept;
 }
 
 export const emailLooksWrong = (value: string) => value.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());

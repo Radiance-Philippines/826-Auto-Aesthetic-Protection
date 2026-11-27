@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Concerns;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Guest;
+use App\Support\CustomerRules;
 use Carbon\CarbonImmutable;
-use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -87,13 +87,7 @@ trait ReadsBookingInput
     {
         return [
             'name' => ['required', 'string', 'max:120'],
-            'phone' => ['required', 'string', 'max:40', 'regex:/^\+?[\d\s().-]+$/', function (string $attribute, mixed $value, Closure $fail) {
-                $digits = strlen(preg_replace('/\D/', '', (string) $value));
-
-                if ($digits < 10 || $digits > 13) {
-                    $fail('Enter your mobile number, like 0917 123 4567.');
-                }
-            }],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^\+?[\d\s().-]+$/', CustomerRules::mobile()],
             'email' => ['nullable', 'email', 'max:190'],
             'message' => ['nullable', 'string', 'max:1000'],
             'consent' => ['accepted'],

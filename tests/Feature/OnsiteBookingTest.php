@@ -335,6 +335,21 @@ class OnsiteBookingTest extends TestCase
         $this->reserve(['vehicle_type' => null, 'date' => '2026-11-18'])->assertCreated()->assertJsonPath('booking.vehicle.type', 'suv');
     }
 
+    public function test_the_phone_must_be_a_full_mobile_number(): void
+    {
+        foreach (['4135135135135', '091712345678', '0917 123 456', '02 8123 4567', 'call me'] as $wrong) {
+            // Past the 5-a-minute booking limit between tries
+            $this->travel(2)->minutes();
+            $this->reserve(['phone' => $wrong])->assertUnprocessable()->assertJsonValidationErrors('phone');
+        }
+
+        foreach (['0917 123 4567', '+63 917-123-4567', '639171234567'] as $index => $right) {
+            $this->travel(2)->minutes();
+            $this->reserve(['phone' => $right, 'date' => '2026-11-'.(17 + $index), 'plate_number' => "ABC 12{$index}"])->assertCreated();
+            Booking::query()->delete();
+        }
+    }
+
     public function test_later_service_changes_leave_booked_items_alone(): void
     {
         $this->reserve()->assertCreated();

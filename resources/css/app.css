@@ -1,3 +1,6 @@
+/* UI SDK's own behaviour CSS goes in the lowest layer, so the styles here win */
+@layer ui-sdk;
+
 @import 'tailwindcss';
 
 /* Self-hosted Archivo (no Google Fonts CDN). Text: the upright face, weight
