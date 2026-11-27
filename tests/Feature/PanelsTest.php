@@ -57,6 +57,16 @@ class PanelsTest extends TestCase
     }
 
     /**
+     * The roles alone: a provider with more arguments than the test takes makes PHPUnit exit 1.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function roles(): array
+    {
+        return array_map(fn (array $row): array => [$row[0]], self::homes());
+    }
+
+    /**
      * @return array<string, array{string, string}>
      */
     public static function homes(): array
@@ -322,7 +332,7 @@ class PanelsTest extends TestCase
 
     // The staff app and passkeys are not tied to a panel
 
-    #[DataProvider('homes')]
+    #[DataProvider('roles')]
     public function test_the_staff_app_signs_in_every_role(string $role): void
     {
         $user = $this->staff($role, ['email' => 'member@example.com', 'password' => 'a-long-test-password']);

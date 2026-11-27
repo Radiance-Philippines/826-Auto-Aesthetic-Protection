@@ -18,14 +18,20 @@ async function pickBranch(page: Page) {
     }
 }
 
-async function fillUnit(page: Page) {
+/** The unit step on a new unit's form. A customer who booked before sees their saved units first, once they have loaded */
+async function startNewUnit(page: Page) {
     await expect(heading(page, 'Which unit are we working on?')).toBeVisible();
 
-    // A customer who booked before sees their saved units first
     const another = main(page).getByText('Add another unit');
+    await expect(another.or(main(page).getByRole('combobox', { name: 'Year' })).first()).toBeVisible();
+
     if (await another.isVisible()) {
         await another.click();
     }
+}
+
+async function fillUnit(page: Page) {
+    await startNewUnit(page);
 
     await main(page).getByRole('combobox', { name: 'Year' }).click();
     await page.getByRole('option', { name: UNIT.year, exact: true }).click();
@@ -43,21 +49,30 @@ async function pickService(page: Page, name = 'Exterior detailing') {
 /** Day buttons of the open month, by state */
 const days = (page: Page, state: 'open' | 'fully booked'): Locator => main(page).locator(`button[data-iso][aria-label*=", ${state}"]`);
 
-/** Look through the coming months (the server decides which days exist) until a day in this state shows */
+/** Look through every month on offer (the server decides which days exist) until a day in this state shows */
 async function findDay(page: Page, state: 'open' | 'fully booked'): Promise<Locator> {
     await expect(main(page).getByRole('grid')).toBeVisible();
+    const loaded = () => expect(main(page).locator('button[data-iso][aria-label*="Checking"]')).toHaveCount(0);
+    const back = main(page).getByRole('button', { name: 'Previous month' });
+    const forward = main(page).getByRole('button', { name: 'Next month' });
+    await loaded();
 
-    for (let month = 0; month < 4; month++) {
-        await expect(main(page).locator('button[data-iso][aria-label*="Checking"]')).toHaveCount(0);
-
-        if ((await days(page, state).count()) > 0) {
-            return days(page, state).first();
-        }
-
-        await main(page).getByRole('button', { name: 'Next month' }).click();
+    // The calendar opens on the first month with an open day: a full day can be in an earlier one (#696)
+    while (await back.isEnabled()) {
+        await back.click();
+        await loaded();
     }
 
-    throw new Error(`no ${state} day in the next months`);
+    while ((await days(page, state).count()) === 0) {
+        if (!(await forward.isEnabled())) {
+            throw new Error(`no ${state} day in the months on offer`);
+        }
+
+        await forward.click();
+        await loaded();
+    }
+
+    return days(page, state).first();
 }
 
 async function pickDate(page: Page) {
@@ -83,11 +98,7 @@ test.describe('booking validation', () => {
     test('make and model suggests units and still takes one that is not listed', async ({ page }) => {
         await signIn(page);
         await pickBranch(page);
-        await expect(heading(page, 'Which unit are we working on?')).toBeVisible();
-        const another = main(page).getByText('Add another unit');
-        if (await another.isVisible()) {
-            await another.click();
-        }
+        await startNewUnit(page);
 
         const model = main(page).getByLabel('Make and model');
         await model.pressSequentially('camr');
@@ -109,11 +120,7 @@ test.describe('booking validation', () => {
         await pickBranch(page);
 
         // Your unit: nothing filled in
-        await expect(heading(page, 'Which unit are we working on?')).toBeVisible();
-        const another = main(page).getByText('Add another unit');
-        if (await another.isVisible()) {
-            await another.click();
-        }
+        await startNewUnit(page);
 
         await next(page).click();
         await expect(main(page).getByText('Pick your unit’s year.')).toBeVisible();
@@ -183,8 +190,6 @@ test.describe('booking validation', () => {
 
 test.describe('booking reservation', () => {
     test('the date calendar shows a full day that cannot be picked', async ({ page }) => {
-        // The calendar loads each month from the server; on a busy build machine the walk through the booking steps needs more than the default
-        test.setTimeout(120_000);
         await signIn(page);
         await pickBranch(page);
         await fillUnit(page);
