@@ -2,11 +2,13 @@
 
 namespace App\Support;
 
+use App\Models\Backjob;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Warranty coverage: each service on a finished booking is covered from
@@ -75,5 +77,70 @@ final class Warranty
             ->latest('exited_at')
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * A finished job this person may log a backjob against; null otherwise.
+     */
+    public static function finishedJob(?User $user, mixed $id): ?Booking
+    {
+        return is_numeric($id)
+            ? Booking::query()->visibleTo($user)->where('status', 'exited')->with('items.service.backjobTypes')->find((int) $id)
+            : null;
+    }
+
+    /**
+     * The backjob types this service covers, and "Other".
+     *
+     * @return array<int|string, string>
+     */
+    public static function typeOptions(?BookingItem $item): array
+    {
+        $covered = $item?->service?->backjobTypes->where('is_active', true)->pluck('name', 'id')->all() ?? [];
+
+        return $covered + ['other' => 'Other'];
+    }
+
+    /**
+     * @param  array{booking_id: mixed, booking_item_id: mixed, backjob_type_id: mixed, noted_on: string, note?: string|null}  $data
+     *
+     * @throws ValidationException
+     */
+    public static function logBackjob(?User $user, array $data): Backjob
+    {
+        $booking = self::finishedJob($user, $data['booking_id']);
+        $item = $booking?->items->firstWhere('id', (int) $data['booking_item_id']);
+
+        if (! $booking || ! $item) {
+            throw ValidationException::withMessages(['booking_item_id' => 'Pick a service from this booking.']);
+        }
+
+        $typeId = $data['backjob_type_id'] === 'other' ? null : (int) $data['backjob_type_id'];
+
+        if ($typeId !== null && ! $item->service?->backjobTypes->contains('id', $typeId)) {
+            throw ValidationException::withMessages(['backjob_type_id' => 'This service doesn’t cover that type. Pick Other.']);
+        }
+
+        return Backjob::create([
+            'booking_id' => $booking->id,
+            'booking_item_id' => $item->id,
+            'backjob_type_id' => $typeId,
+            'branch_id' => $booking->branch_id,
+            'noted_on' => $data['noted_on'],
+            'note' => $data['note'] ?? null,
+            'status' => 'open',
+            'created_by' => $user?->id,
+        ]);
+    }
+
+    /**
+     * A backjob on one of this person's branches' bookings (404 otherwise) is finished.
+     */
+    public static function finishBackjob(?User $user, mixed $id): void
+    {
+        Backjob::query()
+            ->whereHas('booking', fn ($bookings) => $bookings->visibleTo($user))
+            ->findOrFail($id)
+            ->update(['status' => 'done']);
     }
 }

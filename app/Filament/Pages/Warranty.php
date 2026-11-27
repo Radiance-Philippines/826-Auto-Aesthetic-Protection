@@ -21,6 +21,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use UnitEnum;
 
@@ -81,18 +82,13 @@ class Warranty extends Page
                 Hidden::make('booking_id'),
                 Select::make('booking_item_id')
                     ->label('Service')
-                    ->options(fn (Get $get) => $this->visibleBooking($get('booking_id'))?->items->pluck('service_name', 'id')->all() ?? [])
+                    ->options(fn (Get $get) => Coverage::finishedJob(auth()->user(), $get('booking_id'))?->items->pluck('service_name', 'id')->all() ?? [])
                     ->required()
                     ->live()
                     ->afterStateUpdated(fn (Set $set) => $set('backjob_type_id', null)),
                 Select::make('backjob_type_id')
                     ->label('Type')
-                    ->options(function (Get $get) {
-                        $item = $this->visibleBooking($get('booking_id'))?->items->firstWhere('id', (int) $get('booking_item_id'));
-                        $covered = $item?->service?->backjobTypes->where('is_active', true)->pluck('name', 'id')->all() ?? [];
-
-                        return $covered + ['other' => 'Other'];
-                    })
+                    ->options(fn (Get $get) => Coverage::typeOptions(Coverage::finishedJob(auth()->user(), $get('booking_id'))?->items->firstWhere('id', (int) $get('booking_item_id'))))
                     ->helperText('Only the types this service covers, or Other.')
                     ->required(),
                 DatePicker::make('noted_on')
@@ -103,33 +99,13 @@ class Warranty extends Page
                 Textarea::make('note')->rows(3)->maxLength(2000),
             ])
             ->action(function (array $data) {
-                $booking = $this->visibleBooking($data['booking_id']);
-                $item = $booking?->items->firstWhere('id', (int) $data['booking_item_id']);
-
-                if (! $booking || ! $item) {
-                    Notification::make()->danger()->title('Not logged')->body('Pick a service from this booking.')->send();
-
-                    return;
-                }
-
-                $typeId = $data['backjob_type_id'] === 'other' ? null : (int) $data['backjob_type_id'];
-
-                if ($typeId !== null && ! $item->service?->backjobTypes->contains('id', $typeId)) {
-                    Notification::make()->danger()->title('Not logged')->body('This service doesn’t cover that type. Pick Other.')->send();
+                try {
+                    Coverage::logBackjob(auth()->user(), $data);
+                } catch (ValidationException $e) {
+                    Notification::make()->danger()->title('Not logged')->body(collect($e->errors())->flatten()->first())->send();
 
                     return;
                 }
-
-                Backjob::create([
-                    'booking_id' => $booking->id,
-                    'booking_item_id' => $item->id,
-                    'backjob_type_id' => $typeId,
-                    'branch_id' => $booking->branch_id,
-                    'noted_on' => $data['noted_on'],
-                    'note' => $data['note'] ?? null,
-                    'status' => 'open',
-                    'created_by' => auth()->id(),
-                ]);
 
                 Notification::make()->success()->title('Backjob logged')->send();
             });
@@ -144,21 +120,10 @@ class Warranty extends Page
             ->requiresConfirmation()
             ->modalDescription('The backjob is finished.')
             ->action(function (array $arguments) {
-                $backjob = Backjob::query()
-                    ->whereHas('booking', fn ($bookings) => $bookings->visibleTo(auth()->user()))
-                    ->findOrFail($arguments['backjob'] ?? 0);
-
-                $backjob->update(['status' => 'done']);
+                Coverage::finishBackjob(auth()->user(), $arguments['backjob'] ?? 0);
 
                 Notification::make()->success()->title('Backjob done')->send();
             });
-    }
-
-    private function visibleBooking(mixed $id): ?Booking
-    {
-        return is_numeric($id)
-            ? Booking::query()->visibleTo(auth()->user())->where('status', 'exited')->with('items.service.backjobTypes')->find((int) $id)
-            : null;
     }
 
     /**
