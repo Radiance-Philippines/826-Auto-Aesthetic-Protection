@@ -6,9 +6,9 @@ use App\Filament\Pages\Inbox;
 use App\Filament\Pages\Warranty;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Booking;
-use App\Models\Conversation;
 use App\Models\Guest;
 use App\Models\ReferralSetting;
+use App\Support\CustomerDesk;
 use App\Support\Rewards;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -24,12 +24,9 @@ class ViewCustomer extends ViewRecord
 {
     protected static string $resource = CustomerResource::class;
 
-    /**
-     * The id of this customer's latest Messenger chat that the team member may open.
-     */
     private function chatOf(Guest $guest): ?int
     {
-        return Conversation::visibleTo(auth()->user())->where('guest_id', $guest->getKey())->latestFirst()->value('id');
+        return CustomerDesk::chatId($guest, auth()->user());
     }
 
     /**
@@ -45,9 +42,7 @@ class ViewCustomer extends ViewRecord
             ->color('gray')
             ->authorize(fn () => (bool) auth()->user()?->canAccessArea('customers.write') && (bool) auth()->user()?->canAccessArea('bookings.sales'))
             ->modalHeading(fn (Guest $record) => "Redeem points: {$record->pointsBalance()} available")
-            ->modalDescription(fn () => ReferralSetting::current()->peso_per_point
-                ? 'One point is worth ₱'.number_format(ReferralSetting::current()->peso_per_point).'. Pick a booking to take it off its price, or leave it out and add a note.'
-                : 'Pesos per point isn’t set in Settings → Referral, so this only adjusts the points: say what they were used for.')
+            ->modalDescription(fn () => CustomerDesk::redeemDescription())
             ->schema([
                 TextInput::make('points')
                     ->integer()
@@ -56,8 +51,7 @@ class ViewCustomer extends ViewRecord
                     ->required(),
                 Select::make('booking_id')
                     ->label('Take it off this booking')
-                    ->options(fn (Guest $record) => Booking::query()->visibleTo(auth()->user())->where('guest_id', $record->id)->open()->whereNotNull('total_price')->latest('id')->get()
-                        ->mapWithKeys(fn (Booking $booking) => [$booking->id => "{$booking->reference} · ₱".number_format($booking->total_price)])->all())
+                    ->options(fn (Guest $record) => CustomerDesk::redeemableBookings($record, auth()->user()))
                     ->visible(fn () => (bool) ReferralSetting::current()->peso_per_point),
                 TextInput::make('note')
                     ->maxLength(190)
@@ -101,8 +95,8 @@ class ViewCustomer extends ViewRecord
                 ->url(fn (Guest $record) => Inbox::getUrl(['conversation' => $this->chatOf($record)])),
             DeleteAction::make()
                 ->before(function (DeleteAction $action, Guest $record) {
-                    if ($record->bookings()->exists()) {
-                        Notification::make()->danger()->title('Not deleted')->body('This customer has bookings. Keep them, or move the bookings first.')->persistent()->send();
+                    if ($reason = CustomerDesk::keepReason($record)) {
+                        Notification::make()->danger()->title('Not deleted')->body($reason)->persistent()->send();
                         $action->halt();
                     }
                 }),

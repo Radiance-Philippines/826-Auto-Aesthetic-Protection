@@ -6,8 +6,7 @@ use App\Filament\Resources\Bookings\BookingResource;
 use App\Models\Booking;
 use App\Models\Vehicle;
 use App\Models\VehicleSize;
-use App\Support\Notifier;
-use App\Support\Reservations;
+use App\Support\CustomerDesk;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
@@ -89,13 +88,9 @@ class UnitsRelationManager extends RelationManager
                     ->modalSubmitActionLabel('Set size')
                     ->action(function (Vehicle $record, array $data) {
                         $size = VehicleSize::query()->findOrFail($data['vehicle_size_id']);
-                        $priced = Reservations::setVehicleSize($record, $size);
+                        $priced = CustomerDesk::setUnitSize($record, $size);
 
-                        foreach ($priced as $booking) {
-                            Notifier::customer($booking, 'priced');
-                        }
-
-                        Notification::make()->success()->title("Size set: {$size->name}")->body(count($priced) > 0 ? count($priced).' booking(s) priced.' : null)->send();
+                        Notification::make()->success()->title("Size set: {$size->name}")->body($priced > 0 ? "{$priced} booking(s) priced." : null)->send();
                     }),
             ]);
     }
@@ -107,21 +102,9 @@ class UnitsRelationManager extends RelationManager
      */
     private function jobsFor(Vehicle $unit): array
     {
-        return $unit->bookings()
-            ->visibleTo(auth()->user())
-            ->with(['branch', 'items'])
-            ->orderByRaw('coalesce(exited_at, drop_off_on, preferred_date, created_at) desc')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (Booking $booking) => [
-                'reference' => $booking->reference,
-                'url' => BookingResource::getUrl('view', ['record' => $booking]),
-                'date' => ($booking->exited_at ?? $booking->drop_off_on ?? $booking->preferred_date ?? $booking->created_at)->format('M j, Y'),
-                'branch' => (string) $booking->branch?->name,
-                'services' => $booking->servicesLabel() ?: '—',
-                'status' => BookingResource::statusLabel($booking),
-                'price' => $booking->total_price === null ? 'Size needed' : '₱'.number_format($booking->total_price),
-            ])
-            ->all();
+        return array_map(
+            fn (array $job) => [...$job, 'url' => BookingResource::getUrl('view', ['record' => $job['id']])],
+            CustomerDesk::unitJobs($unit, auth()->user()),
+        );
     }
 }

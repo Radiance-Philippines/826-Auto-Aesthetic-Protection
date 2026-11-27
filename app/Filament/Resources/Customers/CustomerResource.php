@@ -15,9 +15,7 @@ use App\Filament\Resources\Customers\RelationManagers\ReferralRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\UnitsRelationManager;
 use App\Models\Booking;
 use App\Models\Guest;
-use App\Models\ReferralSetting;
-use App\Models\User;
-use App\Support\Warranty as WarrantyCoverage;
+use App\Support\CustomerDesk;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
@@ -72,7 +70,7 @@ class CustomerResource extends Resource
      */
     public static function salesRepOptions(): array
     {
-        return User::query()->orderBy('name')->pluck('name', 'id')->all();
+        return CustomerDesk::salesRepOptions();
     }
 
     public static function form(Schema $schema): Schema
@@ -130,21 +128,14 @@ class CustomerResource extends Resource
                     TextEntry::make('points')
                         ->label('Points balance')
                         ->state(fn (Guest $record) => $record->pointsBalance())
-                        ->helperText(fn (Guest $record) => ReferralSetting::current()->owner_points === null
-                            ? 'No points set in Settings → Referral.'
-                            : (int) $record->referralRedemptions()->sum('points_awarded').' earned, '.(int) $record->rewardRedemptions()->sum('points').' spent'),
+                        ->helperText(fn (Guest $record) => CustomerDesk::pointsNote($record)),
                 ]),
             Section::make('Warranty')
                 ->columnSpanFull()
                 ->components([
                     TextEntry::make('warranty')
                         ->label('Services under warranty')
-                        ->state(function (Guest $record) {
-                            $active = WarrantyCoverage::search(auth()->user(), '', $record->id)
-                                ->sum(fn ($booking) => $booking->items->filter(fn ($item) => WarrantyCoverage::status($booking, $item) === 'active')->count());
-
-                            return $active === 1 ? '1 service is covered now' : "{$active} services are covered now";
-                        })
+                        ->state(fn (Guest $record) => CustomerDesk::warrantyLine($record, auth()->user()))
                         ->helperText('Open the warranty checker for the dates and to log a backjob.')
                         ->url(fn (Guest $record) => Warranty::canAccess() ? Warranty::getUrl(['customer' => $record->id]) : null),
                 ]),
