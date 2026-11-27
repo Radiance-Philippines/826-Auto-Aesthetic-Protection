@@ -11,7 +11,7 @@ use App\Support\Access;
 use App\Support\BranchForm;
 use App\Support\Inbox\InboxException;
 use App\Support\Meta\PageConnection;
-use App\Support\UploadRules;
+use App\Support\PaymentAccounts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -27,8 +27,6 @@ use Illuminate\Validation\Rule;
 class ConsoleBranchController extends Controller
 {
     use ReordersRecords;
-
-    private const TEL = 'regex:/^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\.\/0-9]*$/';
 
     public function index(): JsonResponse
     {
@@ -135,7 +133,7 @@ class ConsoleBranchController extends Controller
             'status' => ['required', Rule::in(array_keys(Branch::STATUSES))],
             'city' => ['nullable', 'string', 'max:80'],
             'address' => ['nullable', 'string', 'max:500'],
-            'phone' => ['nullable', 'string', 'max:40', self::TEL],
+            'phone' => ['nullable', 'string', 'max:40', PaymentAccounts::TEL],
             'messengerUrl' => ['nullable', 'url', 'max:255'],
             'facebookUrl' => ['nullable', 'url', 'max:255'],
             'mapUrl' => ['nullable', 'url', 'max:500'],
@@ -179,20 +177,8 @@ class ConsoleBranchController extends Controller
             $messages["weeklyHours.{$day}.close.after"] = "{$label} must close after it opens.";
         }
 
-        foreach (array_keys(Branch::paymentMethodLabels()) as $method) {
-            $label = Branch::paymentMethodLabels()[$method];
-            $rules += [
-                "{$method}Enabled" => ['required', 'boolean'],
-                "{$method}Qr" => ['nullable', ...UploadRules::image(UploadRules::QR_MAX_KB)],
-                "remove{$method}Qr" => ['sometimes', 'boolean'],
-                "{$method}Name" => ['nullable', 'string', 'max:120'],
-                "{$method}Number" => ['nullable', 'string', 'max:40', self::TEL],
-            ];
-            $messages += UploadRules::messages("{$method}Qr", UploadRules::QR_MAX_KB);
-            $names += ["{$method}Name" => "{$label} account name", "{$method}Number" => "{$label} number"];
-        }
-
-        $data = $request->validate($rules, $messages, $names);
+        [$accountRules, $accountMessages, $accountNames] = PaymentAccounts::validation();
+        $data = $request->validate($rules + $accountRules, $messages + $accountMessages, $names + $accountNames);
 
         $attributes = BranchForm::saveHours([
             'name' => $data['name'],
@@ -229,19 +215,7 @@ class ConsoleBranchController extends Controller
             $attributes['facebook_page_token'] = $data['facebookPageToken'];
         }
 
-        foreach (array_keys(Branch::paymentMethodLabels()) as $method) {
-            $attributes["{$method}_enabled"] = (bool) $data["{$method}Enabled"];
-            $attributes["{$method}_name"] = $data["{$method}Name"] ?? null;
-            $attributes["{$method}_number"] = $data["{$method}Number"] ?? null;
-
-            if ($file = $request->file("{$method}Qr")) {
-                $attributes["{$method}_qr"] = $file->store('payments/branches', ['disk' => PaymentSetting::DISK, 'visibility' => 'public']);
-            } elseif ($data["remove{$method}Qr"] ?? false) {
-                $attributes["{$method}_qr"] = null;
-            }
-        }
-
-        $branch->fill($attributes)->save();
+        $branch->fill($attributes + PaymentAccounts::attributes($request, $data, 'payments/branches'))->save();
         $branch->services()->sync($data['services'] ?? []);
 
         // The list offers everyone but super admins, so a super admin attached elsewhere stays

@@ -6,7 +6,7 @@ import { useResource } from '../../lib/useResource';
 import { Button, buttonClass } from '../../ui/Button';
 import { confirm } from '../../ui/Dialog';
 import { SwitchField, TextField } from '../../ui/Field';
-import { FileUpload, toFormData } from '../../ui/FileUpload';
+import { toFormData } from '../../ui/FileUpload';
 import { Icon } from '../../ui/icons';
 import { PageHeader } from '../../ui/PageHeader';
 import { type Option, SelectField } from '../../ui/Select';
@@ -16,6 +16,7 @@ import { TextAreaField } from '../../ui/TextArea';
 import { TimeField } from '../../ui/TimeField';
 import { toast } from '../../ui/toast';
 import { Alert, CheckboxListField, Section, useSubmit } from '../bookings/parts';
+import { AccountFields } from './AccountFields';
 import { OfferList } from './OfferList';
 import { slugify } from './slugify';
 import { TagsField } from './TagsField';
@@ -160,21 +161,18 @@ function Fields({ record, start, options, onSaved }: FormProps) {
 
     const payment = (method: Method, label: string) => (
         <Section title={label} className="min-w-0">
-            <div className="space-y-4">
-                <SwitchField label={`Use this branch’s ${label}`} hint="On: this branch’s fees go to this account." checked={values[`${method}Enabled`]} onChange={(on) => set(`${method}Enabled`, on)} />
-                <FileUpload
-                    label={`${label} QR code`}
-                    hint="PNG, JPG or WebP, up to 5 MB. Kept exactly as uploaded so it scans."
-                    error={errors[`${method}Qr`]}
-                    value={qr[method]}
-                    onChange={(files) => setQr((current) => ({ ...current, [method]: files }))}
-                    maxMb={5}
-                    current={removed[method] ? null : record?.[`${method}QrUrl`]}
-                    onRemoveCurrent={() => setRemoved((current) => ({ ...current, [method]: true }))}
-                />
-                <TextField label={`${label} account name`} hint="As the customer sees it before paying." {...field(`${method}Name`)} maxLength={120} autoComplete="off" />
-                <TextField label={`${label} number`} hint="Like 0917 123 4567." type="tel" {...field(`${method}Number`)} maxLength={40} autoComplete="off" />
-            </div>
+            <AccountFields
+                label={label}
+                toggle={{ label: `Use this branch’s ${label}`, hint: 'On: this branch’s fees go to this account.' }}
+                qrHint="PNG, JPG or WebP, up to 5 MB. Kept exactly as uploaded so it scans."
+                account={{ enabled: values[`${method}Enabled`], name: values[`${method}Name`], number: values[`${method}Number`] }}
+                onChange={(changes) => setValues((current) => ({ ...current, ...(Object.fromEntries(Object.entries(changes).map(([key, value]) => [`${method}${key[0].toUpperCase()}${key.slice(1)}`, value])) as Partial<Values>) }))}
+                files={qr[method]}
+                onFiles={(files) => setQr((current) => ({ ...current, [method]: files }))}
+                qrUrl={removed[method] ? null : record?.[`${method}QrUrl`]}
+                onRemoveQr={() => setRemoved((current) => ({ ...current, [method]: true }))}
+                errors={{ qr: errors[`${method}Qr`], name: errors[`${method}Name`], number: errors[`${method}Number`] }}
+            />
         </Section>
     );
 
