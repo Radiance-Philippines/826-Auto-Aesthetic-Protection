@@ -7,7 +7,7 @@ import { expectNoHorizontalOverflow, watchProblems } from './support';
 /** The React admin's Shop → Branches. The branch here is a draft added through the screen and deleted again. */
 const BASE = '/console/owner/branches';
 
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhWpMIQAAAABJRU5ErkJggg==', 'base64');
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAIAAADRv8uKAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAALklEQVRIie3NIREAQAgAsOclTTn6eyrgMFuBRXa9C/9kFYvFYrFYLBaLxWLxygACLQEagDMW+QAAAABJRU5ErkJggg==', 'base64');
 
 const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}`) });
 
