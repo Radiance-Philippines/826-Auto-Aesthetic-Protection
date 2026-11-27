@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Support\BranchScope;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -21,18 +22,6 @@ trait ScopedToStaffBranches
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-        $user = auth()->user();
-
-        $ids = $user ? $user->scopedBranchIds() : [];
-
-        if ($ids === null) {
-            return $query;
-        }
-        $column = $query->getModel()->qualifyColumn('branch_id');
-
-        return $query->where(fn (Builder $scope) => $scope
-            ->whereIn($column, $ids)
-            ->when(static::includesEveryBranchRecords(), fn (Builder $everyBranch) => $everyBranch->orWhereNull($column)));
+        return BranchScope::apply(parent::getEloquentQuery(), auth()->user(), static::includesEveryBranchRecords());
     }
 }

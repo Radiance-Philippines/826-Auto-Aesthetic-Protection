@@ -7,10 +7,10 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\Pages\ManageBranchBlocks;
 use App\Models\BranchBlock;
+use App\Support\Closures;
 use App\Support\CurrentBranch;
 use App\Support\Panels;
 use BackedEnum;
-use Carbon\CarbonImmutable;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Facades\Filament;
@@ -109,8 +109,7 @@ class BranchBlockResource extends Resource
      */
     public static function prepare(array $data, array $raw): array
     {
-        $data['starts_at'] = CarbonImmutable::parse($raw['first_day'])->startOfDay();
-        $data['ends_at'] = CarbonImmutable::parse($raw['last_day'] ?? $raw['first_day'])->addDay()->startOfDay();
+        $data = [...$data, ...Closures::span($raw['first_day'], $raw['last_day'] ?? null)];
 
         if (! auth()->user()?->canAccessArea('shop') && blank($data['branch_id'] ?? null)) {
             abort(403);
