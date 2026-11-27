@@ -1,12 +1,16 @@
 import { Checkbox, CheckboxGroup, CheckboxIndicator } from '@ui-sdk/react/checkbox';
+import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '@ui-sdk/react/menu';
 import { SegmentedControl, SegmentedControlIndicator, SegmentedControlItem } from '@ui-sdk/react/segmented-control';
 import { type ReactNode, useEffect, useId, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 /* Pieces the bookings, customers, warranty, manual transaction and inbox screens share */
 import { errorMessage, fieldErrors } from '../../lib/api';
-import { Button } from '../../ui/Button';
+import { Button, buttonClass } from '../../ui/Button';
 import { cx } from '../../ui/cx';
+import type { TableState } from '../../ui/DataTable';
 import { Icon, type IconName } from '../../ui/icons';
+import { menuClass, menuItemClass } from '../../ui/Menu';
 import type { Option } from '../../ui/Select';
 import { toast } from '../../ui/toast';
 
@@ -184,4 +188,70 @@ export function Tick({ label, checked, indeterminate, onChange }: { label: strin
             </CheckboxIndicator>
         </Checkbox>
     );
+}
+
+/** Switch the optional columns of a table on and off */
+export function ColumnsMenu({ columns, shown, onChange }: { columns: { id: string; label: string }[]; shown: Record<string, boolean>; onChange: (shown: Record<string, boolean>) => void }) {
+    return (
+        <Menu>
+            <MenuTrigger className={buttonClass('outline', 'sm')}>
+                <Icon name="columns-3" />
+                Columns
+            </MenuTrigger>
+            <MenuContent className={menuClass} align="start" sideOffset={4}>
+                {columns.map((column) => (
+                    <MenuCheckboxItem key={column.id} value={column.id} checked={shown[column.id]} onCheckedChange={(on) => onChange({ ...shown, [column.id]: on })} className={menuItemClass}>
+                        <Icon name="check" className={cx('size-4', !shown[column.id] && 'invisible')} />
+                        {column.label}
+                    </MenuCheckboxItem>
+                ))}
+            </MenuContent>
+        </Menu>
+    );
+}
+
+/** A list's search, sort and page, kept in the address (Filament's own names) */
+export function useListParams() {
+    const [params, setParams] = useSearchParams();
+    const settled = useDebounced(params.get('search') ?? '');
+    const asked = new URLSearchParams(params);
+    asked.delete('search');
+
+    if (settled) {
+        asked.set('search', settled);
+    }
+
+    const go = (changes: Record<string, string | string[] | null>) =>
+        setParams(
+            (current) => {
+                const next = new URLSearchParams(current);
+
+                for (const [key, value] of Object.entries(changes)) {
+                    next.delete(key);
+
+                    for (const each of Array.isArray(value) ? value : value ? [value] : []) {
+                        next.append(key, each);
+                    }
+                }
+
+                // Anything but a page step starts at the first page
+                if (!('page' in changes)) {
+                    next.delete('page');
+                }
+
+                return next;
+            },
+            { replace: true },
+        );
+
+    const state: TableState = {
+        search: params.get('search') ?? '',
+        sort: params.get('sort') ? { id: params.get('sort')!, desc: params.get('desc') === '1' } : null,
+        page: Number(params.get('page')) || 1,
+    };
+
+    const onStateChange = (next: TableState) =>
+        go({ search: next.search, sort: next.sort?.id ?? null, desc: next.sort?.desc ? '1' : null, page: next.page > 1 ? String(next.page) : null });
+
+    return { params, query: asked.toString(), go, state, onStateChange };
 }
