@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\BookingSetting;
 use App\Models\BranchBlock;
 use App\Models\Guest;
+use App\Models\GuestToken;
 use App\Models\MailSetting;
 use App\Models\PaymentSetting;
 use App\Models\Service;
@@ -285,6 +286,27 @@ class OnsiteBookingTest extends TestCase
 
         $this->assertSame(0, Booking::count());
         $this->assertSame(0, Vehicle::count());
+    }
+
+    public function test_a_demo_keeps_a_booking_from_the_signed_in_app_and_emails_nobody(): void
+    {
+        config(['app.demo' => true]);
+        Mail::fake();
+        MailSetting::instance()->update(['address' => 'hello@826auto.test', 'password' => 'secret']);
+        $phone = $this->guest->phone;
+
+        $this->withToken(GuestToken::issue($this->guest, 'Test phone'))
+            ->postJson('/api/bookings', $this->reservation(['email' => 'someone@example.com']))
+            ->assertCreated()
+            ->assertJsonPath('booking.stage', 'confirmed');
+
+        $booking = Booking::sole();
+        $this->assertSame(['demo', 'confirmed', null], [$booking->source, $booking->status, $booking->email]);
+        $this->assertSame($phone, $this->guest->refresh()->phone);
+        Mail::assertNothingSent();
+
+        $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
+        $this->assertSame(0, Booking::count());
     }
 
     public function test_later_service_changes_leave_booked_items_alone(): void

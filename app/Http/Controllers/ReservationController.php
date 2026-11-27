@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Console\Commands\DemoData;
 use App\Http\Controllers\Concerns\ReadsBookingInput;
 use App\Models\Booking;
 use App\Support\Notifier;
@@ -59,8 +60,11 @@ class ReservationController extends Controller
         $quote = Reservations::quote($branch, $this->serviceIds($request));
         $date = $this->dateFrom($details['date']);
 
-        // A demo checks everything like the real site, then keeps nothing
-        if (config('app.demo')) {
+        // A demo checks everything like the real site, then keeps nothing, except a booking
+        // from the signed-in app, so the shop's Queue can be tried with it
+        $demo = (bool) config('app.demo');
+
+        if ($demo && $request->attributes->get('guest_token') === null) {
             $result = Availability::check($branch, $date);
 
             if ($result !== 'ok') {
@@ -78,13 +82,19 @@ class ReservationController extends Controller
             return response()->json(['message' => 'Lots of people are booking right now. Try again in a moment.'], 409);
         }
 
-        if (blank($guest->phone)) {
-            $guest->update(['phone' => $details['phone']]);
-        }
+        if ($demo) {
+            // Anyone can use the public demo: no email to whatever address was typed, now or from the
+            // reminder job, the shared customer stays as is, and `826:demo-data` removes the booking
+            $booking->update(['source' => DemoData::SOURCE, 'email' => null]);
+        } else {
+            if (blank($guest->phone)) {
+                $guest->update(['phone' => $details['phone']]);
+            }
 
-        $kind = $booking->status === 'awaiting_payment' ? 'hold' : 'reserved';
-        Notifier::team($booking, $booking->needsSizeReview() ? 'size_review' : $kind);
-        Notifier::customer($booking, $kind);
+            $kind = $booking->status === 'awaiting_payment' ? 'hold' : 'reserved';
+            Notifier::team($booking, $booking->needsSizeReview() ? 'size_review' : $kind);
+            Notifier::customer($booking, $kind);
+        }
 
         return response()->json(['ok' => true, 'booking' => $this->fresh($booking)->toCustomer()], 201);
     }
