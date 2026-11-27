@@ -3,7 +3,7 @@
     "name": "826 Sales",
     "slug": "826-sales",
     "scheme": "aap826sales",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -35,7 +35,7 @@
     ],
     "android": {
       "package": "ph.radianceph.aap826.sales",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#2AD1CB",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -48,7 +48,7 @@
     },
     "ios": {
       "bundleIdentifier": "ph.radianceph.aap826.sales",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

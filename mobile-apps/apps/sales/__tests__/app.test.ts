@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 const KEY = 'sales';
-const EXPECTED = { label: '826 Sales', pkg: 'ph.radianceph.aap826.sales', version: '0.1.1', versionCode: 2, accent: '#2AD1CB' };
+const EXPECTED = { label: '826 Sales', pkg: 'ph.radianceph.aap826.sales', version: '0.1.2', versionCode: 3, accent: '#2AD1CB' };
 const root = path.join(__dirname, '..');
 const { expo } = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
 

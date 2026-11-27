@@ -33,10 +33,10 @@ A thin team app is: `app.json` (name, slug, scheme, package, bundle id, version,
 | App | Package / bundle id | Version (code) | Icon colour | Keystore env |
 |---|---|---|---|---|
 | 826 Auto Aesthetic (customer) | `ph.radianceph.aap826` | 0.3.1 (4) | brand teal (real icon) | `~/backups/826-app/keystore.env`, `AAP826_*` |
-| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.1 (2) | gold `#C9A24B` | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
-| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.1 (2) | teal `#2AD1CB` | same staff keystore |
-| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.1 (4) | blue `#4C8DFF` | same staff keystore |
-| 826 System | `ph.radianceph.aap826.system` | 0.1.1 (2) | violet `#8B7CF6` | same staff keystore |
+| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.2 (3) | gold `#C9A24B` | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
+| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.2 (3) | teal `#2AD1CB` | same staff keystore |
+| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.2 (5) | blue `#4C8DFF` | same staff keystore |
+| 826 System | `ph.radianceph.aap826.system` | 0.1.2 (3) | violet `#8B7CF6` | same staff keystore |
 
 The team icons are the 826 mark and the app name (OWNER, SALES, OPS, SYSTEM) in flat dark on the app colour. Regenerate with `NODE_PATH=<a node_modules with sharp> node scripts/make-team-icons.mjs`; it reads each colour from `app.json`.
 
