@@ -42,7 +42,7 @@ export function clearDraft(key: string): void {
     }
 }
 
-/** A Philippine mobile number as the server takes it: 09XX XXX XXXX or +63 9XX XXX XXXX */
+/** A Philippine mobile number as the server takes it: 11 digits starting 09 or 08, or +63 and the last ten */
 export function phoneProblem(value: string): 'missing' | 'format' | null {
     const trimmed = value.trim();
 
@@ -50,7 +50,7 @@ export function phoneProblem(value: string): 'missing' | 'format' | null {
         return 'missing';
     }
 
-    return /^\+?[\d\s().-]+$/.test(trimmed) && /^(0|\+?63)9\d{9}$/.test(trimmed.replace(/[\s().-]/g, '')) ? null : 'format';
+    return /^\+?[\d\s().-]+$/.test(trimmed) && /^(0|\+?63)[89]\d{9}$/.test(trimmed.replace(/[\s().-]/g, '')) ? null : 'format';
 }
 
 /** What the phone box keeps of what was typed or pasted: no letters, and no digit past a full number (11, or 12 with 63) */

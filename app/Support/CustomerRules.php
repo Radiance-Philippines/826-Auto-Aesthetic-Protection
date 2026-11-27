@@ -41,13 +41,14 @@ final class CustomerRules
     }
 
     /**
-     * A Philippine mobile number: 09XX XXX XXXX or +63 9XX XXX XXXX, written
-     * with or without spaces, dashes, dots or brackets.
+     * A Philippine mobile number: 11 digits starting 09 or 08 (0813, 0817 and
+     * DITO's 089x are mobiles too), or +63 and the last ten, written with or
+     * without spaces, dashes, dots or brackets.
      */
     public static function mobile(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) {
-            if ($value !== null && preg_match('/^(0|\+?63)9\d{9}$/', preg_replace('/[\s().-]/', '', (string) $value)) !== 1) {
+            if ($value !== null && preg_match('/^(0|\+?63)[89]\d{9}$/', preg_replace('/[\s().-]/', '', (string) $value)) !== 1) {
                 $fail('Enter your mobile number, like 0917 123 4567.');
             }
         };

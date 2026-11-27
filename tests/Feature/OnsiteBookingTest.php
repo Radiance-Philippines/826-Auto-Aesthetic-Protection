@@ -337,15 +337,15 @@ class OnsiteBookingTest extends TestCase
 
     public function test_the_phone_must_be_a_full_mobile_number(): void
     {
-        foreach (['4135135135135', '091712345678', '0917 123 456', '02 8123 4567', 'call me'] as $wrong) {
+        foreach (['4135135135135', '091712345678', '0917 123 456', '02 8123 4567', '082 123 4567', '181 123 4567', '183 123 4567', 'call me'] as $wrong) {
             // Past the 5-a-minute booking limit between tries
             $this->travel(2)->minutes();
             $this->reserve(['phone' => $wrong])->assertUnprocessable()->assertJsonValidationErrors('phone');
         }
 
-        foreach (['0917 123 4567', '+63 917-123-4567', '639171234567'] as $index => $right) {
+        foreach (['0917 123 4567', '+63 917-123-4567', '639171234567', '0813 123 4567', '0817 123 4567', '0895 123 4567'] as $index => $right) {
             $this->travel(2)->minutes();
-            $this->reserve(['phone' => $right, 'date' => '2026-11-'.(17 + $index), 'plate_number' => "ABC 12{$index}"])->assertCreated();
+            $this->reserve(['phone' => $right, 'plate_number' => "ABC 12{$index}"])->assertCreated();
             Booking::query()->delete();
         }
     }
