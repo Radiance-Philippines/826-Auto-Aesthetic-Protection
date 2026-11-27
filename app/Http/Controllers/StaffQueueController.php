@@ -169,6 +169,25 @@ class StaffQueueController extends StaffController
     }
 
     /**
+     * POST /api/staff/bookings/{id}/assigned-to {assignedTo}: who is on the unit, as typed; blank clears it.
+     */
+    public function assignedTo(Request $request, int $id): JsonResponse
+    {
+        $this->requireArea('queue.update');
+
+        $booking = $this->visibleBooking($id);
+        $data = $request->validate(['assignedTo' => ['present', 'nullable', 'string', 'max:120']], ['assignedTo.max' => 'Keep it under 120 characters.']);
+
+        if (! $booking->isOpen()) {
+            return response()->json(['message' => 'This unit is already closed.'], 422);
+        }
+
+        $booking->update(['assigned_to' => trim((string) $data['assignedTo']) ?: null]);
+
+        return response()->json(StaffViews::detail($booking->refresh(), $this->user()));
+    }
+
+    /**
      * POST /api/staff/bookings/{id}/photos (multipart "photo": jpg, png or webp, up to 8 MB)
      */
     public function photo(Request $request, int $id): JsonResponse

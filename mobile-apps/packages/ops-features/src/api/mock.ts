@@ -161,7 +161,8 @@ export function createMockFetch(): typeof fetch {
             late: false,
             needsSize: false,
             next: next.next,
-            can: { advance: next.canAdvance && next.next !== null, changeReadyDate: role !== 'sales_admin', addNote: true, addPhoto: role !== 'sales_admin', setSize: sales, reviewPayment: false },
+            assignedTo: found.assignedTo ?? null,
+            can: { assign: role !== 'sales_admin', advance: next.canAdvance && next.next !== null, changeReadyDate: role !== 'sales_admin', addNote: true, addPhoto: role !== 'sales_admin', setSize: sales, reviewPayment: false },
             timeline: ORDER.map((key, index) => ({ key, label: LABELS[key], at: index <= Math.min(at0, 1) ? at(index === 0 ? -2 : 0, '09:12:00') : null, done: index <= at0, current: index === at0 })),
             photos,
             history: [...notes].reverse(),
@@ -249,7 +250,7 @@ export function createMockFetch(): typeof fetch {
         if (path === '/staff/inbox/quick-replies') return reply(200, { branch: cainta, replies: [{ key: 'slot_confirmed', label: 'Slot confirmed', text: 'Hi Miguel, your slot at 826 Cainta is confirmed. See you!' }] });
         if (path === '/staff/overview') return reply(200, overview(url));
 
-        const one = path.match(/^\/staff\/bookings\/(\d+)(?:\/(stage|ready-date|notes|photos|size|payment\/approve|payment\/reject))?$/);
+        const one = path.match(/^\/staff\/bookings\/(\d+)(?:\/(stage|ready-date|assigned-to|notes|photos|size|payment\/approve|payment\/reject))?$/);
 
         if (one) {
             const id = Number(one[1]);
@@ -261,6 +262,7 @@ export function createMockFetch(): typeof fetch {
                 found.stage = to;
             }
             if (one[2] === 'ready-date' && found) found.readyOn = body.date;
+            if (one[2] === 'assigned-to' && found) found.assignedTo = body.assignedTo || null;
             if (one[2] === 'notes') notes.push({ id: notes.length + 1, kind: 'note', from: null, to: null, note: body.body, by: USERS[role].name, at: new Date().toISOString(), line: `Note: ${body.body}` });
             if (one[2] === 'photos') photos.push({ id: photos.length + 1, url: 'https://example.test/p.jpg', thumb: 'https://example.test/p-thumb.jpg', at: new Date().toISOString(), by: USERS[role].name });
 

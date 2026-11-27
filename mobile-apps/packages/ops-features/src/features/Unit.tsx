@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Camera, Image as ImageIcon, MessageSquarePlus, Phone, Save } from 'lucide-react-native';
+import { Calendar as CalendarIcon, Camera, Image as ImageIcon, MessageSquarePlus, Pencil, Phone, Save, UserRound } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
@@ -44,7 +44,8 @@ export function UnitScreen({ id }: { id: number }) {
     const user = useUser();
     const { data: unit, error, loading, reload } = useLoad(() => api.unit(id));
     const [current, setCurrent] = useState<UnitDetail | null>(null);
-    const [sheet, setSheet] = useState<null | 'date' | 'photo' | 'note' | 'exit'>(null);
+    const [sheet, setSheet] = useState<null | 'date' | 'photo' | 'note' | 'exit' | 'assign'>(null);
+    const [who, setWho] = useState('');
     const [note, setNote] = useState('');
     const [date, setDate] = useState<string | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
@@ -121,6 +122,29 @@ export function UnitScreen({ id }: { id: number }) {
             <FormError>{problem}</FormError>
             {step ? <Button label={step.label} icon={stepIcon(step.to)} loading={busy === 'stage'} onPress={() => (step.confirm ? setSheet('exit') : void run('stage', () => api.setStage(id, step.to)))} /> : null}
 
+            {shown.can.assign || shown.assignedTo ? (
+                <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <UserRound size={22} color={c.gold} />
+                    <View style={{ flex: 1 }}>
+                        <Text v="small">Assigned to</Text>
+                        <Text weight="bold">{shown.assignedTo ?? 'No one yet'}</Text>
+                    </View>
+                    {shown.can.assign ? (
+                        <Button
+                            small
+                            kind="secondary"
+                            icon={Pencil}
+                            label={shown.assignedTo ? 'Change' : 'Assign'}
+                            accessibilityLabel="Say who is on this unit"
+                            onPress={() => {
+                                setWho(shown.assignedTo ?? '');
+                                setSheet('assign');
+                            }}
+                        />
+                    ) : null}
+                </Card>
+            ) : null}
+
             <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <CalendarIcon size={22} color={c.gold} />
                 <View style={{ flex: 1 }}>
@@ -178,6 +202,11 @@ export function UnitScreen({ id }: { id: number }) {
                 <Button label="Take a photo" icon={Camera} onPress={() => void addPhoto(true)} />
                 <Button label="Choose from photos" kind="secondary" icon={ImageIcon} onPress={() => void addPhoto(false)} />
                 <FormError>{problem}</FormError>
+            </Sheet>
+            <Sheet open={sheet === 'assign'} onClose={() => setSheet(null)} title="Who is on this unit?">
+                <Field label="Assigned to" value={who} onChangeText={setWho} maxLength={120} placeholder="Jun, Ben" hint="Type the name or names. Leave blank to clear." />
+                <FormError>{problem}</FormError>
+                <Button label="Save" icon={Save} loading={busy === 'assign'} onPress={() => void run('assign', () => api.setAssignedTo(id, who.trim()))} />
             </Sheet>
             <Sheet open={sheet === 'note'} onClose={() => setSheet(null)} title="Add note">
                 <Field label="Note" value={note} onChangeText={setNote} multiline maxLength={500} hint="Shows in this unit’s history. 500 characters at most." />

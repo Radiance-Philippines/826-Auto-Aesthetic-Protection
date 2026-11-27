@@ -45,6 +45,7 @@ export function UnitCard({ card, onOpen, onMove, busy }: { card: UnitCardData; o
                         {card.name ? <Text v="small">{card.name}</Text> : null}
                     </View>
                 ) : null}
+                {card.assignedTo ? <Text weight="semi">Assigned to {card.assignedTo}</Text> : null}
             </Pressable>
             {step ? <Button label={step.label} icon={stepIcon(step.to)} kind={card.stage === 'arrived' || card.stage === 'confirmed' ? 'secondary' : 'primary'} loading={busy} onPress={() => onMove(card)} /> : null}
         </Card>

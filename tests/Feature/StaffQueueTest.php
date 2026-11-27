@@ -63,6 +63,37 @@ class StaffQueueTest extends TestCase
         return $booking;
     }
 
+    public function test_operations_say_who_is_on_a_unit_from_the_app(): void
+    {
+        $operations = $this->staffUser('operations', $this->cainta);
+        $booking = $this->unit(['status' => 'arrived']);
+        $url = "/api/staff/bookings/{$booking->id}/assigned-to";
+
+        $this->postJson($url, ['assignedTo' => '  Jun, Ben '], $this->bearer($operations))
+            ->assertOk()
+            ->assertJsonPath('assignedTo', 'Jun, Ben')
+            ->assertJsonPath('can.assign', true);
+
+        $this->getJson("/api/staff/queue?branch={$this->cainta->id}&date=2026-11-16", $this->bearer($operations))
+            ->assertJsonPath('columns.1.cards.0.assignedTo', 'Jun, Ben');
+        $this->assertSame($operations->id, $booking->events()->where('kind', 'assigned')->sole()->user_id);
+
+        $this->postJson($url, ['assignedTo' => ''], $this->bearer($operations))->assertOk()->assertJsonPath('assignedTo', null);
+        $this->postJson($url, [], $this->bearer($operations))->assertUnprocessable();
+        $this->postJson($url, ['assignedTo' => str_repeat('a', 121)], $this->bearer($operations))->assertUnprocessable();
+    }
+
+    public function test_only_who_moves_units_at_that_branch_can_say_who_is_on_one(): void
+    {
+        $booking = $this->unit(['status' => 'arrived']);
+        $url = "/api/staff/bookings/{$booking->id}/assigned-to";
+
+        $this->postJson($url, ['assignedTo' => 'Jun'], $this->bearer($this->staffUser('sales_admin', $this->cainta)))->assertForbidden();
+        $this->app['auth']->forgetGuards();
+        $this->postJson($url, ['assignedTo' => 'Jun'], $this->bearer($this->staffUser('operations', $this->sanMateo)))->assertNotFound();
+        $this->assertNull($booking->refresh()->assigned_to);
+    }
+
     public function test_the_queue_has_the_websites_columns_and_cards(): void
     {
         $operations = $this->staffUser('operations', $this->cainta);
@@ -104,6 +135,7 @@ class StaffQueueTest extends TestCase
             'stage' => 'in_progress',
             'name' => 'Ana',
             'unit' => $working->vehicleLabel(),
+            'assignedTo' => null,
             'vehicle' => ['id' => null, 'year' => 2021, 'model' => 'Toyota Vios', 'type' => 'sedan', 'typeLabel' => 'Sedan', 'plate' => 'ABC1234', 'size' => 'Medium'],
             'services' => ['Exterior detailing'],
             'servicesLabel' => 'Exterior detailing',

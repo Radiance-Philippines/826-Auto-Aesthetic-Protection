@@ -148,6 +148,8 @@ final class StaffViews
             'stage' => $booking->stage(),
             'name' => self::firstName($booking->name),
             'unit' => $booking->vehicleLabel() ?: null,
+            // Who is on it, as operations typed it
+            'assignedTo' => $booking->assigned_to,
             'vehicle' => self::vehicle($booking),
             'services' => $booking->items->pluck('service_name')->values()->all(),
             'servicesLabel' => $booking->servicesLabel(),
@@ -216,7 +218,9 @@ final class StaffViews
             'late' => $card['late'],
             'needsSize' => $card['needsSize'],
             'next' => $card['next'],
+            'assignedTo' => $card['assignedTo'],
             'can' => [
+                'assign' => $booking->isOpen() && $user->canAccessArea('queue.update'),
                 'advance' => $card['canAdvance'],
                 'changeReadyDate' => $booking->canChangeReadyDate() && $user->canAccessArea('queue.update'),
                 'addNote' => $user->canAccessAnyArea('queue.update', 'bookings.sales'),

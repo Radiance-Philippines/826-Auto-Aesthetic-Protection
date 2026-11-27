@@ -68,6 +68,7 @@ Route::prefix('staff')->name('staff.')->group(function () {
         Route::post('bookings/{id}/stage', [StaffQueueController::class, 'stage'])->whereNumber('id')->name('bookings.stage');
         Route::post('bookings/{id}/ready-date', [StaffQueueController::class, 'readyDate'])->whereNumber('id')->name('bookings.ready-date');
         Route::post('bookings/{id}/notes', [StaffQueueController::class, 'note'])->whereNumber('id')->name('bookings.notes');
+        Route::post('bookings/{id}/assigned-to', [StaffQueueController::class, 'assignedTo'])->whereNumber('id')->name('bookings.assigned-to');
         Route::post('bookings/{id}/photos', [StaffQueueController::class, 'photo'])->whereNumber('id')->name('bookings.photos');
         Route::get('bookings/{id}/proof', [StaffQueueController::class, 'proof'])->whereNumber('id')->name('bookings.proof');
 

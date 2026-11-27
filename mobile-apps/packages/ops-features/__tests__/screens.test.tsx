@@ -92,6 +92,19 @@ describe('S3 unit', () => {
         expect(dump(screen)).not.toContain('99,999');
     });
 
+    it('says who is on the unit, typed by the detailer, and nobody in sales can', async () => {
+        const screen = await renderAs(<UnitScreen id={1} />, 'operations');
+        expect(dump(screen)).toContain('No one yet');
+        await press(screen, 'Say who is on this unit');
+        await typeInto(screen, 'Assigned to', 'Jun, Ben');
+        await press(screen, 'Save');
+        expect(dump(screen)).toContain('Jun, Ben');
+        expect(dump(screen)).not.toContain('No one yet');
+
+        const sales = dump(await renderAs(<UnitScreen id={1} />, 'sales_admin'));
+        expect(sales).not.toContain('Say who is on this unit');
+    });
+
     it('adds a note to the history', async () => {
         const screen = await renderAs(<UnitScreen id={1} />, 'operations');
         await press(screen, 'Add note');

@@ -20,6 +20,7 @@ export function createApi(client: Client) {
         unit: (id: number) => client.get<UnitDetail>(`/staff/bookings/${id}`),
         setStage: (id: number, to: MoveTo) => client.post<UnitDetail>(`/staff/bookings/${id}/stage`, { to }),
         setReadyDate: (id: number, date: string) => client.post<UnitDetail>(`/staff/bookings/${id}/ready-date`, { date }),
+        setAssignedTo: (id: number, assignedTo: string) => client.post<UnitDetail>(`/staff/bookings/${id}/assigned-to`, { assignedTo }),
         addNote: (id: number, body: string) => client.post<UnitDetail>(`/staff/bookings/${id}/notes`, { body }),
         addPhoto: (id: number, file: UploadFile) => {
             const form = new FormData();

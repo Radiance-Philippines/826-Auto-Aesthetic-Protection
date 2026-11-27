@@ -62,6 +62,8 @@ export type Card = {
     next: NextStep | null;
     canAdvance: boolean;
     arrivedAt: string | null;
+    /** Who is on the unit, as operations typed it; absent from an older server */
+    assignedTo?: string | null;
 };
 
 export type QueueColumn = { key: string; label: string; count: number; cards: Card[] };
@@ -119,7 +121,8 @@ export type UnitDetail = {
     late: boolean;
     needsSize: boolean;
     next: NextStep | null;
-    can: { advance: boolean; changeReadyDate: boolean; addNote: boolean; addPhoto: boolean; setSize: boolean; reviewPayment: boolean };
+    assignedTo?: string | null;
+    can: { advance: boolean; changeReadyDate: boolean; addNote: boolean; addPhoto: boolean; setSize: boolean; reviewPayment: boolean; assign?: boolean };
     timeline: TimelineStep[];
     photos: UnitPhoto[];
     /** Newest first */
