@@ -60,7 +60,7 @@ async function addBooking(page: Page, name: string, plate: string, date: string)
     await page.getByRole('textbox', { name: 'Plate number' }).fill(plate);
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
     await page.getByRole('textbox', { name: 'Mobile' }).fill(`0917 555 ${plate.replace(/\D/g, '').padStart(4, '0').slice(-4)}`);
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: new RegExp(`^${name} · 826-`) })).toBeVisible();
 }
 
@@ -98,7 +98,7 @@ test('add a booking, size it, move it, cancel it, find it and delete it', async 
 
     // The server says what is missing before anything is saved
     await page.goto(`${BASE}/create`);
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'Not booked' }).first()).toBeVisible();
     await expect(page.getByText('Pick at least one service.')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveAttribute('aria-invalid', 'true');

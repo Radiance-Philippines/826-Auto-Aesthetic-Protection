@@ -30,12 +30,12 @@ test('add, edit, size a unit, find and delete a customer', async ({ page }, info
     await expectNoHorizontalOverflow(page);
 
     await page.getByRole('link', { name: 'Add a customer' }).click();
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByText('Add the customer’s name.')).toBeVisible();
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
     await page.getByRole('textbox', { name: 'Mobile' }).fill(info.project.name === 'phone' ? '0918 222 3302' : '0918 222 3301');
     await page.getByRole('textbox', { name: 'Private note' }).fill('Prefers mornings');
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     const address = new URL(page.url()).pathname;
     await expect(page.getByRole('region', { name: 'Details' })).toContainText('Walk-in');
@@ -135,6 +135,13 @@ test('customers are accessible, light and dark, and fit 360px', async ({ page },
     await page.goto(`${BASE}/create`);
     await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
     await expectAccessible(page);
+
+    // "Create & create another" empties the form for the next one (answered here: nothing is written)
+    await page.route('**/console/api/sales/customers', (route) => (route.request().method() === 'POST' ? route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":1}' }) : route.fallback()));
+    await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Nobody');
+    await page.getByRole('button', { name: 'Create & create another' }).click();
+    await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('');
+    await expect(page).toHaveURL(new RegExp(`${BASE}/create$`));
 
     await page.setViewportSize({ width: 360, height: 780 });
     for (const address of [BASE, view, `${view}/edit`, `${BASE}/create`]) {

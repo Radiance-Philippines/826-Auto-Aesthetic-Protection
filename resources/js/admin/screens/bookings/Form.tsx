@@ -121,6 +121,13 @@ function useValues(start: Values) {
 const columns = 'grid items-start gap-4 lg:grid-cols-3';
 
 export function BookingCreate() {
+    // "Create & create another" starts over with an empty form
+    const [round, setRound] = useState(0);
+
+    return <CreateForm key={round} onAnother={() => setRound((current) => current + 1)} />;
+}
+
+function CreateForm({ onAnother }: { onAnother: () => void }) {
     const navigate = useNavigate();
     const { reload: reloadMe } = useMe();
     const [kind, setKind] = useState('onsite');
@@ -164,8 +171,9 @@ export function BookingCreate() {
 
     const offered = services.filter((id) => data.services.some((service) => service.value === id));
 
-    const save = (event: FormEvent) => {
+    const save = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        const another = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'another';
         void submit(async () => {
             const booked = await api<{ id: number; message: string }>('POST', '/bookings', {
                 ...sent(values),
@@ -181,7 +189,13 @@ export function BookingCreate() {
             });
             toast.success(booked.message);
             reloadMe();
-            navigate(`/bookings/${booked.id}`);
+
+            if (another) {
+                window.scrollTo(0, 0);
+                onAnother();
+            } else {
+                navigate(`/bookings/${booked.id}`);
+            }
         });
     };
 
@@ -256,6 +270,9 @@ export function BookingCreate() {
                 <div className="flex flex-wrap gap-2">
                     <Button type="submit" icon="plus" variant="primary" busy={busy}>
                         Create
+                    </Button>
+                    <Button type="submit" value="another" icon="plus" busy={busy}>
+                        Create & create another
                     </Button>
                     <Link to="/bookings" className={buttonClass()}>
                         <Icon name="x" />

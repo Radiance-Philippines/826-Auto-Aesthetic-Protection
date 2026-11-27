@@ -21,7 +21,7 @@ type Editing = { id: number; name: string; values: Values; branch: Option | null
 
 const text = (value: string | number | null | undefined) => (value === null || value === undefined ? '' : String(value));
 
-function CustomerForm({ options, start, save, label, back, done }: { options: Options; start: Values; save: (values: Values) => Promise<void>; label: string; back: string; done: string }) {
+function CustomerForm({ options, start, save, label, back, done, another }: { options: Options; start: Values; save: (values: Values, another: boolean) => Promise<void>; label: string; back: string; done: string; another?: boolean }) {
     const [name, setName] = useState(start.name);
     const [phone, setPhone] = useState(text(start.phone));
     const [email, setEmail] = useState(text(start.email));
@@ -30,10 +30,11 @@ function CustomerForm({ options, start, save, label, back, done }: { options: Op
     const [notes, setNotes] = useState(text(start.notes));
     const { errors, failed, busy, submit } = useSubmit();
 
-    const onSubmit = (event: FormEvent) => {
+    const onSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        const again = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'another';
         void submit(async () => {
-            await save({ name, phone, email, branchId: branch === 'none' ? null : Number(branch), salesRepId: rep ? Number(rep) : null, notes });
+            await save({ name, phone, email, branchId: branch === 'none' ? null : Number(branch), salesRepId: rep ? Number(rep) : null, notes }, again);
             toast.success(done);
         });
     };
@@ -62,6 +63,11 @@ function CustomerForm({ options, start, save, label, back, done }: { options: Op
                 <Button type="submit" icon="save" variant="primary" busy={busy}>
                     {label}
                 </Button>
+                {another && (
+                    <Button type="submit" value="another" icon="plus" busy={busy}>
+                        Create & create another
+                    </Button>
+                )}
                 <Link to={back} className={buttonClass()}>
                     <Icon name="x" />
                     Cancel
@@ -73,6 +79,8 @@ function CustomerForm({ options, start, save, label, back, done }: { options: Op
 
 export function CustomerCreate() {
     const navigate = useNavigate();
+    // "Create & create another" starts over with an empty form
+    const [round, setRound] = useState(0);
     const { data, error, reload } = useResource<Options>('/customers/form');
 
     return (
@@ -85,15 +93,22 @@ export function CustomerCreate() {
                 <Alert>Your role doesn’t include adding customers.</Alert>
             ) : (
                 <CustomerForm
+                    key={round}
+                    another
                     options={data}
                     // One branch: it is chosen already
                     start={{ name: '', phone: '', email: '', branchId: data.branches.length === 1 ? Number(data.branches[0].value) : null, salesRepId: null, notes: '' }}
                     label="Create"
                     done="Created"
                     back="/customers"
-                    save={async (values) => {
+                    save={async (values, again) => {
                         const made = await api<{ id: number }>('POST', '/customers', values);
-                        navigate(`/customers/${made.id}`);
+
+                        if (again) {
+                            setRound((current) => current + 1);
+                        } else {
+                            navigate(`/customers/${made.id}`);
+                        }
                     }}
                 />
             )}
