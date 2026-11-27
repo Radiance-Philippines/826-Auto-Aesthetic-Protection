@@ -14,6 +14,7 @@ use App\Support\Reservations;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Support\BuildsShop;
 use Tests\TestCase;
@@ -137,6 +138,23 @@ class ReferralTest extends TestCase
 
         $this->reserve()->assertCreated();
         $this->assertSame(1, ReferralRedemption::count());
+    }
+
+    public function test_a_person_uses_a_code_once_and_others_can_still_use_it(): void
+    {
+        $this->reserve()->assertCreated();
+
+        $this->reserve(['date' => '2026-11-18', 'plate_number' => 'DEF 456'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.referral_code.0', 'You have already used this code.');
+
+        $this->reserve(['date' => '2026-11-18', 'plate_number' => 'GHI 789'], Guest::factory()->create())->assertCreated();
+        $this->assertSame(2, ReferralRedemption::where('code_guest_id', $this->owner->id)->count());
+
+        // The same check where the use is written, for two requests that passed the first one together
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('You have already used this code.');
+        Referrals::redeem(Booking::factory()->create(['guest_id' => $this->friend->id, 'branch_id' => $this->branch->id]), $this->owner);
     }
 
     public function test_codes_are_refused_while_off_or_without_a_discount(): void

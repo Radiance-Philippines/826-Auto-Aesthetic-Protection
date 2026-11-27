@@ -6,13 +6,14 @@ use App\Models\Booking;
 use App\Models\Guest;
 use App\Models\ReferralRedemption;
 use App\Models\ReferralSetting;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Referral codes. Every customer can have a code (made the first time it is
  * needed). A signed-in customer with no earlier booking can use someone
- * else's code on a reservation; the discount shows once the booking is
+ * else's code on a reservation, each code once (#689); the discount shows once the booking is
  * priced, and the code's owner earns the owner's points when that booking
  * exits. A cancelled, declined or expired booking voids it.
  */
@@ -22,6 +23,8 @@ final class Referrals
      * Letters and digits that can't be misread over the phone.
      */
     private const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+
+    private const USED = 'You have already used this code.';
 
     /**
      * The customer's code, made on first need: their first name in capitals,
@@ -76,6 +79,10 @@ final class Referrals
             self::fail('You can’t use your own referral code.');
         }
 
+        if (self::hasUsed($guest, $owner)) {
+            self::fail(self::USED);
+        }
+
         if (self::hasEarlierBooking($guest)) {
             self::fail('Referral codes are for your first booking only.');
         }
@@ -84,26 +91,55 @@ final class Referrals
     }
 
     /**
+     * This person already used this owner's code, on a booking that still stands.
+     * With $lock, it reads what other requests have just saved.
+     */
+    public static function hasUsed(Guest $guest, Guest $owner, bool $lock = false): bool
+    {
+        return ReferralRedemption::query()
+            ->where('used_by_guest_id', $guest->id)
+            ->where('code_guest_id', $owner->id)
+            ->whereNull('voided_at')
+            ->whereHas('booking', self::standing(...))
+            ->when($lock, fn (Builder $query) => $query->lockForUpdate())
+            ->exists();
+    }
+
+    /**
      * A booking that fell through (cancelled, declined, expired, or an
      * unpaid hold that ran out) doesn't count as an earlier one.
      */
     public static function hasEarlierBooking(Guest $guest): bool
     {
-        return $guest->bookings()
-            ->whereNotIn('status', ['cancelled', 'declined', 'expired'])
-            ->where(fn ($booking) => $booking
+        return $guest->bookings()->where(self::standing(...))->exists();
+    }
+
+    /**
+     * Bookings that still stand (see hasEarlierBooking).
+     */
+    private static function standing(Builder $booking): void
+    {
+        $booking->whereNotIn('status', ['cancelled', 'declined', 'expired'])
+            ->where(fn (Builder $hold) => $hold
                 ->where('status', '!=', 'awaiting_payment')
                 ->orWhereNull('hold_expires_at')
-                ->orWhere('hold_expires_at', '>', now()))
-            ->exists();
+                ->orWhere('hold_expires_at', '>', now()));
     }
 
     /**
      * Records that the booking used the owner's code. The discount comes
-     * when the booking is priced.
+     * when the booking is priced. Call it inside the booking's transaction.
      */
     public static function redeem(Booking $booking, Guest $owner): ReferralRedemption
     {
+        // Two bookings sent at the same moment (two branches lock apart): the person's row makes
+        // them take turns, and the second sees the first one's use
+        $guest = Guest::query()->whereKey($booking->guest_id)->lockForUpdate()->first();
+
+        if ($guest && self::hasUsed($guest, $owner, lock: true)) {
+            self::fail(self::USED);
+        }
+
         $booking->update(['referral_guest_id' => $owner->id]);
 
         return ReferralRedemption::create([

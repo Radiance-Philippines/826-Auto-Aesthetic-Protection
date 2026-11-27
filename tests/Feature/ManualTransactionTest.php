@@ -265,6 +265,25 @@ class ManualTransactionTest extends TestCase
         $this->assertSame(1, ReferralRedemption::count());
     }
 
+    public function test_the_same_customer_cannot_use_a_code_twice_from_the_counter(): void
+    {
+        $owner = $this->referral();
+        $this->actingAs($this->staff);
+
+        Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['services' => [$this->detail->id], 'referral_code' => $owner->referral_code]))
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $page = Livewire::test(ManualTransactionPage::class)
+            ->fillForm($this->form(['new_customer' => false, 'guest_id' => Booking::sole()->guest_id, 'services' => [$this->detail->id], 'referral_code' => $owner->referral_code]))
+            ->call('save')
+            ->assertHasFormErrors(['referral_code']);
+
+        $this->assertSame('You have already used this code.', $page->errors()->first('data.referral_code'));
+        $this->assertSame([1, 1], [Booking::count(), ReferralRedemption::count()]);
+    }
+
     public function test_a_customer_cannot_use_their_own_code_or_one_that_does_not_exist(): void
     {
         $owner = $this->referral();
