@@ -24,6 +24,7 @@ class ImageUpload
             ->visibility('public')
             ->acceptedFileTypes(self::TYPES)
             ->maxSize(20480)
+            ->helperText('JPG, PNG or WebP, up to 20 MB.')
             ->automaticallyResizeImagesMode('contain')
             ->automaticallyResizeImagesToWidth((string) ImagePipeline::MASTER_MAX_EDGE)
             ->automaticallyResizeImagesToHeight((string) ImagePipeline::MASTER_MAX_EDGE);

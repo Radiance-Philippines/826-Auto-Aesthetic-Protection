@@ -77,10 +77,10 @@ class SiteSettings extends Page
                         Group::make([
                             ImageUpload::make('hero_image', 'site')
                                 ->label('Home page picture')
-                                ->helperText('The big picture at the top of the Home page.'),
+                                ->helperText('The big picture at the top of the Home page. JPG, PNG or WebP, up to 20 MB.'),
                             ImageUpload::make('og_image', 'site')
                                 ->label('Link-preview picture')
-                                ->helperText('Optional. Used when a page is shared on Facebook or Messenger. Use a 1200×630 picture.'),
+                                ->helperText('Optional. Used when a page is shared on Facebook or Messenger. Use a 1200×630 picture. JPG, PNG or WebP, up to 20 MB.'),
                         ])->columnSpan(1),
                     ]),
                 Section::make('Main contact')

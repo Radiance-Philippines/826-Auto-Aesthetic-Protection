@@ -8,7 +8,9 @@ use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\BranchBlock;
 use App\Models\Guest;
+use App\Models\Photo;
 use App\Models\ReferralSetting;
+use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\User;
@@ -19,6 +21,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -33,7 +36,31 @@ class DemoDataTest extends TestCase
         parent::setUp();
 
         $this->travelTo(CarbonImmutable::parse('2026-11-16 07:00', 'Asia/Manila'));
+        Storage::fake('public');
         $this->seed();
+    }
+
+    public function test_it_adds_labelled_gallery_samples_and_removes_only_those(): void
+    {
+        config(['app.demo' => true]);
+        $real = Photo::factory()->create(['caption' => 'Real work']);
+        $this->artisan('826:demo-data')->assertSuccessful();
+        $bookings = Booking::pluck('id')->all();
+
+        // --media replaces the samples without touching the bookings
+        $this->artisan('826:demo-data', ['--media' => true])->assertSuccessful();
+
+        $this->assertSame($bookings, Booking::pluck('id')->all());
+        $this->assertSame(count(Photo::CATEGORIES), Photo::where('caption', 'like', 'Sample:%')->count());
+        $this->assertGreaterThan(0, Review::approved()->count());
+        $this->assertSame(0, Review::where('body', 'not like', 'Sample:%')->count());
+        $this->assertSame(0, Review::whereRelation('guest', 'google_id', Guest::DEMO_GOOGLE_ID)->count());
+        Storage::disk('public')->assertExists(Photo::where('caption', 'like', 'Sample:%')->first()->image);
+
+        $this->artisan('826:demo-data', ['--clear' => true])->assertSuccessful();
+
+        $this->assertSame([$real->id], Photo::pluck('id')->all());
+        $this->assertSame(0, Review::count());
     }
 
     public function test_it_refuses_outside_local_and_demo(): void

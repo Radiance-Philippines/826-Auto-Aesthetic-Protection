@@ -83,7 +83,7 @@ export default function ReviewScreen() {
                             </Pressable>
                         )}
                     </View>
-                    <Text v="small">Optional. JPG, PNG or WebP.</Text>
+                    <Text v="small">Optional. JPG, PNG or WebP, up to 8 MB.</Text>
 
                     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                         <Info size={16} color={c.muted} />

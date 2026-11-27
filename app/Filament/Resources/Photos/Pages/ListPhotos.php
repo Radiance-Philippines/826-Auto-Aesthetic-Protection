@@ -34,7 +34,7 @@ class ListPhotos extends ListRecords
                         ->maxFiles(self::MAX_BATCH)
                         ->panelLayout('grid')
                         ->required()
-                        ->helperText('Up to '.self::MAX_BATCH.' at a time. They are added at the end of the list.'),
+                        ->helperText('Up to '.self::MAX_BATCH.' at a time, JPG, PNG or WebP, up to 20 MB each. They are added at the end of the list.'),
                     ...PhotoResource::detailFields(),
                 ])
                 ->modalSubmitActionLabel('Add photos')

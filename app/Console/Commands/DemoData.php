@@ -8,7 +8,9 @@ use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\BranchBlock;
 use App\Models\Guest;
+use App\Models\Photo;
 use App\Models\ReferralSetting;
+use App\Models\Review;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\User;
@@ -22,6 +24,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -33,11 +36,13 @@ use Illuminate\Support\Str;
  * --clear removes only those (sample estimates, prices and hours stay until
  * edited in the admin).
  */
-#[Signature('826:demo-data {--clear : Remove the sample bookings, units, customers and blocks} {--force : Run outside local and demo mode}')]
+#[Signature('826:demo-data {--clear : Remove the sample bookings, units, customers, blocks, photos and reviews} {--media : Only replace the sample gallery photos and reviews; bookings stay as they are} {--force : Run outside local and demo mode}')]
 #[Description('Add (or remove) SAMPLE estimates, prices and bookings for testing or a demo')]
 class DemoData extends Command
 {
     public const SOURCE = 'demo';
+
+    public const MEDIA_PREFIX = 'Sample:';
 
     public const GUEST_PREFIX = 'demo-';
 
@@ -114,6 +119,14 @@ class DemoData extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('media') && ! $this->option('clear')) {
+            $this->clearMedia();
+            $this->media();
+            $this->info('Sample gallery photos and reviews replaced.');
+
+            return self::SUCCESS;
+        }
+
         $this->clear();
 
         if ($this->option('clear')) {
@@ -128,6 +141,7 @@ class DemoData extends Command
         $this->fillEstimatesAndRates();
         $this->fillWarrantyAndReferral();
         $this->bookings($branches[0]);
+        $this->media();
         $team = $this->sampleStaff($branches);
         User::query()->whereIn('email', self::LEGACY_STAFF)->where('role', '!=', Access::SUPER_ADMIN)->delete();
 
@@ -137,8 +151,75 @@ class DemoData extends Command
         return self::SUCCESS;
     }
 
+    private function clearMedia(): void
+    {
+        // One by one, so the photo files go with the rows
+        Photo::query()->where('caption', 'like', self::MEDIA_PREFIX.'%')->get()->each->delete();
+        Review::query()->where('body', 'like', self::MEDIA_PREFIX.'%')->get()->each->delete();
+    }
+
+    /**
+     * Placeholder pictures that say what they are (never someone else's work
+     * passed off as 826's) and approved reviews on finished sample bookings.
+     * The sign-in button's customer is left out, so they can still write one.
+     */
+    private function media(): void
+    {
+        $order = (int) Photo::max('sort_order');
+
+        foreach (array_keys(Photo::CATEGORIES) as $index => $category) {
+            Photo::create([
+                'image' => $this->placeholder($category, $index),
+                'caption' => self::MEDIA_PREFIX.' '.Photo::CATEGORIES[$category],
+                'category' => $category,
+                'is_featured' => false,
+                'sort_order' => ++$order,
+            ]);
+        }
+
+        $finished = Booking::query()
+            ->where('source', self::SOURCE)
+            ->where('status', 'exited')
+            ->whereDoesntHave('review')
+            ->whereHas('guest', fn ($query) => $query->whereNull('google_id')->orWhere('google_id', '!=', Guest::DEMO_GOOGLE_ID))
+            ->orderBy('id')
+            ->limit(3)
+            ->get();
+
+        foreach ($finished as $index => $booking) {
+            Review::create([
+                'guest_id' => $booking->guest_id,
+                'booking_id' => $booking->id,
+                'rating' => 5 - ($index % 2),
+                'body' => self::MEDIA_PREFIX.' this is how a customer review looks once the team approves it.',
+                'status' => 'approved',
+                'display_name' => 'Sample customer',
+            ]);
+        }
+    }
+
+    private function placeholder(string $category, int $index): string
+    {
+        $image = imagecreatetruecolor(240, 180);
+        $shade = 40 + $index * 14;
+        imagefill($image, 0, 0, imagecolorallocate($image, $shade, $shade, $shade + 12));
+        $white = imagecolorallocate($image, 255, 255, 255);
+
+        foreach (['SAMPLE PHOTO', Photo::CATEGORIES[$category]] as $line => $text) {
+            imagestring($image, 5, (int) ((240 - imagefontwidth(5) * strlen($text)) / 2), 70 + $line * 24, $text, $white);
+        }
+
+        ob_start();
+        imagepng(imagescale($image, 1600, 1200, IMG_NEAREST_NEIGHBOUR));
+        $path = "photos/sample-{$category}.png";
+        Storage::disk('public')->put($path, ob_get_clean());
+
+        return $path;
+    }
+
     private function clear(): void
     {
+        $this->clearMedia();
         Booking::query()->where('source', self::SOURCE)->get()->each->delete();
         BackjobType::query()->where('name', 'like', self::BACKJOB_PREFIX.'%')->delete();
         $guests = Guest::query()->where('google_id', 'like', self::GUEST_PREFIX.'%')->orWhere('notes', self::GUEST_NOTE);
