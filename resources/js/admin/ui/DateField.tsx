@@ -10,13 +10,17 @@ type Props = FieldProps & {
     onChange: (value: string) => void;
     min?: string;
     max?: string;
+    /** Days that can't be picked */
+    unavailable?: string[];
+    /** Emptying the box gives "" (an optional date) */
+    clearable?: boolean;
 };
 
 /** Type a date or pick one from the calendar (never the browser's own picker) */
-export function DateField({ value, onChange, min, max, ...field }: Props) {
+export function DateField({ value, onChange, min, max, unavailable, clearable, ...field }: Props) {
     return (
         <FieldShell {...field}>
-            <DatePicker value={value} onValueChange={(next) => typeof next === 'string' && onChange(next)} min={min} max={max} locale="en-PH" weekStartsOn={0} presentation="auto">
+            <DatePicker value={value} onValueChange={(next) => (typeof next === 'string' ? onChange(next) : clearable && onChange(''))} min={min} max={max} unavailable={unavailable} locale="en-PH" weekStartsOn={0} presentation="auto">
                 <div className="flex gap-1">
                     <DatePickerInput aria-label={field.label} className={controlClass} />
                     <DatePickerTrigger aria-label={`Open the calendar: ${field.label.toLowerCase()}`} className={buttonClass('outline', 'md', true)}>
