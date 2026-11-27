@@ -136,6 +136,9 @@ Route::prefix('admin-passkeys')->controller(PasskeyLoginController::class)->grou
     Route::post('/login', 'login')->middleware('throttle:passkey-login')->name('passkeys.login');
 });
 
+// The React admin (/console), beside the Filament panels
+require __DIR__.'/admin.php';
+
 // The old single admin: any other /admin address (an emailed link, a bookmark) goes to the same page in the
 // signed-in person's own panel, or to sign-in first (the sign-in page, password reset and /admin itself are the panel's)
 Route::get('/admin/{path}', function (Request $request) {

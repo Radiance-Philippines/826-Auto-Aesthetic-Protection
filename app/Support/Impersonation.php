@@ -93,6 +93,14 @@ final class Impersonation
     }
 
     /**
+     * The branches the viewed person works with, for the banner.
+     */
+    public static function branchesLabel(User $user): string
+    {
+        return $user->isOwner() ? 'every branch' : ($user->branches()->orderBy('name')->pluck('name')->implode(', ') ?: 'no branch yet');
+    }
+
+    /**
      * Same guard and session, so the bell and live updates keep working;
      * login() regenerates the session id and keeps its data.
      */

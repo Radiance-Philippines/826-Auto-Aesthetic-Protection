@@ -2,7 +2,7 @@
 @if (auth()->check() && \App\Support\Impersonation::active())
     @php
         $target = auth()->user();
-        $branches = $target->isOwner() ? 'every branch' : ($target->branches()->orderBy('name')->pluck('name')->implode(', ') ?: 'no branch yet');
+        $branches = \App\Support\Impersonation::branchesLabel($target);
     @endphp
 
     <style>

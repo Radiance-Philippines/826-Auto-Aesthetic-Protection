@@ -28,7 +28,8 @@ class ValidateImpersonation
             return $next($request);
         }
 
-        $livewire = $request->hasHeader('X-Livewire');
+        // A background call (Livewire, the React admin's JSON) can't follow a redirect: 419 makes the page reload
+        $livewire = $request->hasHeader('X-Livewire') || $request->expectsJson();
         $target = Auth::guard()->user();
 
         if (! Impersonation::impersonator()) {
