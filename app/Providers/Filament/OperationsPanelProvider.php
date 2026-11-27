@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Queue;
 use App\Support\Panels;
+use Filament\Facades\Filament;
 use Filament\Panel;
 use Illuminate\Support\Facades\Route;
 
@@ -33,7 +34,10 @@ class OperationsPanelProvider extends BasePanelProvider
             ->resources([...PanelPages::work(), ...PanelPages::shopAndSite(), ...PanelPages::systemResources()])
             ->widgets(PanelPages::operationsWidgets())
             // The queue is the home page; the dashboard is its own page here
-            ->authenticatedRoutes(fn (Panel $panel) => Route::get('/', function () use ($panel) {
+            // Static, and no Panel captured: either one makes `route:cache` fail
+            ->authenticatedRoutes(fn () => Route::get('/', static function () {
+                $panel = Filament::getCurrentOrDefaultPanel();
+
                 if (Queue::canAccess()) {
                     return redirect(Queue::getUrl(panel: $panel->getId()));
                 }

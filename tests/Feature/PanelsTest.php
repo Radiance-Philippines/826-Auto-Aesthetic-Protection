@@ -595,4 +595,13 @@ class PanelsTest extends TestCase
 
         Filament::setCurrentPanel('owner');
     }
+
+    public function test_every_route_can_be_cached_for_deploys(): void
+    {
+        foreach (Route::getRoutes() as $route) {
+            (clone $route)->prepareForSerialization();
+        }
+
+        $this->addToAssertionCount(1);
+    }
 }
