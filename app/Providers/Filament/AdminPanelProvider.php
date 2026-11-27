@@ -32,10 +32,16 @@ class AdminPanelProvider extends BasePanelProvider
 
     protected function configure(Panel $panel): Panel
     {
-        return $panel->routes(fn () => Route::get('/', function () {
-            $user = Filament::auth()->user();
+        // Each closure starts on its own line: a cached route finds its code by the line it starts on
+        return $panel->routes(
+            fn () => Route::get(
+                '/',
+                static function () {
+                    $user = Filament::auth()->user();
 
-            return $user instanceof User ? redirect(Panels::homeUrl($user)) : redirect(Filament::getLoginUrl());
-        })->name('home'));
+                    return $user instanceof User ? redirect(Panels::homeUrl($user)) : redirect(Filament::getLoginUrl());
+                }
+            )->name('home')
+        );
     }
 }

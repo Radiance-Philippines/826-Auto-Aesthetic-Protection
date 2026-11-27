@@ -23,6 +23,7 @@ use Filament\Resources\Resource;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Laravel\SerializableClosure\Support\ReflectionClosure;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\StaffApi;
@@ -604,6 +605,17 @@ class PanelsTest extends TestCase
         }
 
         Filament::setCurrentPanel('owner');
+    }
+
+    public function test_a_cached_panel_home_runs_the_page_not_the_code_that_registers_it(): void
+    {
+        foreach (['filament.admin.home', 'filament.operations.home'] as $name) {
+            $route = clone Route::getRoutes()->getByName($name);
+            $route->prepareForSerialization();
+            $code = (new ReflectionClosure(unserialize($route->getAction('uses'))->getClosure()))->getCode();
+
+            $this->assertStringNotContainsString('Route::get', $code, "{$name}: two closures start on one line");
+        }
     }
 
     public function test_every_route_can_be_cached_for_deploys(): void

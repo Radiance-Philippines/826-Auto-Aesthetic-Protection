@@ -34,19 +34,25 @@ class OperationsPanelProvider extends BasePanelProvider
             ->resources([...PanelPages::work(), ...PanelPages::shopAndSite(), ...PanelPages::systemResources()])
             ->widgets(PanelPages::operationsWidgets())
             // The queue is the home page; the dashboard is its own page here
-            // Static, and no Panel captured: either one makes `route:cache` fail
-            ->authenticatedRoutes(fn () => Route::get('/', static function () {
-                $panel = Filament::getCurrentOrDefaultPanel();
+            // Static, and no Panel captured: either one makes `route:cache` fail. Each closure
+            // starts on its own line: a cached route finds its code by the line it starts on
+            ->authenticatedRoutes(
+                fn () => Route::get(
+                    '/',
+                    static function () {
+                        $panel = Filament::getCurrentOrDefaultPanel();
 
-                if (Queue::canAccess()) {
-                    return redirect(Queue::getUrl(panel: $panel->getId()));
-                }
+                        if (Queue::canAccess()) {
+                            return redirect(Queue::getUrl(panel: $panel->getId()));
+                        }
 
-                $first = $panel->getRedirectUrl();
+                        $first = $panel->getRedirectUrl();
 
-                abort_if($first === url($panel->getPath()), 403);
+                        abort_if($first === url($panel->getPath()), 403);
 
-                return redirect($first);
-            })->name('home'));
+                        return redirect($first);
+                    }
+                )->name('home')
+            );
     }
 }
