@@ -222,7 +222,7 @@ export function BookingList() {
                                 {data.filters.branches.length > 0 && (
                                     <SelectField label="Branch" hint="Only that branch’s bookings." options={[{ value: 'all', label: 'All' }, ...data.filters.branches]} value={params.get('branch') ?? 'all'} onChange={(branch) => go({ branch: branch === 'all' ? null : branch })} />
                                 )}
-                                <ChoiceField label="Kind" hint="At the branch, or at the customer’s." options={[{ value: 'any', label: 'Any' }, ...data.filters.kinds]} value={params.get('kind') ?? 'any'} onChange={(kind) => go({ kind: kind === 'any' ? null : kind })} />
+                                <ChoiceField label="Kind" hint="At the branch, or at the customer’s." options={[{ value: 'any', label: 'Any', icon: 'layout-grid' as const }, ...data.filters.kinds.map((kind) => ({ ...kind, icon: kind.value === 'home' ? ('house' as const) : ('store' as const) }))]} value={params.get('kind') ?? 'any'} onChange={(kind) => go({ kind: kind === 'any' ? null : kind })} />
                                 <CheckboxListField label="Status" hint="Tick one or more. None ticked shows every status." options={data.filters.statuses} value={status} onChange={(next) => go({ 'status[]': next })} columns />
                                 <div className="md:col-span-full">
                                     <Button icon="rotate-ccw" size="sm" onClick={() => go({ branch: null, kind: null, 'status[]': null })}>

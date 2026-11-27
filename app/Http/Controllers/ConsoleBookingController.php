@@ -612,7 +612,8 @@ class ConsoleBookingController extends StaffController
             'values' => [
                 'status' => $booking->status,
                 'next' => $booking->nextStatus(),
-                'paymentNote' => $booking->payment_note,
+                // Only for the dialog of someone who may confirm the fee
+                'paymentNote' => in_array('markPaid', $actions, true) ? $booking->payment_note : null,
                 'vehicleSizeId' => $booking->vehicle_size_id ? (string) $booking->vehicle_size_id : null,
                 'dropOffOn' => $booking->drop_off_on?->toDateString(),
                 'readyOn' => $booking->ready_on?->toDateString(),

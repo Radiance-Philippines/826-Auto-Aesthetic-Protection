@@ -154,8 +154,6 @@ export default function ManualTransaction() {
         });
     };
 
-    const priceError = Object.keys(errors).find((key) => key.startsWith('prices.'));
-
     return (
         <>
             <PageHeader title="Manual transaction" description="For a walk-in or phone job done outside the site, even one already finished. The customer gets no email." />
@@ -232,11 +230,6 @@ export default function ManualTransaction() {
                                     />
                                 ))}
                             </div>
-                            {priceError && (
-                                <p role="alert" className="sr-only">
-                                    {errors[priceError]}
-                                </p>
-                            )}
                         </Section>
                     )}
 
