@@ -12,7 +12,6 @@ use App\Models\Branch;
 use App\Support\CurrentBranch;
 use App\Support\QueueBoard;
 use App\Support\Reservations;
-use App\Support\Schedule\Availability;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -183,9 +182,7 @@ class Queue extends Page
 
     private function day(): CarbonImmutable
     {
-        $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->date) ? CarbonImmutable::parse($this->date) : CarbonImmutable::today();
-
-        return $date->startOfDay();
+        return QueueBoard::day($this->date);
     }
 
     /**
@@ -200,10 +197,7 @@ class Queue extends Page
         }
 
         $day = $this->day();
-        $cap = $branch->dailyCap();
-        $units = Availability::unitsOn($branch, $day);
-        $state = $cap > 0 ? Availability::check($branch, $day, byStaff: true) : 'closed';
-
+        $dropOffs = QueueBoard::dropOffs($branch, $day);
         $bookings = QueueBoard::bookings($branch, $day);
 
         $columns = [];
@@ -219,28 +213,16 @@ class Queue extends Page
             ];
         }
 
-        $arrivals = Booking::query()
-            ->where('branch_id', $branch->id)
-            ->where('status', 'confirmed')
-            ->where('drop_off_on', today()->toDateString())
-            ->with('items')
-            ->orderBy('id')
-            ->get()
-            ->map(fn (Booking $booking) => $this->card($booking))
-            ->all();
-
         return [
             'shop' => $branch,
             'branches' => $this->branchOptions(),
             'heading' => $day->format('l, M j, Y'),
             'isToday' => $day->isToday(),
-            'cap' => $cap,
-            'units' => $units,
-            'state' => $state,
+            ...$dropOffs,
             'columns' => $columns,
-            'arrivals' => $arrivals,
-            'sizeReviews' => Booking::query()->where('branch_id', $branch->id)->needsSizeReview()->count(),
-            'toSchedule' => Booking::query()->where('branch_id', $branch->id)->where('kind', 'home')->where('status', 'requested')->count(),
+            'arrivals' => QueueBoard::arrivals($branch)->map(fn (Booking $booking) => $this->card($booking))->all(),
+            'sizeReviews' => QueueBoard::sizeReviews($branch),
+            'toSchedule' => QueueBoard::homeRequests($branch),
         ];
     }
 
@@ -250,22 +232,7 @@ class Queue extends Page
     private function card(Booking $booking): array
     {
         return [
-            'id' => $booking->id,
-            'name' => $booking->name,
-            'unit' => $booking->vehicleLabel() ?: '—',
-            'assignedTo' => $booking->assigned_to,
-            'canAssign' => $booking->isOpen() && (bool) auth()->user()?->canAccessArea('queue.update'),
-            'services' => $booking->servicesLabel(),
-            'readyOn' => $booking->ready_on?->format('D, M j'),
-            'home' => $booking->isHome(),
-            'needsSize' => $booking->needsSizeReview(),
-            'note' => match ($booking->stage()) {
-                'awaiting_payment' => 'Waiting for the fee',
-                'payment_review' => 'Screenshot to check',
-                default => null,
-            },
-            'canAdvance' => $booking->nextStatus() !== null && (bool) auth()->user()?->canAccessArea('queue.update'),
-            'button' => $booking->nextStatus() ? 'Mark '.strtolower(Booking::STATUSES[$booking->nextStatus()]) : null,
+            ...QueueBoard::card($booking, auth()->user()),
             'url' => BookingResource::getUrl('view', ['record' => $booking]),
         ];
     }
