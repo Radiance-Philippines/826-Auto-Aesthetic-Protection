@@ -205,8 +205,9 @@ class DemoData extends Command
         imagefill($image, 0, 0, imagecolorallocate($image, $shade, $shade, $shade + 12));
         $white = imagecolorallocate($image, 255, 255, 255);
 
-        foreach (['SAMPLE PHOTO', Photo::CATEGORIES[$category]] as $line => $text) {
-            imagestring($image, 5, (int) ((240 - imagefontwidth(5) * strlen($text)) / 2), 70 + $line * 24, $text, $white);
+        // The gallery crops to a square: wrap so no line runs off it
+        foreach (['SAMPLE PHOTO', ...explode("\n", wordwrap(Photo::CATEGORIES[$category], 16))] as $line => $text) {
+            imagestring($image, 5, (int) ((240 - imagefontwidth(5) * strlen($text)) / 2), 60 + $line * 22, $text, $white);
         }
 
         ob_start();
