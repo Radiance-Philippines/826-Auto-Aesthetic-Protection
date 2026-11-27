@@ -40,6 +40,9 @@ class UnderConstructionTest extends TestCase
             $this->get($page)->assertOk()->assertSee('Under construction')->assertDontSee('APP826', false);
         }
 
+        // The car photo's licence asks for the credit: don't drop it while the photo is there
+        $this->get('/')->assertSee('Damian B Oh')->assertSee('creativecommons.org/licenses/by-sa/4.0', false);
+
         // Visitors don't see the PIN field; after a wrong PIN it stays up with the reason
         $this->assertMatchesRegularExpression('/<form[^>]*data-pin\s+hidden/', $this->get('/')->getContent());
         $this->from('/gallery')->post('/unlock', ['pin' => '000000'])->assertRedirect('/gallery')->assertSessionHasErrors('pin');

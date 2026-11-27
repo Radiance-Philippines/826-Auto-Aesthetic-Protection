@@ -1,4 +1,5 @@
 import '@ui-sdk/web/input';
+import '@ui-sdk/web/popover';
 import '@fontsource-variable/archivo/wdth-italic.css';
 import '@fontsource-variable/archivo/wght.css';
 

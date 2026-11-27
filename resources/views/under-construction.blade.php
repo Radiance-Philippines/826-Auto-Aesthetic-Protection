@@ -41,8 +41,12 @@
         .hint, .error { margin: 0; font-size: 0.875rem; }
         .hint { color: #9ca4a8; }
         .error { color: #ff8a80; }
-        footer { padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom)); font-size: 0.75rem; color: #7c8488; }
-        footer a { color: inherit; }
+        /* The photo's licence (CC BY-SA 4.0) asks for the credit: a small button in the corner holds it */
+        .info { position: fixed; right: max(0.5rem, env(safe-area-inset-right)); bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+        .info button { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin: 0; border-radius: 50%; background: transparent; color: #7c8488; }
+        .info button:hover { background: rgb(255 255 255 / 0.08); color: #eef0f1; }
+        .credit { margin: 0; padding: 0.6rem 0.8rem; max-width: min(18rem, calc(100vw - 1.5rem)); border: 1px solid #2b3034; border-radius: 0.6rem; background: #181b1e; color: #a9b1b5; font-size: 0.8125rem; text-align: left; }
+        .credit a { color: #eef0f1; }
 
         @media (max-width: 639px) { .lights { margin-bottom: 0.5rem; } }
 
@@ -107,6 +111,16 @@
         </form>
     </main>
 
-    <footer>Car photo: <a href="https://commons.wikimedia.org/wiki/File:BMW_G70_740i_sDrive_M_Sport_Black_Sapphire_Metallic_(167).jpg">Damian B Oh, CC BY-SA 4.0</a>, background removed</footer>
+    <ui-popover class="info">
+        <ui-popover-trigger>
+            <button type="button" aria-label="Photo credit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </button>
+        </ui-popover-trigger>
+        <ui-popover-content class="credit" side="top" align="end" aria-label="Photo credit">
+            Car photo: <a href="https://commons.wikimedia.org/wiki/File:BMW_G70_740i_sDrive_M_Sport_Black_Sapphire_Metallic_(167).jpg">Damian B Oh</a>,
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>, background removed
+        </ui-popover-content>
+    </ui-popover>
 </body>
 </html>
