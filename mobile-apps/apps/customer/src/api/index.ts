@@ -3,6 +3,7 @@ import { createClient } from '@826/core';
 import { createApi } from './endpoints';
 import { createMockFetch } from './mock';
 import { getToken } from '@/lib/storage';
+import { pinnedFetch } from '@/lib/pin';
 
 let onUnauthorized: (() => void) | undefined;
 
@@ -16,7 +17,7 @@ export const api = createApi(
         baseUrl: API_URL,
         getToken,
         onUnauthorized: () => onUnauthorized?.(),
-        fetchImpl: MOCK ? createMockFetch() : undefined,
+        fetchImpl: MOCK ? createMockFetch() : pinnedFetch,
     }),
 );
 

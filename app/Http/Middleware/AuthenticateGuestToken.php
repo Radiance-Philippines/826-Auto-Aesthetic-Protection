@@ -24,6 +24,11 @@ class AuthenticateGuestToken
         $plain = $request->bearerToken();
 
         if ($plain !== null && $plain !== '') {
+            // A bearer token is the customer app: while SITE_PIN is set it needs the PIN too
+            if ($refusal = AppPin::refusal($request)) {
+                return $refusal;
+            }
+
             $token = GuestToken::findLive($plain);
 
             if (! $token?->guest) {

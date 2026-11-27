@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from '@/context/auth';
 import { CatalogProvider } from '@/context/catalog';
 import { ThemeProvider, useTheme, Button, useReducedMotion, Text } from '@826/core';
 import { IntroGate } from '@/ui/Intro';
+import { PinGate } from '@/ui/PinGate';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -88,11 +89,13 @@ function Frame() {
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.bg }}>
             <SafeAreaProvider>
                 <StatusBar style={c.scheme === 'dark' ? 'light' : 'dark'} />
-                <CatalogProvider>
-                    <AuthProvider>
-                        <Shell />
-                    </AuthProvider>
-                </CatalogProvider>
+                <PinGate>
+                    <CatalogProvider>
+                        <AuthProvider>
+                            <Shell />
+                        </AuthProvider>
+                    </CatalogProvider>
+                </PinGate>
             </SafeAreaProvider>
         </GestureHandlerRootView>
     );

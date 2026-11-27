@@ -11,6 +11,7 @@ use App\Http\Controllers\StaffOverviewController;
 use App\Http\Controllers\StaffQueueController;
 use App\Http\Controllers\StaffSalesController;
 use App\Http\Controllers\StaffSystemController;
+use App\Http\Middleware\AppPin;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 | customer endpoints the site already uses (/api/my-bookings, /api/bookings…)
 | live in routes/web.php and accept the same token.
 */
-Route::prefix('app')->name('app.')->group(function () {
+Route::prefix('app')->name('app.')->middleware(AppPin::class)->group(function () {
     Route::post('sign-in/google', [AppAuthController::class, 'google'])->middleware('throttle:app-sign-in')->name('sign-in.google');
     Route::post('sign-in/apple', [AppAuthController::class, 'apple'])->middleware('throttle:app-sign-in')->name('sign-in.apple');
     Route::post('sign-in/demo', [AppAuthController::class, 'demo'])->middleware('throttle:app-sign-in')->name('sign-in.demo');
@@ -35,7 +36,8 @@ Route::prefix('app')->name('app.')->group(function () {
 
     Route::get('catalog', [AppController::class, 'catalog'])->middleware('throttle:availability')->name('catalog');
     Route::get('showcase', [AppController::class, 'showcase'])->middleware('throttle:availability')->name('showcase');
-    Route::get('latest', [AppController::class, 'latest'])->middleware('throttle:availability')->name('latest');
+    // Open, so an older app can still learn there is an update
+    Route::get('latest', [AppController::class, 'latest'])->middleware('throttle:availability')->withoutMiddleware(AppPin::class)->name('latest');
 
     Route::middleware(['guest.token:required', 'throttle:my-bookings'])->group(function () {
         Route::post('sign-out', [AppAuthController::class, 'signOut'])->name('sign-out');

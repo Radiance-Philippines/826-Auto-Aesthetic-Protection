@@ -146,9 +146,9 @@ Route::get('/admin/{path}', function (Request $request) {
 
 // The Android app: its page, and the APK of a published release
 Route::get('/download', [DownloadController::class, 'page'])->middleware(UnderConstruction::class)->name('download');
-Route::get('/download/826-auto-{version}.apk', [DownloadController::class, 'apk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.apk');
-Route::get('/download/826-team-{version}.apk', [DownloadController::class, 'staffApk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.staff-apk');
-Route::get('/download/826-{app}-{version}.apk', [DownloadController::class, 'teamApk'])->where(['app' => '[a-z]+', 'version' => '[0-9][0-9A-Za-z.]*'])->name('download.team-apk');
+Route::get('/download/826-auto-{version}.apk', [DownloadController::class, 'apk'])->where('version', '[0-9][0-9A-Za-z.]*')->middleware(UnderConstruction::class)->name('download.apk');
+Route::get('/download/826-team-{version}.apk', [DownloadController::class, 'staffApk'])->where('version', '[0-9][0-9A-Za-z.]*')->middleware(UnderConstruction::class)->name('download.staff-apk');
+Route::get('/download/826-{app}-{version}.apk', [DownloadController::class, 'teamApk'])->where(['app' => '[a-z]+', 'version' => '[0-9][0-9A-Za-z.]*'])->middleware(UnderConstruction::class)->name('download.team-apk');
 
 Route::permanentRedirect('/booking', '/book');
 Route::permanentRedirect('/reserve', '/book');

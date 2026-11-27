@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\SiteUnlockController;
+use App\Http\Middleware\AppPin;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -68,13 +69,55 @@ class UnderConstructionTest extends TestCase
         $this->post('/unlock', ['pin' => self::PIN])->assertSessionHasErrors('pin')->assertSessionMissing('site_unlocked');
     }
 
-    public function test_the_admin_the_apps_and_webhooks_are_not_behind_the_pin(): void
+    public function test_the_admin_and_webhooks_are_not_behind_the_pin(): void
     {
         config(['app.site_pin' => self::PIN]);
 
         $this->get('/owner/login')->assertOk()->assertDontSee('Under construction');
-        $this->getJson('/api/app/catalog')->assertOk()->assertJsonStructure([]);
         $this->get('/webhooks/meta')->assertDontSee('Under construction');
         $this->get('/robots.txt')->assertDontSee('Under construction');
+    }
+
+    public function test_the_customer_app_needs_the_pin_too(): void
+    {
+        config(['app.site_pin' => self::PIN, 'app.demo' => true]);
+        $pin = [AppPin::HEADER => self::PIN];
+
+        $this->getJson('/api/app/catalog')->assertStatus(423)->assertJsonPath('code', 'pin_required');
+        $this->postJson('/api/app/sign-in/demo', [])->assertStatus(423);
+        $this->getJson('/api/app/latest')->assertOk();
+
+        $token = $this->postJson('/api/app/sign-in/demo', [], $pin)->assertOk()->json('token');
+        $this->getJson('/api/app/catalog', $pin)->assertOk();
+
+        // A token from before the lock is no way round it, on the app's calls or the site's
+        $this->flushHeaders();
+        $this->getJson('/api/app/me', ['Authorization' => "Bearer {$token}"])->assertStatus(423);
+        $this->getJson('/api/my-bookings', ['Authorization' => "Bearer {$token}"])->assertStatus(423);
+        $this->getJson('/api/my-bookings', ['Authorization' => "Bearer {$token}", ...$pin])->assertOk();
+    }
+
+    public function test_guessing_the_pin_from_the_app_is_stopped(): void
+    {
+        config(['app.site_pin' => self::PIN]);
+
+        for ($try = 0; $try < SiteUnlockController::TRIES; $try++) {
+            $this->getJson('/api/app/catalog', [AppPin::HEADER => '000000'])->assertStatus(423);
+        }
+
+        $this->getJson('/api/app/catalog', [AppPin::HEADER => self::PIN])->assertStatus(423)->assertJsonPath('message', 'Too many tries. Wait a minute, then try again.');
+    }
+
+    public function test_the_apk_downloads_are_behind_the_pin(): void
+    {
+        config(['app.site_pin' => self::PIN]);
+
+        foreach (['/download/826-auto-1.0.0.apk', '/download/826-team-1.0.0.apk', '/download/826-owner-1.0.0.apk'] as $apk) {
+            $this->get($apk)->assertOk()->assertSee('Under construction');
+        }
+
+        // Past the gate there is no such release in this test
+        $this->post('/unlock', ['pin' => self::PIN]);
+        $this->get('/download/826-auto-1.0.0.apk')->assertNotFound();
     }
 }
