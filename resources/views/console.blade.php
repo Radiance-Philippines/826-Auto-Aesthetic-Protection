@@ -8,12 +8,12 @@
     <meta name="robots" content="noindex" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
 
-    {{-- Light or dark before anything paints: Filament's own "theme" choice, else the device's --}}
+    {{-- Light or dark before anything paints: Filament's own choice (same key), else the device's --}}
     <script>
         (function () {
             var theme = 'system';
             try {
-                theme = localStorage.getItem('theme') || 'system';
+                theme = localStorage.getItem('filament:theme:mode') || 'system';
             } catch (error) {}
             var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             document.documentElement.classList.toggle('dark', dark);
