@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Branches\Pages;
 
 use App\Filament\Resources\Branches\BranchResource;
+use App\Support\BranchForm;
 use Filament\Resources\Pages\CreateRecord;
 
 /**
@@ -14,7 +15,7 @@ class CreateBranch extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        return BranchResource::saveHours($data);
+        return BranchForm::saveHours($data);
     }
 
     protected function getRedirectUrl(): string
