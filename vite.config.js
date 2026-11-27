@@ -10,6 +10,8 @@ export default defineConfig({
                 'resources/js/app.tsx',
                 // Live updates in the admin (a render hook in AdminPanelProvider)
                 'resources/js/admin-live.ts',
+                // The admin's branch selector (UI SDK menu)
+                'resources/js/admin-branch.ts',
                 // Filament admin theme (AdminPanelProvider::viteTheme)
                 'resources/css/filament/admin/theme.css',
             ],
@@ -24,7 +26,8 @@ export default defineConfig({
                 // Libraries in their own file (blueprint PERFORMANCE_BLUEPRINT.md §5): it
                 // only changes when a package does, so a deploy leaves it in visitors' cache
                 codeSplitting: {
-                    groups: [{ name: 'vendor', test: /[\\/]node_modules[\\/]/ }],
+                    // UI SDK stays out: only the admin uses it
+                    groups: [{ name: 'vendor', test: /[\\/]node_modules[\\/](?!@ui-sdk)/ }],
                 },
             },
         },

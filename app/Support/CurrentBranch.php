@@ -27,6 +27,20 @@ class CurrentBranch
     }
 
     /**
+     * What the selector offers: all of the person's branches, whatever is chosen.
+     *
+     * @return array<int, string>
+     */
+    public static function options(User $user): array
+    {
+        return Branch::query()
+            ->when(! $user->isOwner(), fn ($query) => $query->whereIn('id', $user->branchIds()))
+            ->ordered()
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    /**
      * Null means all branches. A branch that is not theirs is refused.
      */
     public static function choose(User $user, ?int $branchId): void

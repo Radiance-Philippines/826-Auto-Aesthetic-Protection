@@ -99,6 +99,8 @@ abstract class BasePanelProvider extends PanelProvider
             ->databaseNotificationsPolling('30s')
             // Live updates from Radiance Flow: the bell, queue, bookings and inbox look again when something changes
             ->renderHook(PanelsRenderHook::BODY_END, fn () => view('filament.live'))
+            // The branch the person is working in (#695)
+            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn () => view('filament.branch-selector'))
             // The panel launcher (a grid button) for people who can open more than one panel
             ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn () => view('filament.panel-launcher'))
             // A super admin viewing as someone else: the sticky banner with "Stop"
