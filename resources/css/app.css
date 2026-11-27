@@ -11,6 +11,9 @@
 @import '@fontsource-variable/archivo/wdth-italic.css';
 
 @source '../views/**/*.blade.php';
+/* The React admin has its own stylesheet (console.css): its classes stay out of the site's */
+@source not '../js/admin';
+@source not '../views/console.blade.php';
 
 /* dark: follows the button (data-theme on <html>, set before paint), not only the device */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

@@ -8,6 +8,9 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/js/app.tsx',
+                // The React admin (/console), beside the Filament panels: its own page and stylesheet
+                'resources/js/admin/main.tsx',
+                'resources/css/console.css',
                 // Live updates in the admin (a render hook in AdminPanelProvider)
                 'resources/js/admin-live.ts',
                 // The admin's branch selector (UI SDK menu)
