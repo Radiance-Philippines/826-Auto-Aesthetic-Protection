@@ -138,7 +138,7 @@ class ConsoleQueueTest extends TestCase
             ->assertJsonPath('columns.0.cards.0.assignedTo', 'Jun')
             ->assertJsonPath('columns.0.cards.0.next', 'arrived')
             ->assertJsonPath('columns.0.cards.0.button', 'Mark arrived')
-            ->assertJsonPath('columns.0.cards.0.url', url("/operations/bookings/{$booked->id}"))
+            ->assertJsonPath('columns.0.cards.0.url', "/bookings/{$booked->id}")
             ->assertJsonPath('columns.2.cards.0.id', $working->id)
             ->assertJsonPath('arrivals.*.id', [$booked->id])
             // A detailer has no closures area
@@ -153,7 +153,9 @@ class ConsoleQueueTest extends TestCase
         $this->actingAs($this->staffUser('branch_manager', $this->cainta));
 
         $this->getJson(self::QUEUE)
-            ->assertJsonPath('links.newBooking', url('/operations/bookings/create'))
+            ->assertJsonPath('links.newBooking', '/bookings/create')
+            ->assertJsonPath('links.sizeReviews', '/bookings?tab=size')
+            ->assertJsonPath('links.homeRequests', '/bookings?tab=home')
             ->assertJsonPath('links.closures', url('/operations/branch-blocks'));
     }
 

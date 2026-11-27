@@ -83,6 +83,19 @@ test('a detailer says who is on a unit and moves it one step', async ({ page }, 
     expect(problems()).toEqual([]);
 });
 
+test('a card opens that booking in the new admin', async ({ page }) => {
+    await openQueue(page);
+    const first = page.locator('article[data-card]').first();
+    const id = await first.getAttribute('data-card');
+    const link = first.getByRole('link').first();
+    const customer = (await link.locator('span').nth(1).innerText()).trim();
+
+    await link.click();
+
+    await expect(page).toHaveURL(new RegExp(`/console/operations/bookings/${id}$`));
+    await expect(page.getByRole('main')).toContainText(customer);
+});
+
 test('day navigation: earlier, later, a typed date and today', async ({ page }) => {
     await openQueue(page);
     const heading = page.getByRole('heading', { level: 2 }).first();

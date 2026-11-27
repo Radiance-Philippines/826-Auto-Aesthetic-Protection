@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { addDays, isoDate, parseDate } from '../../lib/dates';
 import { api, errorMessage, fieldErrors } from '../lib/api';
@@ -80,12 +80,12 @@ function Strip({ board }: { board: Board }) {
 function Unit({ card, onAdvance, onAssign }: { card: Card; onAdvance: (card: Card) => void; onAssign: (card: Card) => void }) {
     return (
         <article data-card={card.id} aria-label={`${card.unit}, ${card.name}`} tabIndex={-1} className="rounded-lg border border-border bg-card p-2.5 text-sm shadow-xs">
-            <a href={card.url} className="block rounded-sm hover:underline">
+            <Link to={card.url} className="block rounded-sm hover:underline">
                 <span className="block font-semibold break-words">{card.unit}</span>
                 <span className="block break-words">{card.name}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">{card.services}</span>
                 {card.readyOn && <span className="mt-0.5 block text-xs text-muted-foreground">Ready around {card.readyOn}</span>}
-            </a>
+            </Link>
 
             {card.assignedTo && <p className="mt-1.5 text-xs font-medium break-words">Assigned to {card.assignedTo}</p>}
 
@@ -209,10 +209,10 @@ export default function Queue() {
             actions={
                 <>
                     {board?.links.newBooking && (
-                        <a href={board.links.newBooking} className={buttonClass('primary')}>
+                        <Link to={board.links.newBooking} className={buttonClass('primary')}>
                             <Icon name="plus" />
                             Add a booking
-                        </a>
+                        </Link>
                     )}
                     {board?.links.closures && (
                         <a href={board.links.closures} className={buttonClass()}>
@@ -288,14 +288,14 @@ export default function Queue() {
             {(board.sizeReviews > 0 || board.homeRequests > 0) && (
                 <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                     {board.sizeReviews > 0 && (
-                        <a href={board.links.sizeReviews} className="underline underline-offset-4">
+                        <Link to={board.links.sizeReviews} className="underline underline-offset-4">
                             {board.sizeReviews} {board.sizeReviews === 1 ? 'unit needs' : 'units need'} a size review
-                        </a>
+                        </Link>
                     )}
                     {board.homeRequests > 0 && (
-                        <a href={board.links.homeRequests} className="underline underline-offset-4">
+                        <Link to={board.links.homeRequests} className="underline underline-offset-4">
                             {board.homeRequests} home {board.homeRequests === 1 ? 'request' : 'requests'} to schedule
-                        </a>
+                        </Link>
                     )}
                 </p>
             )}
@@ -328,12 +328,12 @@ export default function Queue() {
                     <ul className="m-0 mt-2 list-none divide-y divide-border p-0">
                         {board.arrivals.map((card) => (
                             <li key={card.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                                <a href={card.url} className="min-w-0 rounded-sm hover:underline">
+                                <Link to={card.url} className="min-w-0 rounded-sm hover:underline">
                                     <span className="block truncate text-sm font-medium">
                                         {card.name} · {card.unit}
                                     </span>
                                     <span className="block truncate text-xs text-muted-foreground">{card.services}</span>
-                                </a>
+                                </Link>
                                 {card.canAdvance && (
                                     <Button icon="arrow-right-to-line" size="sm" onClick={() => advance(card)}>
                                         Mark arrived

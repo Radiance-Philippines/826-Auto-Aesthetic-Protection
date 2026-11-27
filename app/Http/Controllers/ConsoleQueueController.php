@@ -32,7 +32,7 @@ class ConsoleQueueController extends StaffController
 
         $card = fn (Booking $booking) => [
             ...QueueBoard::card($booking, $user),
-            'url' => BookingResource::getUrl('view', ['record' => $booking]),
+            'url' => "/bookings/{$booking->getKey()}",
         ];
 
         $payload = [
@@ -42,10 +42,10 @@ class ConsoleQueueController extends StaffController
             'heading' => $day->format('l, M j, Y'),
             'isToday' => $day->isToday(),
             'links' => [
-                'newBooking' => BookingResource::canCreate() ? BookingResource::getUrl('create') : null,
+                'newBooking' => BookingResource::canCreate() ? '/bookings/create' : null,
                 'closures' => BranchBlockResource::canViewAny() ? BranchBlockResource::getUrl('index') : null,
-                'sizeReviews' => BookingResource::getUrl('index', ['activeTab' => 'size']),
-                'homeRequests' => BookingResource::getUrl('index', ['activeTab' => 'home']),
+                'sizeReviews' => '/bookings?tab=size',
+                'homeRequests' => '/bookings?tab=home',
             ],
         ];
 
