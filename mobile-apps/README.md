@@ -21,7 +21,7 @@ mobile-apps/
     system/               826 System           ph.radianceph.aap826.system
   scripts/
     sync-routes.mjs       writes each team app's routes (one re-export per route of ops-features/app)
-    make-placeholder-icons.mjs   the PLACEHOLDER team icons (needs sharp)
+    make-team-icons.mjs          the team icons: mark and app name on the app colour (needs sharp)
 ```
 
 Rules the tests hold (`packages/core/__tests__/boundaries.test.ts`): the customer app never imports `@826/ops-features`; the team features never import the customer app; core imports neither; a thin team app has only config, a few re-export routes and tests.
@@ -33,12 +33,12 @@ A thin team app is: `app.json` (name, slug, scheme, package, bundle id, version,
 | App | Package / bundle id | Version (code) | Icon colour | Keystore env |
 |---|---|---|---|---|
 | 826 Auto Aesthetic (customer) | `ph.radianceph.aap826` | 0.3.1 (4) | brand teal (real icon) | `~/backups/826-app/keystore.env`, `AAP826_*` |
-| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.1 (2) | gold `#C9A24B` (placeholder) | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
-| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.1 (2) | teal `#2AD1CB` (placeholder) | same staff keystore |
-| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.1 (4) | blue `#4C8DFF` (placeholder) | same staff keystore |
-| 826 System | `ph.radianceph.aap826.system` | 0.1.1 (2) | violet `#8B7CF6` (placeholder) | same staff keystore |
+| 826 Owner | `ph.radianceph.aap826.owner` | 0.1.1 (2) | gold `#C9A24B` | `~/backups/826-staff-app/keystore.env`, `AAP826STAFF_*` |
+| 826 Sales | `ph.radianceph.aap826.sales` | 0.1.1 (2) | teal `#2AD1CB` | same staff keystore |
+| 826 Operations | `ph.radianceph.aap826.staff` | 0.2.1 (4) | blue `#4C8DFF` | same staff keystore |
+| 826 System | `ph.radianceph.aap826.system` | 0.1.1 (2) | violet `#8B7CF6` | same staff keystore |
 
-The team icons are placeholders (the 826 mark on the role colour with a two-letter badge). Replace the files in `apps/<app>/assets/`; `scripts/make-placeholder-icons.mjs` regenerates the placeholders.
+The team icons are the 826 mark and the app name (OWNER, SALES, OPS, SYSTEM) in flat dark on the app colour. Regenerate with `NODE_PATH=<a node_modules with sharp> node scripts/make-team-icons.mjs`; it reads each colour from `app.json`.
 
 ## Work
 
