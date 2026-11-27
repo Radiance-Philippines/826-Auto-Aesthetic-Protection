@@ -23,7 +23,7 @@
         .body { inset: 0; width: 100%; height: 100%; }
         .wheel { height: auto; animation: roll 2.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
         .shadow { position: absolute; left: 3%; right: 3%; bottom: -4%; height: 14%; background: radial-gradient(50% 50% at 50% 50%, rgb(0 0 0 / 0.92), transparent 70%); }
-        .reflection { position: absolute; left: 0; top: 94%; width: 100%; transform: scaleY(-1); opacity: 0.25; mask-image: linear-gradient(to top, #000, transparent 34%); }
+        .reflection { position: absolute; left: 0; top: 94%; width: 100%; height: auto; transform: scaleY(-1); opacity: 0.25; mask-image: linear-gradient(to top, #000, transparent 34%); }
 
         h1 { margin: clamp(2rem, 7dvh, 4.5rem) 0 0.5rem; font-size: clamp(1.9rem, 6.5vw, 3.75rem); font-style: italic; font-weight: 800; font-stretch: 125%; line-height: 1.1; text-transform: uppercase; animation: rise 0.7s 1.9s ease-out both; }
         .lead { margin: 0; color: #9ca4a8; animation: rise 0.7s 2.1s ease-out both; }
