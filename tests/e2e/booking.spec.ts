@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+import { adminLogin, adminOpen, TEAM } from './admin-support';
 import { expectNoHorizontalOverflow, signIn, watchProblems } from './support';
 
 const main = (page: Page) => page.locator('main#main');
@@ -30,13 +31,13 @@ async function startNewUnit(page: Page) {
     }
 }
 
-async function fillUnit(page: Page) {
+async function fillUnit(page: Page, plate = UNIT.plate) {
     await startNewUnit(page);
 
     await main(page).getByRole('combobox', { name: 'Year' }).click();
     await page.getByRole('option', { name: UNIT.year, exact: true }).click();
     await main(page).getByLabel('Make and model').fill(UNIT.model);
-    await main(page).getByLabel('Plate number').fill(UNIT.plate);
+    await main(page).getByLabel('Plate number').fill(plate);
     await next(page).click();
 }
 
@@ -75,10 +76,14 @@ async function findDay(page: Page, state: 'open' | 'fully booked'): Promise<Loca
     return days(page, state).first();
 }
 
-async function pickDate(page: Page) {
+async function pickDate(page: Page): Promise<string> {
     await expect(heading(page, 'Pick a drop-off date')).toBeVisible();
-    await (await findDay(page, 'open')).click();
+    const day = await findDay(page, 'open');
+    const iso = (await day.getAttribute('data-iso')) as string;
+    await day.click();
     await next(page).click();
+
+    return iso;
 }
 
 async function fillDetails(page: Page, agree = true) {
@@ -278,6 +283,36 @@ test.describe('booking reservation', () => {
         // It shows in My bookings too
         await page.goto('/bookings');
         await expect(main(page).getByText('Exterior detailing').first()).toBeVisible();
+    });
+
+    test('a reservation made on the site is in the branch queue for the team', async ({ page, browser }, info) => {
+        const plate = `E2Q ${info.project.name.toUpperCase()}`;
+
+        await signIn(page);
+        await pickBranch(page);
+        await fillUnit(page, plate);
+        await pickService(page);
+        const day = await pickDate(page);
+        await fillDetails(page);
+        await main(page).getByRole('button', { name: 'Reserve this date' }).click();
+        await expect(page).toHaveURL(/\/bookings\/\d+/);
+
+        // A second browser: the team member, on the day the customer picked
+        const { baseURL, viewport } = info.project.use;
+        const team = await browser.newContext({ baseURL, viewport });
+
+        try {
+            const queue = await team.newPage();
+            await adminLogin(queue, TEAM.operations);
+            await adminOpen(queue, `/operations/queue?date=${day}`);
+
+            const card = queue.locator('section[aria-labelledby="queue-confirmed"] article').filter({ hasText: plate.replace(' ', '') });
+            await expect(card).toHaveCount(1);
+            await expect(card).toContainText('Exterior detailing');
+            await expect(card).toContainText(PERSON.name);
+        } finally {
+            await team.close();
+        }
     });
 
     test('the booking page is private to its owner', async ({ page }) => {
