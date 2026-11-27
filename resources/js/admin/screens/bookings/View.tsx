@@ -341,9 +341,9 @@ export function BookingView() {
                     <Collapsible defaultOpen className="block">
                         <section aria-labelledby="booking-history" className="rounded-xl border border-border bg-card p-4">
                             <h2 id="booking-history" className="m-0 text-sm font-semibold">
-                                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 bg-transparent p-0 font-semibold text-inherit pointer-coarse:min-h-11">
-                                    History
+                                <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent p-0 font-semibold text-inherit pointer-coarse:min-h-11">
                                     <Icon name="chevron-down" />
+                                    History
                                 </CollapsibleTrigger>
                             </h2>
                             <CollapsiblePanel>
@@ -421,7 +421,7 @@ export function BookingView() {
                 </Section>
             </div>
 
-            {dialog && <ActionDialog name={dialog} booking={booking} onClose={() => setDialog(null)} onDone={refresh} onWarning={setWarning} />}
+            <ActionDialog name={dialog} booking={booking} onClose={() => setDialog(null)} onDone={refresh} onWarning={setWarning} />
         </>
     );
 }

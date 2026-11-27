@@ -42,17 +42,17 @@ type List = {
 };
 
 const filters = [
-    { value: 'open', label: 'Open' },
-    { value: 'unread', label: 'Unread' },
-    { value: 'done', label: 'Done' },
-    { value: 'all', label: 'All' },
+    { value: 'open', label: 'Open', icon: 'inbox' as const },
+    { value: 'unread', label: 'Unread', icon: 'circle' as const },
+    { value: 'done', label: 'Done', icon: 'check' as const },
+    { value: 'all', label: 'All', icon: 'layout-grid' as const },
 ];
 
 const channels = [
-    { value: 'all', label: 'All' },
-    { value: 'messenger', label: 'Messenger' },
-    { value: 'headsup', label: 'Heads-up' },
-    { value: 'internal', label: 'Internal' },
+    { value: 'all', label: 'All', icon: 'layout-grid' as const },
+    { value: 'messenger', label: 'Messenger', icon: 'message-circle' as const },
+    { value: 'headsup', label: 'Heads-up', icon: 'triangle-alert' as const },
+    { value: 'internal', label: 'Internal', icon: 'users' as const },
 ];
 
 function nothing(search: string, filter: string, channel: string): string {
@@ -266,18 +266,17 @@ export default function Inbox() {
                 body
             )}
 
-            {starting && (
-                <NewThread
-                    branches={data.branches}
-                    branch={/^\d+$/.test(data.branch) ? data.branch : data.branches.length === 1 ? data.branches[0].value : null}
-                    onClose={() => setStarting(false)}
-                    onStarted={(id) => {
-                        setStarting(false);
-                        go({ conversation: String(id), channel: 'internal', filter: null });
-                        reload();
-                    }}
-                />
-            )}
+            <NewThread
+                open={starting}
+                branches={data.branches}
+                branch={/^\d+$/.test(data.branch) ? data.branch : data.branches.length === 1 ? data.branches[0].value : null}
+                onClose={() => setStarting(false)}
+                onStarted={(id) => {
+                    setStarting(false);
+                    go({ conversation: String(id), channel: 'internal', filter: null });
+                    reload();
+                }}
+            />
         </>
     );
 }

@@ -394,21 +394,26 @@ function Show({ customer, reload }: { customer: Customer; reload: () => void }) 
                     {open?.kind === 'redeem' && <RedeemForm customer={customer} redeem={customer.redeem} onClose={() => setOpen(null)} onDone={reload} />}
                 </Modal>
             )}
-            {open?.kind === 'size' && customer.setSize && (
-                <Modal open onClose={() => setOpen(null)} title="Set size" description="Sets the unit’s size class. Its open bookings that had no price yet are priced from the services’ rates, and the customer gets an email with it.">
-                    <SizeForm customer={customer} unit={open.unit} sizes={customer.setSize} onClose={() => setOpen(null)} onDone={reload} />
-                </Modal>
-            )}
-            {open?.kind === 'history' && (
-                <Modal open onClose={() => setOpen(null)} title={`Service history: ${open.unit.plate}`} description={`${open.unit.year ?? ''} ${open.unit.model}`.trim()}>
-                    <History customer={customer} unit={open.unit} />
-                    <div className="mt-4 flex justify-end">
-                        <Button icon="x" onClick={() => setOpen(null)}>
-                            Close
-                        </Button>
-                    </div>
-                </Modal>
-            )}
+            <Modal open={open?.kind === 'size'} onClose={() => setOpen(null)} title="Set size" description="Sets the unit’s size class. Its open bookings that had no price yet are priced from the services’ rates, and the customer gets an email with it.">
+                {open?.kind === 'size' && customer.setSize && <SizeForm key={open.unit.id} customer={customer} unit={open.unit} sizes={customer.setSize} onClose={() => setOpen(null)} onDone={reload} />}
+            </Modal>
+            <Modal
+                open={open?.kind === 'history'}
+                onClose={() => setOpen(null)}
+                title={open?.kind === 'history' ? `Service history: ${open.unit.plate}` : 'Service history'}
+                description={open?.kind === 'history' ? `${open.unit.year ?? ''} ${open.unit.model}`.trim() : undefined}
+            >
+                {open?.kind === 'history' && (
+                    <>
+                        <History key={open.unit.id} customer={customer} unit={open.unit} />
+                        <div className="mt-4 flex justify-end">
+                            <Button icon="x" onClick={() => setOpen(null)}>
+                                Close
+                            </Button>
+                        </div>
+                    </>
+                )}
+            </Modal>
         </>
     );
 }

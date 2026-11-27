@@ -275,12 +275,13 @@ const dialogs: Record<DialogName, { title: (booking: Detail) => string; descript
     },
 };
 
-export function ActionDialog({ name, ...props }: Props & { name: DialogName }) {
-    const { title, description, body: Body } = dialogs[name];
+export function ActionDialog({ name, ...props }: Props & { name: DialogName | null }) {
+    const dialog = name ? dialogs[name] : null;
 
+    // Always mounted: a sheet that mounts already open does not always slide in on a touch screen
     return (
-        <Modal open onClose={props.onClose} title={title(props.booking)} description={description?.(props.booking)}>
-            <Body {...props} />
+        <Modal open={dialog !== null} onClose={props.onClose} title={dialog?.title(props.booking) ?? ''} description={dialog?.description?.(props.booking)}>
+            {dialog && <dialog.body key={name} {...props} />}
         </Modal>
     );
 }

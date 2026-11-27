@@ -229,9 +229,9 @@ export function Thread({ id, tick, onBack, onChanged }: { id: number; tick: numb
     useEffect(() => {
         if (opened) {
             onChanged();
-            heading.current?.focus({ preventScroll: true });
+            // On a phone the chat takes the list's place: this also brings it into view
+            heading.current?.focus();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [opened]);
 
     // The newest message in view; older ones loaded above leave the place alone
@@ -286,7 +286,7 @@ export function Thread({ id, tick, onBack, onChanged }: { id: number; tick: numb
             <header className="flex flex-wrap items-center gap-2 border-b border-border p-3">
                 <Button icon="arrow-left" aria-label="Back to chats" variant="ghost" className="lg:hidden" onClick={onBack} />
                 <div className="min-w-0 flex-1">
-                    <h2 ref={heading} tabIndex={-1} className="m-0 flex flex-wrap items-center gap-2 text-sm font-semibold break-words">
+                    <h2 ref={heading} tabIndex={-1} className="m-0 flex scroll-mt-48 flex-wrap items-center gap-2 text-sm font-semibold break-words">
                         {chat.name}
                         {chat.sample && <Tone tone="warning">Sample</Tone>}
                     </h2>
@@ -360,16 +360,12 @@ export function Thread({ id, tick, onBack, onChanged }: { id: number; tick: numb
 
             <Composer chat={chat} onSent={after} />
 
-            {dialog === 'assign' && (
-                <Modal open onClose={() => setDialog(null)} title="Assign this chat">
-                    <AssignForm chat={chat} onClose={() => setDialog(null)} onDone={after} />
-                </Modal>
-            )}
-            {dialog === 'customer' && (
-                <Modal open onClose={() => setDialog(null)} title="Link this chat to a customer">
-                    <CustomerForm chat={chat} onClose={() => setDialog(null)} onDone={after} />
-                </Modal>
-            )}
+            <Modal open={dialog === 'assign'} onClose={() => setDialog(null)} title="Assign this chat">
+                {dialog === 'assign' && <AssignForm chat={chat} onClose={() => setDialog(null)} onDone={after} />}
+            </Modal>
+            <Modal open={dialog === 'customer'} onClose={() => setDialog(null)} title="Link this chat to a customer">
+                {dialog === 'customer' && <CustomerForm chat={chat} onClose={() => setDialog(null)} onDone={after} />}
+            </Modal>
         </section>
     );
 }
