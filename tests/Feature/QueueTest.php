@@ -59,6 +59,35 @@ class QueueTest extends TestCase
             ->assertDontSee('Another Day');
     }
 
+    public function test_operations_type_who_is_on_a_unit_and_can_clear_it(): void
+    {
+        $booking = Booking::factory()->on('2026-11-16')->create(['branch_id' => $this->branch->id, 'status' => 'arrived']);
+        $crew = User::factory()->operations()->create();
+        $crew->branches()->sync([$this->branch->id]);
+        $this->actingAs($crew);
+
+        Livewire::test(Queue::class, ['branch' => $this->branch->id])
+            ->callAction('assignedTo', data: ['assigned_to' => '  Jun, Ben '], arguments: ['booking' => $booking->id])
+            ->assertHasNoActionErrors()
+            ->assertSee('Assigned to Jun, Ben')
+            ->callAction('assignedTo', data: ['assigned_to' => ''], arguments: ['booking' => $booking->id])
+            ->assertDontSee('Assigned to Jun, Ben');
+
+        $this->assertNull($booking->refresh()->assigned_to);
+        $this->assertSame(['Jun, Ben → no one', 'Jun, Ben'], $booking->events()->where('kind', 'assigned')->get()->map(fn ($event) => collect([$event->from, $event->to])->filter()->implode(' → '))->all());
+    }
+
+    public function test_only_who_moves_units_can_say_who_is_on_one(): void
+    {
+        $booking = Booking::factory()->on('2026-11-16')->create(['branch_id' => $this->branch->id, 'status' => 'arrived']);
+        $sales = User::factory()->salesAdmin()->create();
+        $sales->branches()->sync([$this->branch->id]);
+        $this->actingAs($sales);
+
+        Livewire::test(Queue::class, ['branch' => $this->branch->id])
+            ->assertActionHidden('assignedTo', arguments: ['booking' => $booking->id]);
+    }
+
     public function test_a_full_or_closed_day_says_so_in_the_header(): void
     {
         Booking::factory()->count(3)->on('2026-11-17')->create(['branch_id' => $this->branch->id]);

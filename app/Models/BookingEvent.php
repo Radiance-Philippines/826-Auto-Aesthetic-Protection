@@ -55,6 +55,7 @@ class BookingEvent extends Model
             'payment' => 'Amount paid',
             'discount' => 'Discount',
             'note' => 'Note',
+            'assigned' => 'Assigned to',
             default => ucfirst($this->kind),
         };
         $change = collect([$this->from, $this->to])->filter(fn ($value) => filled($value))->implode(' → ');

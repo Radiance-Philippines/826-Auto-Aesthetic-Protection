@@ -276,6 +276,7 @@ class BookingResource extends Resource
                                 ->weight('bold')
                                 ->columnSpanFull(),
                             TextEntry::make('branch.name')->label('Branch'),
+                            TextEntry::make('assigned_to')->label('Assigned to')->placeholder('No one yet'),
                             TextEntry::make('kind')
                                 ->formatStateUsing(fn (string $state) => Booking::KINDS[$state] ?? $state)
                                 ->badge()

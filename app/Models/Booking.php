@@ -160,6 +160,7 @@ class Booking extends Model
         'has_shade',
         'message',
         'admin_note',
+        'assigned_to',
         'total_price',
         'total_days',
         'size_reviewed_at',
@@ -309,6 +310,10 @@ class Booking extends Model
 
         if ($this->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
             $events[] = ['unit', $unit([...$this->only(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number']), ...$before]), $unit($this->only(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])), null];
+        }
+
+        if ($this->wasChanged('assigned_to')) {
+            $events[] = ['assigned', $before['assigned_to'] ?? null, $this->assigned_to ?? 'no one', null];
         }
 
         if ($this->wasChanged('vehicle_size_name')) {

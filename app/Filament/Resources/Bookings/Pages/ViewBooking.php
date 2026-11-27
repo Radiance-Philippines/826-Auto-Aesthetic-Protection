@@ -43,6 +43,7 @@ class ViewBooking extends ViewRecord
     {
         return [
             ...BookingActions::workflow(),
+            BookingActions::assignedTo(),
             BookingActions::call(),
             BookingActions::text(),
             ActionGroup::make([

@@ -269,6 +269,35 @@ final class BookingActions
     }
 
     /**
+     * Who is working on the unit: free text, typed by whoever moves it
+     * (owner, 2026-11-27). Used by the booking page and the Queue's cards.
+     */
+    public static function assignedTo(): Action
+    {
+        return Action::make('assignedTo')
+            ->authorize(fn () => self::allows('queue.update'))
+            ->label('Assigned to')
+            ->icon(Heroicon::OutlinedUser)
+            ->color('gray')
+            ->visible(fn (Booking $record) => $record->isOpen())
+            ->modalHeading('Who is on this unit?')
+            ->modalSubmitActionLabel('Save')
+            ->fillForm(fn (Booking $record) => ['assigned_to' => $record->assigned_to])
+            ->schema([
+                TextInput::make('assigned_to')
+                    ->label('Assigned to')
+                    ->placeholder('Jun, Ben')
+                    ->maxLength(120)
+                    ->helperText('Type the name or names. Leave blank to clear.'),
+            ])
+            ->action(function (Booking $record, array $data) {
+                $record->update(['assigned_to' => trim((string) $data['assigned_to']) ?: null]);
+
+                Notification::make()->success()->title('Saved')->send();
+            });
+    }
+
+    /**
      * For a car that isn't ready on time: a later ready date.
      */
     public static function changeReadyDate(): Action

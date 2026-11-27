@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\RefreshesLive;
 use App\Filament\Concerns\ShownInItsPanels;
+use App\Filament\Resources\Bookings\BookingActions;
 use App\Filament\Resources\Bookings\BookingResource;
 use App\Filament\Resources\BranchBlocks\BranchBlockResource;
 use App\Models\Booking;
@@ -147,6 +148,15 @@ class Queue extends Page
     }
 
     /**
+     * A card's "Assign": who is on the unit, one of this branch's.
+     */
+    public function assignedToAction(): Action
+    {
+        return BookingActions::assignedTo()
+            ->record(fn (array $arguments) => Booking::query()->visibleTo(auth()->user())->where('branch_id', $this->branch)->findOrFail($arguments['booking'] ?? 0));
+    }
+
+    /**
      * @return array<int, string>
      */
     public function branchOptions(): array
@@ -243,6 +253,8 @@ class Queue extends Page
             'id' => $booking->id,
             'name' => $booking->name,
             'unit' => $booking->vehicleLabel() ?: '—',
+            'assignedTo' => $booking->assigned_to,
+            'canAssign' => $booking->isOpen() && (bool) auth()->user()?->canAccessArea('queue.update'),
             'services' => $booking->servicesLabel(),
             'readyOn' => $booking->ready_on?->format('D, M j'),
             'home' => $booking->isHome(),

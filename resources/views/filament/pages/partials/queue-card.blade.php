@@ -8,6 +8,10 @@
         @endif
     </a>
 
+    @if ($card['assignedTo'])
+        <p class="mt-1 break-words text-xs font-medium text-gray-800 dark:text-gray-100">Assigned to {{ $card['assignedTo'] }}</p>
+    @endif
+
     @if ($card['needsSize'] || $card['note'] || $card['home'])
         <div class="mt-1.5 flex flex-wrap gap-1">
             @if ($card['needsSize'])
@@ -22,7 +26,14 @@
         </div>
     @endif
 
-    @if ($card['canAdvance'])
-        <x-filament::button class="mt-2" size="xs" color="gray" outlined :icon="$column['icon']" wire:click="advance({{ $card['id'] }})" wire:confirm="{{ $card['button'] }}: {{ $card['name'] }}, {{ $card['unit'] }}?">{{ $card['button'] }}</x-filament::button>
+    @if ($card['canAdvance'] || $card['canAssign'])
+        <div class="mt-2 flex flex-wrap gap-1.5">
+            @if ($card['canAdvance'])
+                <x-filament::button size="xs" color="gray" outlined :icon="$column['icon']" wire:click="advance({{ $card['id'] }})" wire:confirm="{{ $card['button'] }}: {{ $card['name'] }}, {{ $card['unit'] }}?">{{ $card['button'] }}</x-filament::button>
+            @endif
+            @if ($card['canAssign'])
+                <x-filament::button size="xs" color="gray" outlined icon="heroicon-m-user" wire:click="mountAction('assignedTo', { booking: {{ $card['id'] }} })" aria-label="{{ ($card['assignedTo'] ? 'Change who is on ' : 'Assign someone to ').$card['unit'] }}">{{ $card['assignedTo'] ? 'Change' : 'Assign' }}</x-filament::button>
+            @endif
+        </div>
     @endif
 </article>
