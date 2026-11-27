@@ -16,8 +16,10 @@ use App\Models\PaymentSetting;
 use App\Models\Service;
 use App\Models\VehicleSize;
 use App\Support\ManualTransaction;
+use App\Support\Schedule\Availability;
 use App\Support\Schedule\Estimate;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -141,6 +143,14 @@ class BookingResource extends Resource
             ->all();
     }
 
+    /**
+     * The picked branch, when it is one this person works with.
+     */
+    private static function branchFor(mixed $id): ?Branch
+    {
+        return filled($id) ? Branch::query()->visibleTo(auth()->user())->find($id) : null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -181,6 +191,10 @@ class BookingResource extends Resource
                             DatePicker::make('drop_off_on')
                                 ->label(fn (Get $get) => $get('kind') === 'home' ? 'Team comes on (optional)' : 'Drop-off date')
                                 ->displayFormat('D, M j, Y')
+                                ->live()
+                                ->disabledDates(fn (Get $get) => $get('kind') !== 'home' && ($branch = self::branchFor($get('branch_id')))
+                                    ? Availability::blockedForStaff($branch, auth()->user())
+                                    : [])
                                 ->required(fn (Get $get) => $get('kind') !== 'home')
                                 ->helperText(fn (Get $get) => $get('kind') === 'home'
                                     ? 'Leave blank to schedule it later.'
@@ -188,7 +202,10 @@ class BookingResource extends Resource
                             Toggle::make('force')
                                 ->label('Book even if it’s full')
                                 ->helperText('For when you’ve made room yourself. The queue shows the day as over its cap.')
-                                ->visible(fn (Get $get) => $get('kind') !== 'home')
+                                ->visible(fn (Get $get) => $get('kind') !== 'home'
+                                    && filled($get('drop_off_on'))
+                                    && ($branch = self::branchFor($get('branch_id')))
+                                    && Availability::canOverbook($branch, CarbonImmutable::parse($get('drop_off_on')), auth()->user()))
                                 ->dehydrated(),
                             DatePicker::make('preferred_date')
                                 ->label('Customer’s preferred day')

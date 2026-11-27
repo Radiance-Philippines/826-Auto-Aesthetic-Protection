@@ -7,6 +7,7 @@ use App\Models\PaymentSetting;
 use App\Models\VehicleSize;
 use App\Support\Notifier;
 use App\Support\Reservations;
+use App\Support\Schedule\Availability;
 use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Validation\ValidationException;
@@ -241,9 +243,13 @@ final class BookingActions
                     ->label('New drop-off date')
                     ->displayFormat('D, M j, Y')
                     ->required()
+                    ->live()
+                    ->disabledDates(fn (Booking $record) => Availability::blockedForStaff($record->branch, auth()->user(), $record->id))
                     ->helperText(fn (Booking $record) => 'Takes '.$record->estimate()->label().'. The ready date moves with it.'),
                 Toggle::make('force')
-                    ->label('Book even if it’s full'),
+                    ->label('Book even if it’s full')
+                    ->visible(fn (Booking $record, Get $get) => filled($get('drop_off_on'))
+                        && Availability::canOverbook($record->branch, CarbonImmutable::parse($get('drop_off_on')), auth()->user(), $record->id)),
             ])
             ->modalSubmitActionLabel('Move')
             ->action(function (Booking $record, array $data, Action $action) {

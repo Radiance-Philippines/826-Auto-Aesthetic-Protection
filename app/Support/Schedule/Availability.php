@@ -5,6 +5,7 @@ namespace App\Support\Schedule;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\BranchBlock;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -116,6 +117,53 @@ final class Availability
         }
 
         return (self::counts($branch, $date, $date, $exceptBookingId)[$date->toDateString()] ?? 0) >= $branch->dailyCap() ? 'full' : 'ok';
+    }
+
+    /**
+     * The branch marked the day fully booked: nobody books over that (#686).
+     */
+    public static function markedFull(Branch $branch, CarbonImmutable $date): bool
+    {
+        return self::fullBlocks($branch, $date->startOfDay(), $date->startOfDay())->isNotEmpty();
+    }
+
+    /**
+     * Whether the team may book over the day: only its daily cap is reached
+     * (not marked full, not closed), and the person is allowed to.
+     */
+    public static function canOverbook(Branch $branch, CarbonImmutable $date, ?User $user, ?int $exceptBookingId = null): bool
+    {
+        return $user?->canOverbook() === true
+            && self::check($branch, $date, $exceptBookingId, byStaff: true) === 'full'
+            && ! self::markedFull($branch, $date);
+    }
+
+    /**
+     * Dates the team's date picker greys out for the next half year: closed,
+     * marked fully booked, and, for someone who can't book over it, at the cap.
+     *
+     * @return list<string>
+     */
+    public static function blockedForStaff(Branch $branch, ?User $user, ?int $exceptBookingId = null): array
+    {
+        $from = CarbonImmutable::today();
+        $to = $from->addDays(180);
+        $calendar = OpenCalendar::for($branch, $from, $to);
+        $counts = self::counts($branch, $from, $to, $exceptBookingId);
+        $full = self::fullBlocks($branch, $from, $to);
+        $cap = $branch->dailyCap();
+        $blocked = [];
+
+        for ($date = $from; $date <= $to; $date = $date->addDay()) {
+            if ($cap <= 0
+                || ! $calendar->isOpen($date)
+                || $full->contains(fn (BranchBlock $block) => $block->coversDate($date))
+                || (! $user?->canOverbook() && ($counts[$date->toDateString()] ?? 0) >= $cap)) {
+                $blocked[] = $date->toDateString();
+            }
+        }
+
+        return $blocked;
     }
 
     /**

@@ -296,6 +296,15 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->isOwner() ? null : $this->branchIds();
     }
 
+    /**
+     * May take a booking over a branch's daily cap (never over a day marked
+     * fully booked, or a closed one).
+     */
+    public function canOverbook(): bool
+    {
+        return in_array($this->role, [Access::SUPER_ADMIN, Access::BRANCH_MANAGER], true);
+    }
+
     public function canManageBranch(int|Branch|null $branch): bool
     {
         if ($this->isOwner()) {

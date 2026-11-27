@@ -26,11 +26,13 @@ use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleSize;
+use App\Support\Reservations;
 use App\Support\Schedule\Availability;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\Support\BuildsShop;
 use Tests\TestCase;
@@ -274,6 +276,53 @@ class AdminPanelTest extends TestCase
             ->callAction('reschedule', data: ['drop_off_on' => '2026-11-18', 'force' => true])
             ->assertHasNoActionErrors();
         $this->assertSame('2026-11-18', $booking->refresh()->drop_off_on->toDateString());
+    }
+
+    public function test_a_day_marked_full_or_closed_takes_no_booking_even_when_forced(): void
+    {
+        BranchBlock::factory()->full()->between('2026-11-17 00:00', '2026-11-18 00:00')->create(['branch_id' => $this->branch->id]);
+        $booking = Booking::factory()->on('2026-11-19')->create(['branch_id' => $this->branch->id]);
+        $this->actingAs($this->owner);
+        $quote = Reservations::quote($this->branch, [$this->detail->id]);
+        $details = ['name' => 'Caller', 'phone' => '0917 222 3333', 'vehicle_year' => 2020, 'vehicle_model' => 'Toyota Vios', 'plate_number' => 'CAL 123'];
+
+        foreach (['2026-11-17' => 'That day is marked fully booked. Pick another date.', '2026-11-22' => 'The branch is closed that day. Pick another date.'] as $day => $message) {
+            foreach ([
+                fn () => Reservations::reserve($this->branch, null, $quote, CarbonImmutable::parse($day), $details, source: 'phone', force: true),
+                fn () => Reservations::reschedule($booking, CarbonImmutable::parse($day), byCustomer: false, force: true),
+            ] as $attempt) {
+                try {
+                    $attempt();
+                    $this->fail("{$day} was booked over");
+                } catch (ValidationException $e) {
+                    $this->assertSame($message, $e->errors()['date'][0]);
+                }
+            }
+
+            $this->assertContains($day, Availability::blockedForStaff($this->branch, $this->owner));
+        }
+
+        $this->assertSame(1, Booking::count());
+        $this->assertSame('2026-11-19', $booking->refresh()->drop_off_on->toDateString());
+    }
+
+    public function test_only_a_manager_or_super_admin_books_over_the_daily_cap(): void
+    {
+        Booking::factory()->count(2)->on('2026-11-17')->create(['branch_id' => $this->branch->id]);
+        $day = CarbonImmutable::parse('2026-11-17');
+        $sales = User::factory()->salesAdmin()->create();
+        $manager = User::factory()->branchManager()->create();
+        $sales->branches()->sync([$this->branch->id]);
+        $manager->branches()->sync([$this->branch->id]);
+
+        $this->assertFalse(Availability::canOverbook($this->branch, $day, $sales));
+        $this->assertContains('2026-11-17', Availability::blockedForStaff($this->branch, $sales));
+        $this->assertTrue(Availability::canOverbook($this->branch, $day, $manager));
+        $this->assertNotContains('2026-11-17', Availability::blockedForStaff($this->branch, $manager));
+
+        $this->actingAs($sales);
+        $this->expectException(ValidationException::class);
+        Reservations::reserve($this->branch, null, Reservations::quote($this->branch, [$this->detail->id]), $day, ['name' => 'Caller', 'phone' => '0917 222 3333', 'vehicle_year' => 2020, 'vehicle_model' => 'Toyota Vios', 'plate_number' => 'CAL 123'], source: 'phone', force: true);
     }
 
     public function test_the_ready_date_can_be_changed_for_a_car_that_runs_late(): void

@@ -161,8 +161,8 @@ final class Reservations
 
             $result = Availability::check($branch, $date, byStaff: $byStaff);
 
-            if ($result !== 'ok' && ! ($byStaff && $force)) {
-                throw ValidationException::withMessages(['date' => self::dateMessage($result, $byStaff)]);
+            if ($result !== 'ok' && ! ($byStaff && $force && Availability::canOverbook($branch, $date, auth()->user()))) {
+                throw ValidationException::withMessages(['date' => $byStaff ? self::staffDateMessage($branch, $date, $result) : self::dateMessage($result)]);
             }
 
             $owner = ! $byStaff && filled($details['referral_code'] ?? null) ? Referrals::ownerFor($guest, (string) $details['referral_code']) : null;
@@ -248,8 +248,8 @@ final class Reservations
 
     /**
      * Moves an onsite reservation to another drop-off date, keeping its
-     * services, payment and estimate. Staff can book over a full day on
-     * purpose with $force.
+     * services, payment and estimate. A manager or super admin can move it
+     * over the daily cap on purpose with $force.
      */
     public static function reschedule(Booking $booking, CarbonImmutable $date, bool $byCustomer = true, bool $force = false): Booking
     {
@@ -265,8 +265,8 @@ final class Reservations
 
             $result = Availability::check($branch, $date, $booking->id, byStaff: ! $byCustomer);
 
-            if ($result !== 'ok' && ! $force) {
-                throw ValidationException::withMessages(['date' => self::dateMessage($result, ! $byCustomer)]);
+            if ($result !== 'ok' && ! (! $byCustomer && $force && Availability::canOverbook($branch, $date, auth()->user(), $booking->id))) {
+                throw ValidationException::withMessages(['date' => $byCustomer ? self::dateMessage($result) : self::staffDateMessage($branch, $date, $result)]);
             }
 
             $booking->update([
@@ -484,19 +484,28 @@ final class Reservations
     }
 
     /**
-     * What a date check's answer means to the person who picked it.
+     * What a date check's answer means to the customer who picked it.
      */
-    public static function dateMessage(string $result, bool $byStaff = false): string
+    public static function dateMessage(string $result): string
     {
         return match ($result) {
-            'full' => $byStaff
-                ? 'That day is full. Pick another date, or turn on “Book even if it’s full”.'
-                : 'That day is fully booked. Pick another date.',
+            'full' => 'That day is fully booked. Pick another date.',
             'too_soon' => 'That date is too soon. Pick a later date.',
             'too_far' => 'That date is too far ahead to book yet.',
-            default => $byStaff
-                ? 'The branch is closed that day. Pick another date, or turn on “Book even if it’s full”.'
-                : 'The branch is closed that day. Pick another date.',
+            default => 'The branch is closed that day. Pick another date.',
+        };
+    }
+
+    /**
+     * The same for the team, saying when booking over the cap is possible.
+     */
+    private static function staffDateMessage(Branch $branch, CarbonImmutable $date, string $result): string
+    {
+        return match (true) {
+            $result !== 'full' => self::dateMessage($result),
+            Availability::markedFull($branch, $date) => 'That day is marked fully booked. Pick another date.',
+            auth()->user()?->canOverbook() === true => 'That day is full. Pick another date, or turn on “Book even if it’s full”.',
+            default => 'That day is full. Pick another date, or ask a branch manager.',
         };
     }
 
