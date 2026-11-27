@@ -68,6 +68,13 @@ return [
     'demo' => (bool) env('APP_DEMO', false),
 
     /*
+    | While set, the website's pages show "Under construction" until this PIN
+    | is entered. Blank: the site is open.
+    */
+
+    'site_pin' => env('SITE_PIN'),
+
+    /*
     | The demo's shared try-it login for the admin, filled in on its sign-in
     | page. That account can open everything but saves nothing. Create it
     | with `php artisan db:seed --class=DemoSeeder`.

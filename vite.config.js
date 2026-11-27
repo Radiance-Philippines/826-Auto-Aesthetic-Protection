@@ -12,6 +12,8 @@ export default defineConfig({
                 'resources/js/admin-live.ts',
                 // The admin's branch selector (UI SDK menu)
                 'resources/js/admin-branch.ts',
+                // The "Under construction" page's PIN field
+                'resources/js/construction.ts',
                 // Filament admin theme (AdminPanelProvider::viteTheme)
                 'resources/css/filament/admin/theme.css',
             ],

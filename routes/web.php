@@ -21,14 +21,19 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SiteController;
+use App\Http\Controllers\SiteUnlockController;
+use App\Http\Middleware\UnderConstruction;
 use App\Models\User;
 use App\Support\Panels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+// The team's PIN opens the website while SITE_PIN is set (see UnderConstruction)
+Route::post('/unlock', SiteUnlockController::class)->name('site.unlock');
+
 // Site pages: one React shell, with per-page meta tags
-Route::controller(SiteController::class)->group(function () {
+Route::controller(SiteController::class)->middleware(UnderConstruction::class)->group(function () {
     Route::get('/', 'home');
     Route::get('/services', 'services');
     Route::get('/services/{slug}', 'service')->where('slug', '[a-z0-9-]+');
@@ -49,7 +54,7 @@ Route::controller(SiteController::class)->group(function () {
 });
 
 // A shared referral link: the booking page with the friend's code filled in
-Route::get('/r/{code}', ReferralLinkController::class)->name('referral.link');
+Route::get('/r/{code}', ReferralLinkController::class)->middleware(UnderConstruction::class)->name('referral.link');
 
 // Sign in with Google, for customers (never the admin)
 Route::controller(GuestAuthController::class)->group(function () {
@@ -136,7 +141,7 @@ Route::get('/admin/{path}', function (Request $request) {
 })->where('path', '.*')->fallback();
 
 // The Android app: its page, and the APK of a published release
-Route::get('/download', [DownloadController::class, 'page'])->name('download');
+Route::get('/download', [DownloadController::class, 'page'])->middleware(UnderConstruction::class)->name('download');
 Route::get('/download/826-auto-{version}.apk', [DownloadController::class, 'apk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.apk');
 Route::get('/download/826-team-{version}.apk', [DownloadController::class, 'staffApk'])->where('version', '[0-9][0-9A-Za-z.]*')->name('download.staff-apk');
 Route::get('/download/826-{app}-{version}.apk', [DownloadController::class, 'teamApk'])->where(['app' => '[a-z]+', 'version' => '[0-9][0-9A-Za-z.]*'])->name('download.team-apk');
@@ -156,4 +161,4 @@ Route::controller(MetaWebhookController::class)->middleware('throttle:300,1')->g
 Route::get('/robots.txt', [SeoController::class, 'robots']);
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
-Route::fallback([SiteController::class, 'notFound']);
+Route::fallback([SiteController::class, 'notFound'])->middleware(UnderConstruction::class);
