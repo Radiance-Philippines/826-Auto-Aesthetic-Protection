@@ -7,19 +7,18 @@ import { expectNoHorizontalOverflow, isPhone, watchProblems } from './support';
 /** The React admin's frame around every screen: launcher, user menu, banner, sidebar */
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
-test('the launcher switches panel, and a panel with nothing ported links to the current admin', async ({ page }) => {
+test('the launcher switches panel, and each panel opens on its dashboard', async ({ page }) => {
     const problems = watchProblems(page);
     await adminLogin(page, TEAM.owner);
     await page.goto('/console');
-    await expect(page).toHaveURL(/\/console\/owner$/);
-    await expect(heading(page)).toHaveText('826 Owner');
+    await expect(page).toHaveURL(/\/console\/owner\/dashboard$/);
+    await expect(heading(page)).toHaveText('Dashboard');
 
     await page.getByRole('button', { name: 'Switch panel' }).click();
     await expect(page.getByRole('menuitem', { name: /HR/ })).toHaveAttribute('aria-disabled', 'true');
     await page.getByRole('menuitem', { name: /^Sales/ }).click();
-    await expect(page).toHaveURL(/\/console\/sales$/);
-    await expect(heading(page)).toHaveText('826 Sales');
-    await expect(page.getByRole('main').getByRole('link', { name: /^Bookings/ })).toHaveAttribute('href', /\/sales\/bookings$/);
+    await expect(page).toHaveURL(/\/console\/sales\/dashboard$/);
+    await expect(heading(page)).toHaveText('Dashboard');
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

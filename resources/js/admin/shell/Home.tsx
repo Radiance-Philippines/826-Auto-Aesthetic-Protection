@@ -1,20 +1,21 @@
 import { Link, Navigate, useLocation } from 'react-router-dom';
 
 import { useMe } from '../lib/me';
-import { screens } from '../screens';
 import { buttonClass } from '../ui/Button';
 import { Icon } from '../ui/icons';
 import { PageHeader } from '../ui/PageHeader';
 import { EmptyState } from '../ui/states';
 import { isPorted, navIcon } from './Nav';
 
-/** A panel's home: the queue where the panel has one (as Filament does), else its sections */
+/** A panel's home: the queue where the panel has one, else its dashboard (as Filament does), else its sections */
 export function Home() {
     const { me } = useMe();
     const items = me.navigation.flatMap((group) => group.items);
 
-    if (items.some((item) => item.key === 'queue' && isPorted(item)) && 'queue' in screens) {
-        return <Navigate to="/queue" replace />;
+    const home = ['queue', 'dashboard'].find((slug) => items.some((item) => item.key === slug && isPorted(item)));
+
+    if (home) {
+        return <Navigate to={`/${home}`} replace />;
     }
 
     const card = 'flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 font-medium hover:border-primary';
