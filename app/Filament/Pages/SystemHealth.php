@@ -4,10 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\AppRelease;
-use App\Models\MailSetting;
-use App\Models\MetaSetting;
-use App\Support\GoogleSignIn;
-use App\Support\Live\FlowLive;
+use App\Support\SystemChecks;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Panel;
@@ -56,12 +53,7 @@ class SystemHealth extends Page
      */
     public static function health(): array
     {
-        return [
-            'email' => MailSetting::instance()->isConfigured(),
-            'meta' => MetaSetting::instance()->isReady(),
-            'google' => GoogleSignIn::enabled(),
-            'flow' => FlowLive::enabled(),
-        ];
+        return SystemChecks::health();
     }
 
     /**
@@ -69,16 +61,9 @@ class SystemHealth extends Page
      */
     protected function getViewData(): array
     {
-        $health = self::health();
-
         return [
             'version' => AppRelease::latestPublished()?->version,
-            'checks' => [
-                ['label' => 'Email is set up', 'on' => $health['email']],
-                ['label' => 'Meta (Messenger) is connected', 'on' => $health['meta']],
-                ['label' => 'Google sign-in is set up', 'on' => $health['google']],
-                ['label' => 'Live updates (Radiance Flow) are on', 'on' => $health['flow']],
-            ],
+            'checks' => SystemChecks::labelled(),
         ];
     }
 }
