@@ -71,10 +71,7 @@ class MetaSettings extends Page
         $settings = MetaSetting::instance();
 
         // Shown once: the first time the page is opened after the token was made
-        if ($settings->verify_token_shown_at === null) {
-            $this->newVerifyToken = (string) $settings->webhook_verify_token;
-            $settings->forceFill(['verify_token_shown_at' => now()])->save();
-        }
+        $this->newVerifyToken = $settings->revealVerifyTokenOnce();
 
         $this->fillForm($settings);
     }
@@ -189,7 +186,7 @@ class MetaSettings extends Page
                 ->action(function (): void {
                     $settings = MetaSetting::instance();
                     $this->newVerifyToken = $settings->regenerateVerifyToken();
-                    $settings->forceFill(['verify_token_shown_at' => now()])->save();
+                    $settings->markVerifyTokenShown();
                     Notification::make()->success()->title('New verify token made')->body('Copy it now: it is not shown again.')->send();
                 }),
         ];
