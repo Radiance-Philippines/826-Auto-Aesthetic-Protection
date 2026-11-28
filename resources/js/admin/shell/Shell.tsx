@@ -10,6 +10,7 @@ import { Icon } from '../ui/icons';
 import { ErrorState, Loading } from '../ui/states';
 import { Toaster } from '../ui/toast';
 import { Brand, Nav } from './Nav';
+import { NotificationBell } from './NotificationBell';
 import { BranchSelector, ImpersonationBanner, Launcher, UserMenu } from './TopBar';
 
 /** A screen that throws shows this instead of a blank page */
@@ -96,6 +97,7 @@ export default function Shell() {
                                 <BranchSelector branches={me.branches} />
                             </div>
                             <div className="ms-auto flex items-center gap-1 sm:ms-0">
+                                <NotificationBell />
                                 <Launcher tiles={me.launcher} />
                                 <UserMenu me={me} />
                             </div>
