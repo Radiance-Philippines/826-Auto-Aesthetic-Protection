@@ -116,11 +116,7 @@ function Form({ record, onSaved }: { record: Settings; onSaved: (record: Setting
 export default function EmailSettings() {
     return (
         <SettingsPage<Settings> title="Email settings" path="/email-settings">
-            {(record, onSaved, version) => (
-                <div className="space-y-4">
-                    <Form key={version} record={record} onSaved={onSaved} />
-                </div>
-            )}
+            {(record, onSaved, version) => <Form key={version} record={record} onSaved={onSaved} />}
         </SettingsPage>
     );
 }

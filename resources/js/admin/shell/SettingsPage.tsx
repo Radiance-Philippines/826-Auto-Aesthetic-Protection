@@ -27,13 +27,28 @@ export function SettingsPage<Record>({
     const { data, error, reload } = useResource<Record>(path);
     const [saved, setSaved] = useState<{ record: Record; version: number } | null>(null);
     const record = saved?.record ?? data;
+    const body = useRef<HTMLDivElement>(null);
+    const version = saved?.version ?? 0;
+
+    // The form starts again after a save: the keyboard goes back to its Save button, not to the top of the page
+    useEffect(() => {
+        if (version > 0) {
+            body.current?.querySelector<HTMLElement>('button[type="submit"]')?.focus({ preventScroll: true });
+        }
+    }, [version]);
     const onSaved = (next: Record) => setSaved((current) => ({ record: next, version: (current?.version ?? 0) + 1 }));
 
     return (
         <>
             <PageHeader title={title} description={description} actions={record && actions?.(record, onSaved)} />
             {error && <ErrorState message={error} onRetry={reload} />}
-            {record ? children(record, onSaved, saved?.version ?? 0) : !error && <Loading rows={5} />}
+            {record ? (
+                <div ref={body} className="space-y-4">
+                    {children(record, onSaved, version)}
+                </div>
+            ) : (
+                !error && <Loading rows={5} />
+            )}
         </>
     );
 }

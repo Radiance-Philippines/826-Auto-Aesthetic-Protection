@@ -131,6 +131,8 @@ class ConsoleUserTest extends TestCase
         $this->postJson(self::USERS, [])->assertUnprocessable()->assertJsonValidationErrors(['name', 'email', 'role', 'branches']);
         $this->postJson(self::USERS, ['name' => 'Mate', 'email' => $this->member->email, 'role' => 'nobody', 'branches' => [999999]])
             ->assertUnprocessable()->assertJsonValidationErrors(['email', 'role', 'branches.0']);
+        // The same address in other letters is already taken
+        $this->postJson(self::USERS, ['name' => 'Mate', 'email' => strtoupper($this->member->email), 'role' => 'super_admin'])->assertUnprocessable()->assertJsonValidationErrors(['email']);
         // No mailbox saved: no account either
         $this->postJson(self::USERS, ['name' => 'Mate', 'email' => 'mate@example.com', 'role' => 'super_admin'])
             ->assertUnprocessable()->assertJsonPath('message', 'Email is not set up yet, so the invite can’t be sent. Add the mailbox password in Email settings first.');

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { apiBase } from '../lib/boot';
@@ -180,14 +180,23 @@ export default function Dashboard() {
     const query = params.toString();
     const { data, error, loading, reload } = useResource<Data>(`/dashboard${query && `?${query}`}`);
 
+    /** The minute's own look is quiet: only a change of filters dims the cards */
+    const quiet = useRef(false);
+
     // What is waiting changes while the page is open: look again every minute it is in front
     useEffect(() => {
-        const timer = window.setInterval(() => document.visibilityState === 'visible' && reload(), 60_000);
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                quiet.current = true;
+                reload();
+            }
+        }, 60_000);
 
         return () => window.clearInterval(timer);
     }, [reload]);
 
-    const choose = (name: string, value: string) =>
+    const choose = (name: string, value: string) => {
+        quiet.current = false;
         setParams(
             (current) => {
                 const next = new URLSearchParams(current);
@@ -202,6 +211,7 @@ export default function Dashboard() {
             },
             { replace: true },
         );
+    };
 
     return (
         <>
@@ -243,7 +253,7 @@ export default function Dashboard() {
                         )}
                     </div>
 
-                    <div aria-busy={loading} className={cx('space-y-6', loading && 'opacity-70')}>
+                    <div aria-busy={loading} className={cx('space-y-6', loading && !quiet.current && 'opacity-70')}>
                         {data.widgets.length === 0 && (
                             <EmptyState icon="layout-dashboard" title="Nothing to show here">
                                 Your role has no dashboard cards in this panel.

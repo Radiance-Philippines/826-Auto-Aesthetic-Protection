@@ -64,6 +64,8 @@ class ConsoleUserController extends Controller
 
     public function invite(Request $request, Invitations $invitations): JsonResponse
     {
+        // As Invitations stores it, so the "already used" check sees the same address
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique(User::class, 'email')],

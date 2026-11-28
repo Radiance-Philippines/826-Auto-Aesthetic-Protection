@@ -15,6 +15,7 @@ test('a save, the failed state, accessible and fits 360px', async ({ page }, inf
     await expect(page.getByRole('switch', { name: 'Allow passkey sign-in' })).toBeChecked();
     await page.getByRole('button', { name: 'Save security' }).click();
     await expect(page.getByText('Security saved').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save security' })).toBeFocused();
     expect(problems()).toEqual([]);
 
     await expectAccessible(page);
