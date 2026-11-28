@@ -44,5 +44,5 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'warning' | 'info' | 'selected'; children: ReactNode }) {
     const tones = { neutral: 'bg-muted text-foreground', warning: 'bg-warning text-warning-foreground', info: 'bg-info text-info-foreground', selected: 'bg-selected text-selected-foreground' };
 
-    return <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', tones[tone])}>{children}</span>;
+    return <span className={cx('inline-flex w-fit items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap', tones[tone])}>{children}</span>;
 }

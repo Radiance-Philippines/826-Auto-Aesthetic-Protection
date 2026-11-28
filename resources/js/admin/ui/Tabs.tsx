@@ -9,7 +9,7 @@ export type Tab = { value: string; label: string; icon: IconName; badge?: number
 export function TabBar({ label, tabs, value, onChange, children }: { label: string; tabs: Tab[]; value: string; onChange: (value: string) => void; children: ReactNode }) {
     return (
         <Tabs value={value} onValueChange={(next) => onChange(String(next))} activation="manual" className="flex min-w-0 flex-col items-stretch gap-3">
-            <TabsList aria-label={label} className="flex w-full max-w-full justify-start gap-1 overflow-x-auto rounded-lg border-0 bg-muted p-1">
+            <TabsList aria-label={label} className="relative flex w-full max-w-full justify-start gap-1 overflow-x-auto rounded-lg border-0 bg-muted p-1">
                 {tabs.map((tab) => (
                     <TabsTab
                         key={tab.value}

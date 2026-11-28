@@ -91,7 +91,7 @@ function Table({ block }: { block: Block }) {
 
     return (
         // Scrolls sideways on a narrow screen: the region is focusable so the keyboard can too
-        <div role="region" aria-label={`${block.title} table`} tabIndex={0} className="mt-3 overflow-x-auto rounded-lg border border-border bg-card">
+        <div role="region" aria-label={`${block.title} table`} tabIndex={0} className="relative mt-3 overflow-x-auto rounded-lg border border-border bg-card">
             <table className="w-full min-w-max border-collapse text-sm">
                 <caption className="sr-only">{block.title}</caption>
                 <thead className="bg-muted/60">

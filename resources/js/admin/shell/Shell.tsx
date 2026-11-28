@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { type Me, MeContext } from '../lib/me';
 import { useResource } from '../lib/useResource';
+import { useStored } from '../lib/useStored';
 import { buttonClass } from '../ui/Button';
 import { ConfirmHost } from '../ui/Dialog';
 import { Icon } from '../ui/icons';
@@ -30,6 +31,7 @@ class ScreenBoundary extends Component<{ children: ReactNode }, { failed: boolea
 export default function Shell() {
     const { data: me, error, reload } = useResource<Me>('/me');
     const [menuOpen, setMenuOpen] = useState(false);
+    const [rail, setRail] = useStored('826.sidebar.rail', false);
     const main = useRef<HTMLElement>(null);
     const { pathname } = useLocation();
     const previous = useRef(pathname);
@@ -53,15 +55,15 @@ export default function Shell() {
                 Skip to content
             </a>
 
-            <div className="min-h-dvh lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
-                <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-e border-border bg-card lg:flex">
-                    <Link to="/" className="flex h-14 shrink-0 items-center px-4">
-                        <Brand me={me} />
+            <div className={`min-h-dvh lg:grid ${rail ? 'lg:grid-cols-[4rem_minmax(0,1fr)]' : 'lg:grid-cols-[15rem_minmax(0,1fr)]'}`}>
+                <aside id="sidebar" className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-e border-border bg-card lg:flex">
+                    <Link to="/" className={`flex h-14 shrink-0 items-center ${rail ? 'justify-center' : 'px-4'}`}>
+                        <Brand me={me} showName={!rail} small={rail} />
                     </Link>
                     {/* The logo's gold rule */}
-                    <div aria-hidden="true" className="mx-4 h-px shrink-0 bg-linear-to-r from-gold to-transparent" />
+                    <div aria-hidden="true" className={`h-px shrink-0 bg-linear-to-r from-gold to-transparent ${rail ? 'mx-2' : 'mx-4'}`} />
                     <div className="p-2 pt-3">
-                        <Nav me={me} />
+                        <Nav me={me} rail={rail} />
                     </div>
                 </aside>
 
@@ -88,6 +90,16 @@ export default function Shell() {
                                     </div>
                                 </DrawerContent>
                             </Drawer>
+                            <button
+                                type="button"
+                                className={`${buttonClass('ghost', 'md', true)} shrink-0 shadow-none max-lg:hidden`}
+                                aria-label={rail ? 'Expand the sidebar' : 'Collapse the sidebar'}
+                                aria-expanded={!rail}
+                                aria-controls="sidebar"
+                                onClick={() => setRail(!rail)}
+                            >
+                                <Icon name="panel-left" className="size-5" />
+                            </button>
                             <Link to="/" className="flex items-center lg:hidden">
                                 <Brand me={me} showName={false} />
                                 <span className="sr-only">Home</span>

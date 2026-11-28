@@ -35,6 +35,23 @@ function messengerChat(name: string): void {
 const row = (page: Page, name: string) => page.getByRole('region', { name: 'Chats' }).getByRole('button').filter({ hasText: name });
 const chat = (page: Page, name: string) => page.getByRole('region', { name: `Chat with ${name}` });
 
+test('the chat list scrolls inside itself, without stretching the page', async ({ page }, info) => {
+    test.setTimeout(90_000);
+    const names = Array.from({ length: 8 }, (_, index) => `E2E Tall ${info.project.name} ${index}`);
+    names.forEach(messengerChat);
+
+    try {
+        await adminLogin(page, TEAM.sales);
+        await page.goto(BASE);
+        await expect(row(page, names[0])).toBeAttached();
+        // Blank space below the screen: the page is taller than what is on it
+        const extra = await page.evaluate(() => document.documentElement.scrollHeight - Math.round(document.querySelector('#main')!.getBoundingClientRect().bottom + window.scrollY));
+        expect(extra).toBeLessThanOrEqual(1);
+    } finally {
+        names.forEach(removeChat);
+    }
+});
+
 test('a team thread is started, answered, assigned and finished', async ({ page }, info) => {
     test.setTimeout(90_000);
     const subject = `E2E Thread ${info.project.name}${info.retry}`;

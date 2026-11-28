@@ -25,6 +25,33 @@ test('the launcher switches panel, and each panel opens on its dashboard', async
     expect(problems()).toEqual([]);
 });
 
+test('the sidebar folds to icons and its groups collapse, and both are remembered', async ({ page }, info) => {
+    test.skip(isPhone(info), 'The phone has the drawer instead');
+    await adminLogin(page, TEAM.owner);
+    await page.goto('/console/operations/queue');
+    const nav = page.getByRole('navigation', { name: 'Panel' });
+    const customers = nav.getByRole('link', { name: /^Customers/ });
+    const group = nav.getByRole('button', { name: 'Bookings' });
+
+    await expect(group).toHaveAttribute('aria-expanded', 'true');
+    await group.click();
+    await expect(customers).toBeHidden();
+    await page.reload();
+    await expect(group).toHaveAttribute('aria-expanded', 'false');
+    await group.click();
+    await expect(customers).toBeVisible();
+
+    await page.getByRole('button', { name: 'Collapse the sidebar' }).click();
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Expand the sidebar' })).toHaveAttribute('aria-expanded', 'false');
+    expect((await page.locator('#sidebar').boundingBox())!.width).toBeLessThan(80);
+    await customers.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]').filter({ visible: true })).toHaveText('Customers');
+    await expectAccessible(page);
+    await customers.click();
+    await expect(page).toHaveURL(/\/console\/operations\/customers$/);
+});
+
 test('a screen that is not ported says so and leads to the current admin', async ({ page }) => {
     await adminLogin(page, TEAM.owner);
     // A sidebar entry with no screen here, whatever has been ported so far

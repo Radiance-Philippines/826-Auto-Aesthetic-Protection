@@ -330,7 +330,7 @@ export function Thread({ id, tick, onBack, onChanged }: { id: number; tick: numb
                 </div>
             </header>
 
-            <div ref={messages} tabIndex={0} role="log" aria-label="Messages" className="flex min-h-48 flex-1 flex-col gap-2 overflow-y-auto p-4">
+            <div ref={messages} tabIndex={0} role="log" aria-label="Messages" className="relative flex min-h-48 flex-1 flex-col gap-2 overflow-y-auto p-4">
                 {chat.hasOlder && (
                     <Button icon="arrow-up" size="sm" variant="ghost" className="self-center" onClick={() => setLimit((current) => current + 50)}>
                         Load older messages

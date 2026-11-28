@@ -100,7 +100,7 @@ const tones: Record<string, string> = {
 
 /** A badge in the colour Filament gives it */
 export function Tone({ tone, children }: { tone: string; children: ReactNode }) {
-    return <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', tones[tone] ?? tones.gray)}>{children}</span>;
+    return <span className={cx('inline-flex w-fit items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap', tones[tone] ?? tones.gray)}>{children}</span>;
 }
 
 export async function copy(text: string, what: string): Promise<void> {

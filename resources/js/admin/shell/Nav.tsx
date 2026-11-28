@@ -1,7 +1,10 @@
-import { NavLink } from 'react-router-dom';
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@ui-sdk/react/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@ui-sdk/react/tooltip';
+import { Link, NavLink, useMatch } from 'react-router-dom';
 
 import { boot } from '../lib/boot';
 import { type Me, type NavItem } from '../lib/me';
+import { useStored } from '../lib/useStored';
 import { screens } from '../screens';
 import { cx } from '../ui/cx';
 import { Icon, type IconName } from '../ui/icons';
@@ -74,37 +77,111 @@ function Entry({ item, onNavigate }: { item: NavItem; onNavigate?: () => void })
     );
 }
 
-export function Brand({ me, showName = true }: { me: Me; showName?: boolean }) {
+/** The folded sidebar: the icon alone, its name on hover and for screen readers */
+function RailEntry({ item }: { item: NavItem }) {
+    const ported = isPorted(item);
+    const active = useMatch({ path: `/${item.key}`, end: false }) !== null && ported;
+    // web.css gives a tooltip trigger a border: a rail icon has none
+    const className = cx('relative mx-auto flex size-11 items-center justify-center rounded-md border-0 shadow-none', active ? 'bg-selected text-selected-foreground' : 'hover:bg-muted');
+    const inside = (
+        <>
+            <Icon name={navIcon(item.key)} className="size-5" />
+            <span className="sr-only">
+                {item.label}
+                {item.badge && `, ${item.badge} ${item.badgeTooltip ?? ''}`}
+                {!ported && ' (opens in the current admin)'}
+            </span>
+            {item.badge && (
+                <span aria-hidden="true" className="absolute top-0 right-0 min-w-4 rounded-full bg-warning px-1 text-center text-[0.625rem] leading-4 font-semibold text-warning-foreground tabular-nums">
+                    {item.badge}
+                </span>
+            )}
+        </>
+    );
+
+    return (
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    ported ? (
+                        <Link to={`/${item.key}`} aria-current={active ? 'page' : undefined} className={className}>
+                            {inside}
+                        </Link>
+                    ) : (
+                        <a href={item.href ?? undefined} className={className}>
+                            {inside}
+                        </a>
+                    )
+                }
+            />
+            <TooltipContent side="right" sideOffset={8} className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md">
+                {item.label}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
+export function Brand({ me, showName = true, small = false }: { me: Me; showName?: boolean; small?: boolean }) {
     const name = me.panel.brand.replace(/^826\s+/, '');
 
     return (
         <span className="flex items-center gap-2">
-            {boot.logo ? <img src={boot.logo} alt="826" className="h-8 w-auto" /> : <span className="page-title text-lg">826</span>}
+            {boot.logo ? <img src={boot.logo} alt="826" className={small ? 'h-auto w-11' : 'h-8 w-auto'} /> : <span className="page-title text-lg">826</span>}
             {showName && <span className="text-sm font-semibold">{name}</span>}
         </span>
     );
 }
 
-/** The panel's sidebar, as Filament lists it */
-export function Nav({ me, onNavigate }: { me: Me; onNavigate?: () => void }) {
+/** The panel's sidebar, as Filament lists it: groups that fold away, or the whole thing folded to icons (`rail`) */
+export function Nav({ me, onNavigate, rail = false }: { me: Me; onNavigate?: () => void; rail?: boolean }) {
+    const [closed, setClosed] = useStored<string[]>('826.nav.closed', []);
+
+    if (rail) {
+        return (
+            <nav aria-label="Panel" className="space-y-2">
+                {me.navigation.map((group, index) => (
+                    <ul key={group.label ?? index} aria-label={group.label ?? undefined} className="m-0 list-none space-y-1 border-border p-0 not-first:border-t not-first:pt-2">
+                        {group.items.map((item) => (
+                            <li key={item.href ?? item.label}>
+                                <RailEntry item={item} />
+                            </li>
+                        ))}
+                    </ul>
+                ))}
+            </nav>
+        );
+    }
+
     return (
-        <nav aria-label="Panel" className="space-y-4">
-            {me.navigation.map((group, index) => (
-                <div key={group.label ?? index}>
-                    {group.label && (
-                        <p id={`nav-${index}`} className="px-2.5 pb-1 text-xs font-semibold text-muted-foreground">
-                            {group.label}
-                        </p>
-                    )}
-                    <ul aria-labelledby={group.label ? `nav-${index}` : undefined} className="m-0 list-none space-y-0.5 p-0">
+        <nav aria-label="Panel" className="space-y-3">
+            {me.navigation.map((group, index) => {
+                const list = (
+                    <ul aria-label={group.label ?? undefined} className="m-0 list-none space-y-0.5 p-0">
                         {group.items.map((item) => (
                             <li key={item.href ?? item.label}>
                                 <Entry item={item} onNavigate={onNavigate} />
                             </li>
                         ))}
                     </ul>
-                </div>
-            ))}
+                );
+
+                if (!group.label) {
+                    return <div key={index}>{list}</div>;
+                }
+
+                const label = group.label;
+                const open = !closed.includes(label);
+
+                return (
+                    <Collapsible key={label} open={open} onOpenChange={(next) => setClosed(next ? closed.filter((each) => each !== label) : [...closed, label])}>
+                        <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 py-1 text-start text-xs font-semibold text-muted-foreground hover:bg-muted pointer-coarse:min-h-11">
+                            <Icon name="chevron-down" className={cx('size-3.5 transition-transform motion-reduce:transition-none', !open && '-rotate-90')} />
+                            {label}
+                        </CollapsibleTrigger>
+                        <CollapsiblePanel>{list}</CollapsiblePanel>
+                    </Collapsible>
+                );
+            })}
         </nav>
     );
 }

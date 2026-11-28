@@ -65,7 +65,7 @@ export function BarChart({ label, points, format, columnName, valueName }: { lab
                     <Icon name={open ? 'chevron-down' : 'chevron-right'} />
                     {open ? 'Hide the numbers' : 'Show the numbers'}
                 </CollapsibleTrigger>
-                <CollapsiblePanel className="mt-2 max-h-72 overflow-auto rounded-lg border border-border">
+                <CollapsiblePanel className="relative mt-2 max-h-72 overflow-auto rounded-lg border border-border">
                     <table className="w-full border-collapse text-sm">
                         <caption className="sr-only">{label}</caption>
                         <thead className="bg-muted/60 text-xs text-muted-foreground">

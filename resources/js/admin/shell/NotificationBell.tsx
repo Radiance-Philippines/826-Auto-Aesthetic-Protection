@@ -100,7 +100,7 @@ export function NotificationBell() {
                     </div>
                 )}
 
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {error && (
                         <div className="p-3">
                             <ErrorState message={error} onRetry={reload} />

@@ -198,7 +198,7 @@ export default function Inbox() {
                 {data.conversations.length === 0 ? (
                     <p className="p-6 text-center text-sm text-muted-foreground">{nothing(settled, data.filter, data.channel)}</p>
                 ) : (
-                    <ul className="m-0 min-h-0 flex-1 list-none divide-y divide-border overflow-y-auto p-0">
+                    <ul className="relative m-0 min-h-0 flex-1 list-none divide-y divide-border overflow-y-auto p-0">
                         {data.conversations.map((row) => (
                             <li key={row.id}>
                                 <button

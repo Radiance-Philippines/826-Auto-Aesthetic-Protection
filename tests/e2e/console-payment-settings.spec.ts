@@ -28,6 +28,8 @@ test('the fee shows its fields, a bad one is refused, and Save payments sends th
     await expect(page.getByText('The amount field must be at least 1.')).toBeVisible();
     // The server's 422 above is the only failed request allowed
     expect(problems().filter((problem) => !problem.includes('422'))).toEqual([]);
+    // From the top: a switch scrolled under the sticky bar reads as a tiny target beneath the bar's buttons
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expectAccessible(page);
 
     const gcash = page.getByRole('region', { name: 'GCash' });
