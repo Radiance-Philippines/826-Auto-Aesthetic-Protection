@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Services\Pages;
 
 use App\Filament\Resources\Services\ServiceResource;
 use App\Models\Service;
+use App\Support\ServiceForm;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateService extends CreateRecord
@@ -27,7 +28,7 @@ class CreateService extends CreateRecord
     {
         /** @var Service $service */
         $service = $this->getRecord();
-        ServiceResource::saveRates($service, $this->rates);
+        ServiceForm::saveRates($service, $this->rates);
     }
 
     protected function getRedirectUrl(): string

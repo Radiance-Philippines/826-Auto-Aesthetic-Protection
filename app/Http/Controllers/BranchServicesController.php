@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Filament\Pages\BranchServices;
 use App\Models\Branch;
-use App\Models\Service;
+use App\Support\BranchOffer;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,9 +26,7 @@ class BranchServicesController extends Controller
             'services.*' => ['integer', Rule::exists('services', 'id')->where('is_active', true)],
         ]);
 
-        // Hidden services aren't on the page, so their link to the branch stays as it was
-        $hidden = $branch->services()->where('is_active', false)->pluck('services.id');
-        $branch->services()->sync(Service::query()->whereKey($data['services'] ?? [])->pluck('id')->merge($hidden));
+        BranchOffer::save($branch, $data['services'] ?? []);
 
         Notification::make()->success()->title("{$branch->name}: services saved")->send();
 

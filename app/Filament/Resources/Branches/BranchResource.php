@@ -9,8 +9,10 @@ use App\Filament\Resources\Branches\Pages\ListBranches;
 use App\Models\Branch;
 use App\Models\PaymentSetting;
 use App\Models\User;
+use App\Support\BranchForm;
 use App\Support\Inbox\InboxException;
 use App\Support\Meta\PageConnection;
+use App\Support\UploadRules;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -300,8 +302,8 @@ class BranchResource extends Resource
                         ->disk(PaymentSetting::DISK)
                         ->directory('payments/branches')
                         ->visibility('public')
-                        ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])
-                        ->maxSize(5120)
+                        ->acceptedFileTypes(UploadRules::TYPES)
+                        ->maxSize(UploadRules::QR_MAX_KB)
                         ->imagePreviewHeight('160'),
                     TextInput::make("{$key}_name")->label('Account name')->maxLength(120),
                     TextInput::make("{$key}_number")->label("{$label} number")->tel()->maxLength(40),
@@ -316,55 +318,6 @@ class BranchResource extends Resource
         return new HtmlString('<ul class="list-disc ps-5">'.$items.'</ul>');
     }
 
-    /**
-     * Weekly hours as the form edits them (an "open today" switch per day).
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public static function fillHours(array $data): array
-    {
-        $saved = is_array($data['weekly_hours'] ?? null) ? $data['weekly_hours'] : [];
-        $hours = [];
-
-        foreach (array_keys(Branch::WEEKDAYS) as $day) {
-            $row = $saved[$day] ?? $saved[(string) $day] ?? null;
-            $hours[$day] = [
-                'open_today' => is_array($row) && filled($row['open'] ?? null),
-                'open' => $row['open'] ?? null,
-                'close' => $row['close'] ?? null,
-            ];
-        }
-
-        return [...$data, 'weekly_hours' => $hours];
-    }
-
-    /**
-     * Back to the stored shape: "HH:MM" times, null for closed days.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public static function saveHours(array $data): array
-    {
-        $form = is_array($data['weekly_hours'] ?? null) ? $data['weekly_hours'] : [];
-        $hours = [];
-
-        foreach (array_keys(Branch::WEEKDAYS) as $day) {
-            $row = $form[$day] ?? $form[(string) $day] ?? [];
-            $hours[(string) $day] = ($row['open_today'] ?? false) && Branch::clock($row['open'] ?? null) && Branch::clock($row['close'] ?? null)
-                ? [
-                    'open' => Branch::clock($row['open']),
-                    'close' => Branch::clock($row['close']),
-                ]
-                : null;
-        }
-
-        $data['weekly_hours'] = $hours;
-
-        return $data;
-    }
-
     public static function table(Table $table): Table
     {
         return $table
@@ -376,11 +329,7 @@ class BranchResource extends Resource
                     ->description(fn (Branch $record) => $record->city),
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => match ($state) {
-                        'open' => 'Open',
-                        'coming_soon' => 'Coming soon',
-                        default => 'Draft',
-                    })
+                    ->formatStateUsing(fn (string $state) => BranchForm::statusLabel($state))
                     ->color(fn (string $state) => match ($state) {
                         'open' => 'success',
                         'coming_soon' => 'info',
@@ -388,7 +337,7 @@ class BranchResource extends Resource
                     }),
                 TextColumn::make('online')
                     ->label('Online booking')
-                    ->state(fn (Branch $record) => $record->isOnsiteBookable() ? 'Taking bookings' : (count($record->missing()) === 0 ? 'Not open' : count($record->missing()).' to fill in'))
+                    ->state(fn (Branch $record) => BranchForm::onlineLabel($record))
                     ->badge()
                     ->color(fn (Branch $record) => $record->isOnsiteBookable() ? 'success' : 'warning'),
                 TextColumn::make('daily_cap')->label('Daily cap')->alignCenter(),

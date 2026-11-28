@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Branch;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\BranchOffer;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -45,7 +46,7 @@ class BranchServices extends Page
      */
     public function branches(): Collection
     {
-        return Branch::query()->visibleTo(auth()->user())->with('services:id')->ordered()->get();
+        return BranchOffer::branches(auth()->user());
     }
 
     /**
@@ -53,7 +54,6 @@ class BranchServices extends Page
      */
     public function services(): Collection
     {
-        return Service::query()->where('is_active', true)->with('category')->orderBy('sort_order')->orderBy('name')->get()
-            ->groupBy(fn (Service $service) => $service->category?->name ?? 'Other');
+        return BranchOffer::services();
     }
 }

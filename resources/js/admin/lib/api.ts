@@ -19,6 +19,7 @@ const MESSAGES: Record<number, string> = {
     403: 'Your role doesn’t include this.',
     404: 'That isn’t there any more. Reload the page.',
     419: 'This page has been open too long. Reload it.',
+    413: 'Those files are too big to send. Try smaller ones.',
     429: 'Too many requests. Wait a minute and try again.',
 };
 
@@ -42,15 +43,17 @@ function reloadOnce(): void {
 /** A call to /console/api/{panel}{path}; anything but success throws an ApiError with words to show */
 export async function api<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     let response: Response;
+    // Files go as FormData: the browser names that type and its boundary itself
+    const form = body instanceof FormData;
 
     try {
         response = await fetch(`${apiBase}${path}`, {
             method,
             headers: {
                 Accept: 'application/json',
-                ...(method === 'GET' ? {} : { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() }),
+                ...(method === 'GET' ? {} : { 'X-CSRF-TOKEN': csrfToken(), ...(form ? {} : { 'Content-Type': 'application/json' }) }),
             },
-            body: body === undefined ? undefined : JSON.stringify(body),
+            body: body === undefined ? undefined : form ? body : JSON.stringify(body),
             credentials: 'same-origin',
             signal,
         });

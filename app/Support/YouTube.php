@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Closure;
+
 /**
  * YouTube links only (no video uploads, so nothing heavy sits in storage):
  * the video ID from any share link, the privacy-enhanced embed, and
@@ -20,6 +22,14 @@ class YouTube
         }
 
         return $match[1];
+    }
+
+    /**
+     * The validation rule for a pasted link, for both admins' forms.
+     */
+    public static function rule(): Closure
+    {
+        return fn (string $attribute, mixed $value, Closure $fail) => self::videoId(is_string($value) ? $value : null) ?: $fail('Paste a YouTube link (youtube.com or youtu.be, starting with https://).');
     }
 
     public static function watchUrl(string $id): string

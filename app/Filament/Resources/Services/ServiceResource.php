@@ -10,8 +10,8 @@ use App\Filament\Support\ImageUpload;
 use App\Models\Branch;
 use App\Models\Service;
 use App\Models\ServiceCategory;
-use App\Models\ServiceRate;
 use App\Models\VehicleSize;
+use App\Support\ServiceForm;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
@@ -54,7 +54,7 @@ class ServiceResource extends Resource
     /**
      * The longest job, in open days.
      */
-    public const MAX_DAYS = 60;
+    public const MAX_DAYS = ServiceForm::MAX_DAYS;
 
     public static function form(Schema $schema): Schema
     {
@@ -150,46 +150,6 @@ class ServiceResource extends Resource
         ]);
     }
 
-    /**
-     * The service's rates as the form edits them.
-     *
-     * @return array<int, array{price: int|null}>
-     */
-    public static function ratesForForm(?Service $service): array
-    {
-        $rates = [];
-
-        foreach (VehicleSize::query()->ordered()->get() as $size) {
-            $rates[$size->id] = ['price' => $service?->rates->firstWhere('vehicle_size_id', $size->id)?->price];
-        }
-
-        return $rates;
-    }
-
-    /**
-     * Saves the grid: a price for each size class that has one, and no
-     * rate for the classes left blank.
-     *
-     * @param  array<int|string, array<string, mixed>>  $rates
-     */
-    public static function saveRates(Service $service, array $rates): void
-    {
-        foreach (VehicleSize::query()->pluck('id') as $sizeId) {
-            $price = ($rates[$sizeId] ?? $rates[(string) $sizeId] ?? [])['price'] ?? null;
-
-            if (blank($price)) {
-                ServiceRate::query()->where('service_id', $service->id)->where('vehicle_size_id', $sizeId)->delete();
-
-                continue;
-            }
-
-            ServiceRate::updateOrCreate(
-                ['service_id' => $service->id, 'vehicle_size_id' => $sizeId],
-                ['price' => (int) $price],
-            );
-        }
-    }
-
     public static function table(Table $table): Table
     {
         return $table
@@ -202,15 +162,11 @@ class ServiceResource extends Resource
                     ->description(fn (Service $record) => $record->category?->name),
                 TextColumn::make('estimate_days')
                     ->label('Takes')
-                    ->formatStateUsing(fn (?int $state) => $state > 0 ? ($state === 1 ? '1 day' : "{$state} days") : 'Not set')
+                    ->formatStateUsing(fn (?int $state) => ServiceForm::takesLabel($state))
                     ->color(fn (Service $record) => $record->estimate_days > 0 ? null : 'warning'),
                 TextColumn::make('prices')
                     ->label('Prices')
-                    ->state(function (Service $record) {
-                        $prices = $record->rates->filter->hasPrice()->pluck('price');
-
-                        return $prices->isEmpty() ? 'Not set' : '₱'.number_format($prices->min()).($prices->min() !== $prices->max() ? ' – ₱'.number_format($prices->max()) : '');
-                    })
+                    ->state(fn (Service $record) => ServiceForm::priceLabel($record))
                     ->description(fn (Service $record) => $record->rates->filter->hasPrice()->count().' of '.VehicleSize::query()->active()->count().' size classes')
                     ->color(fn (Service $record) => $record->rates->filter->hasPrice()->isEmpty() ? 'warning' : null),
                 TextColumn::make('branches_count')

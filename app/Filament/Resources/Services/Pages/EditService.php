@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Services\Pages;
 
 use App\Filament\Resources\Services\ServiceResource;
 use App\Models\Service;
+use App\Support\ServiceForm;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -25,7 +26,7 @@ class EditService extends EditRecord
         /** @var Service $service */
         $service = $this->getRecord()->load('rates');
 
-        return [...$data, 'rates' => ServiceResource::ratesForForm($service)];
+        return [...$data, 'rates' => ServiceForm::rates($service)];
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -40,7 +41,7 @@ class EditService extends EditRecord
     {
         /** @var Service $service */
         $service = $this->getRecord();
-        ServiceResource::saveRates($service, $this->rates);
+        ServiceForm::saveRates($service, $this->rates);
     }
 
     protected function getHeaderActions(): array
