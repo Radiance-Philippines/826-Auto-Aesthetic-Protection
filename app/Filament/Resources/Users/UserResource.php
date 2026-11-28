@@ -6,12 +6,12 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Branch;
-use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Support\Access;
 use App\Support\Impersonation;
 use App\Support\Invitations;
 use App\Support\Panels;
+use App\Support\TeamAccounts;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -31,7 +31,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Throwable;
 use UnitEnum;
@@ -81,9 +80,7 @@ class UserResource extends Resource
      */
     public static function canDelete(Model $record): bool
     {
-        return self::canViewAny()
-            && ! $record->is(auth()->user())
-            && ! ($record->isOwner() && User::where('role', Access::SUPER_ADMIN)->count() <= 1);
+        return TeamAccounts::canDelete(auth()->user(), $record);
     }
 
     /**
@@ -94,7 +91,7 @@ class UserResource extends Resource
      */
     public static function areaOptions(): array
     {
-        return Arr::except(Access::AREAS, ['users']);
+        return TeamAccounts::areaOptions();
     }
 
     public static function form(Schema $schema): Schema
@@ -298,9 +295,7 @@ class UserResource extends Resource
             ->requiresConfirmation()
             ->modalDescription('Removes every passkey of this person, for a lost or stolen device. They sign in with their password (and 2FA) until they add a passkey again.')
             ->action(function (User $record) {
-                $count = $record->passkeys()->count();
-                $record->passkeys()->delete();
-                SecurityEvent::record(SecurityEvent::PASSKEYS_CLEARED, $record, $count === 1 ? '1 passkey' : "{$count} passkeys", auth()->user());
+                TeamAccounts::removePasskeys($record, auth()->user());
 
                 Notification::make()->success()->title("Passkeys removed for {$record->name}")->send();
             });

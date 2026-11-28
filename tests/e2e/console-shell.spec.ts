@@ -28,10 +28,17 @@ test('the launcher switches panel, and a panel with nothing ported links to the 
 
 test('a screen that is not ported says so and leads to the current admin', async ({ page }) => {
     await adminLogin(page, TEAM.owner);
-    await page.goto('/console/owner/users');
+    // A sidebar entry with no screen here, whatever has been ported so far
+    await page.route('**/console/api/owner/me', async (route) => {
+        const response = await route.fetch();
+        const me = await response.json();
+        me.navigation.push({ label: null, items: [{ key: 'later', here: true, label: 'Later screen', href: '/owner/later', badge: null, badgeTooltip: null }] });
+        await route.fulfill({ response, json: me });
+    });
+    await page.goto('/console/owner/later');
 
-    await expect(heading(page)).toHaveText('Users');
-    await expect(page.getByRole('link', { name: 'Open Users in the current admin' })).toHaveAttribute('href', /\/owner\/users$/);
+    await expect(heading(page)).toHaveText('Later screen');
+    await expect(page.getByRole('link', { name: 'Open Later screen in the current admin' })).toHaveAttribute('href', /\/owner\/later$/);
 });
 
 test('moving between screens keeps the page and puts the keyboard at the new one', async ({ page }, info) => {

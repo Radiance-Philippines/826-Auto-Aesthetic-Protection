@@ -19,8 +19,11 @@ class ImpersonationController extends Controller
             return redirect('/');
         }
 
+        // The React admin's banner goes back to its own Users screen
+        $console = str_contains((string) url()->previous(), '/console/');
+
         return Impersonation::stop()
-            ? redirect(UserResource::getUrl('index', panel: Panels::OWNER))
+            ? redirect($console ? route('console.page', ['panel' => Panels::OWNER, 'path' => 'users']) : UserResource::getUrl('index', panel: Panels::OWNER))
             : redirect(Filament::getPanel(Panels::OWNER)->getLoginUrl());
     }
 }

@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Users\Pages;
 use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
-use App\Support\Access;
+use App\Support\TeamAccounts;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -52,18 +52,13 @@ class EditUser extends EditRecord
         $user = $this->getRecord();
         $role = $data['role'] ?? $user->role;
 
-        if ($user->isOwner() && $role !== Access::SUPER_ADMIN && User::where('role', Access::SUPER_ADMIN)->count() <= 1) {
+        if (TeamAccounts::wouldRemoveLastSuperAdmin($user, $role)) {
             Notification::make()->danger()->title('Not saved')->body('There must be at least one super admin.')->send();
 
             throw ValidationException::withMessages(['data.role' => 'There must be at least one super admin.']);
         }
 
-        $access = array_values(array_intersect(array_keys(UserResource::areaOptions()), $data['access'] ?? []));
-        $default = array_values(array_intersect(array_keys(UserResource::areaOptions()), Access::defaults($role)));
-        sort($access);
-        sort($default);
-
-        $data['permissions'] = $role === Access::SUPER_ADMIN || $access === $default ? null : $access;
+        $data['permissions'] = TeamAccounts::ownPermissions($role, $data['access'] ?? []);
         unset($data['access']);
 
         return $data;
