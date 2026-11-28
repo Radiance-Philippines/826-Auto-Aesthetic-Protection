@@ -88,7 +88,10 @@ class CustomerResource extends Resource
                     Select::make('branch_id')
                         ->label('Home branch')
                         ->options(fn () => BookingResource::branchOptions())
-                        ->default(fn () => count(BookingResource::branchOptions()) === 1 ? array_key_first(BookingResource::branchOptions()) : null),
+                        ->default(fn () => count(BookingResource::branchOptions()) === 1 ? array_key_first(BookingResource::branchOptions()) : null)
+                        // Without it, branch staff cannot see the customer they just added
+                        ->required(fn (string $operation) => $operation === 'create' && auth()->user()->scopedBranchIds() !== null)
+                        ->helperText('The branch that looks after this customer.'),
                     Select::make('sales_rep_id')
                         ->label('Sales rep')
                         ->options(fn () => self::salesRepOptions())
@@ -157,8 +160,8 @@ class CustomerResource extends Resource
             ->defaultSort('name')
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with(['branch', 'salesRep'])
-                ->withCount(['vehicles', 'bookings'])
-                ->withMax(['bookings as last_visit_on' => fn (Builder $bookings) => $bookings->whereIn('status', ['arrived', 'in_progress', 'quality_check', 'ready', 'exited'])], 'drop_off_on'))
+                ->withCount(['vehicles', 'bookings' => fn (Builder $bookings) => $bookings->visibleTo(auth()->user())])
+                ->withMax(['bookings as last_visit_on' => fn (Builder $bookings) => $bookings->visibleTo(auth()->user())->whereIn('status', ['arrived', 'in_progress', 'quality_check', 'ready', 'exited'])], 'drop_off_on'))
             ->columns([
                 TextColumn::make('name')
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $match) => $match

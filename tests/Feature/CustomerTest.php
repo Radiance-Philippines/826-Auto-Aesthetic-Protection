@@ -207,6 +207,42 @@ class CustomerTest extends TestCase
         $this->assertSame([null, null, 'walk_in', $this->staff->id, '9223334444'], [$guest->google_id, $guest->email, $guest->source, $guest->sales_rep_id, $guest->phone_key]);
     }
 
+    public function test_branch_staff_must_pick_a_home_branch_for_a_new_customer(): void
+    {
+        $this->staff->branches()->attach($this->sanMateo);
+        $this->actingAs($this->staff);
+
+        Livewire::test(CreateCustomer::class)
+            ->fillForm(['name' => 'Pedro Reyes'])
+            ->call('create')
+            ->assertHasFormErrors(['branch_id' => 'required']);
+        $this->assertSame(0, Guest::count());
+
+        $this->actingAs(User::factory()->owner()->create());
+
+        Livewire::test(CreateCustomer::class)
+            ->fillForm(['name' => 'Pedro Reyes'])
+            ->call('create')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_the_list_counts_only_the_viewer_s_branches(): void
+    {
+        $guest = Guest::factory()->create(['branch_id' => $this->branch->id]);
+        Booking::factory()->on('2026-11-02')->status('exited')->create(['guest_id' => $guest->id, 'branch_id' => $this->branch->id]);
+        Booking::factory()->on('2026-11-09')->status('exited')->create(['guest_id' => $guest->id, 'branch_id' => $this->sanMateo->id]);
+
+        $this->actingAs($this->staff);
+        Livewire::test(ListCustomers::class)
+            ->assertTableColumnStateSet('bookings_count', 1, $guest)
+            ->assertTableColumnFormattedStateSet('last_visit_on', 'Nov 2, 2026', $guest);
+
+        $this->actingAs(User::factory()->owner()->create());
+        Livewire::test(ListCustomers::class)
+            ->assertTableColumnStateSet('bookings_count', 2, $guest)
+            ->assertTableColumnFormattedStateSet('last_visit_on', 'Nov 9, 2026', $guest);
+    }
+
     public function test_setting_a_unit_s_size_prices_its_waiting_bookings(): void
     {
         $guest = Guest::factory()->create();
