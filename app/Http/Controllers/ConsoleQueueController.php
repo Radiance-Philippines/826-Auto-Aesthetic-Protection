@@ -43,7 +43,7 @@ class ConsoleQueueController extends StaffController
             'isToday' => $day->isToday(),
             'links' => [
                 'newBooking' => BookingResource::canCreate() ? '/bookings/create' : null,
-                'closures' => BranchBlockResource::canViewAny() ? BranchBlockResource::getUrl('index') : null,
+                'closures' => BranchBlockResource::canViewAny() ? '/branch-blocks' : null,
                 'sizeReviews' => '/bookings?tab=size',
                 'homeRequests' => '/bookings?tab=home',
             ],

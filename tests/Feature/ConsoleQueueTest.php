@@ -156,7 +156,7 @@ class ConsoleQueueTest extends TestCase
             ->assertJsonPath('links.newBooking', '/bookings/create')
             ->assertJsonPath('links.sizeReviews', '/bookings?tab=size')
             ->assertJsonPath('links.homeRequests', '/bookings?tab=home')
-            ->assertJsonPath('links.closures', url('/operations/branch-blocks'));
+            ->assertJsonPath('links.closures', '/branch-blocks');
     }
 
     public function test_another_day_and_a_bad_date_fall_back_as_the_page_does(): void

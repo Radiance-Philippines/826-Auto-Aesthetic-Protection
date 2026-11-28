@@ -215,10 +215,10 @@ export default function Queue() {
                         </Link>
                     )}
                     {board?.links.closures && (
-                        <a href={board.links.closures} className={buttonClass()}>
+                        <Link to={board.links.closures} className={buttonClass()}>
                             <Icon name="ban" />
                             Closures and full days
-                        </a>
+                        </Link>
                     )}
                 </>
             }
