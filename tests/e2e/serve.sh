@@ -34,5 +34,7 @@ export FLOW_WS_URL="ws://127.0.0.1:${FLOW_PORT}/ws"
 export FLOW_APP_TOKEN="${E2E_FLOW_TOKEN:-e2e-app-token}"
 export FLOW_TICKET_SECRET="${E2E_FLOW_SECRET:-e2e-ticket-secret}"
 
+# The day limits on sign-in would carry over from one run to the next
+php artisan cache:clear --no-interaction >/dev/null
 php artisan migrate:fresh --seed --seeder=E2eSeeder --force --no-interaction >/dev/null
 exec php artisan serve --host=127.0.0.1 --port="$PORT" --no-reload

@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use App\Models\User;
+use App\Support\TwoFactor;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Auth\MultiFactor\Email\Notifications\VerifyEmailAuthentication;
 use Filament\Auth\Notifications\ResetPassword;
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PragmaRX\Google2FA\Google2FA;
 use Spatie\LaravelPasskeys\Models\Passkey;
 use Tests\Support\SoftwareAuthenticator;
 use Tests\Support\StaffApi;
@@ -336,6 +338,61 @@ class ConsoleAuthTest extends TestCase
         // Another address: the account's own count still holds
         $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2'])->code($good)->assertTooManyRequests();
         $this->assertGuest('web');
+    }
+
+    public function test_only_a_code_from_the_last_half_minute_or_so_counts(): void
+    {
+        $user = $this->withApp($this->member());
+        $google2fa = app(Google2FA::class);
+        $codeAt = fn (int $stepsAway) => $google2fa->oathTotp($user->fresh()->app_authentication_secret, $google2fa->getTimestamp() + $stepsAway);
+
+        $this->password()->assertOk();
+        $this->code($codeAt(-3))->assertUnprocessable();
+        $this->code($codeAt(-1))->assertOk();
+    }
+
+    public function test_an_account_takes_only_so_many_wrong_codes_in_a_day(): void
+    {
+        $user = $this->withApp($this->member());
+
+        foreach (range(1, TwoFactor::WRONG_CODES_A_DAY) as $try) {
+            TwoFactor::countWrongCode($user);
+        }
+
+        $this->password()->assertOk();
+        $this->code($this->currentCode($user))->assertStatus(429)->assertJsonPath('message', TwoFactor::DAY_LIMIT_MESSAGE);
+        $this->assertSignedOut();
+
+        $this->travel(25)->hours();
+        $this->password()->assertOk();
+        $this->code($this->currentCode($user))->assertOk();
+    }
+
+    public function test_a_wrong_code_counts_toward_the_days_limit(): void
+    {
+        $user = $this->withApp($this->member());
+
+        foreach (range(1, TwoFactor::WRONG_CODES_A_DAY - 1) as $try) {
+            TwoFactor::countWrongCode($user);
+        }
+
+        $this->password()->assertOk();
+        $this->code('000000')->assertUnprocessable();
+        $this->assertTrue(TwoFactor::dayLimitReached($user));
+    }
+
+    public function test_one_visitor_gets_only_so_many_sign_in_tries_for_an_address_in_a_day(): void
+    {
+        $this->member();
+
+        foreach (range(1, 30) as $try) {
+            // Past each minute's budget
+            $this->travel(61)->seconds();
+            $this->password('wrong-password')->assertUnprocessable();
+        }
+
+        $this->travel(61)->seconds();
+        $this->password()->assertStatus(429);
     }
 
     public function test_an_account_with_emailed_codes_gets_one_and_signs_in_with_it(): void

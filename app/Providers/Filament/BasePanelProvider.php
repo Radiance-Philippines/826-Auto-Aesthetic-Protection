@@ -9,6 +9,7 @@ use App\Http\Middleware\AuthenticatePanel;
 use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Http\Middleware\ValidateImpersonation;
 use App\Support\Panels;
+use App\Support\TwoFactor;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Auth\MultiFactor\Email\EmailAuthentication;
@@ -90,7 +91,7 @@ abstract class BasePanelProvider extends PanelProvider
             // code, set up from the profile. Whether it is compulsory is Settings → Security,
             // checked on each request by RequireTwoFactorWhenOn (so always "required" here).
             ->multiFactorAuthentication([
-                AppAuthentication::make()->recoverable(),
+                AppAuthentication::make()->recoverable()->codeWindow(TwoFactor::WINDOW),
                 EmailAuthentication::make(),
             ], isRequired: true)
             ->multiFactorAuthenticationRequiredMiddlewareName(RequireTwoFactorWhenOn::class)

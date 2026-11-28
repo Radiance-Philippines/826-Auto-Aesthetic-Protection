@@ -112,7 +112,12 @@ class StaffAuthController extends StaffController
             throw ValidationException::withMessages(['code' => 'That sign-in took too long. Enter your email and password again.']);
         }
 
+        if (TwoFactor::dayLimitReached($user)) {
+            return response()->json(['message' => TwoFactor::DAY_LIMIT_MESSAGE, 'restart' => true], 429);
+        }
+
         if (! TwoFactor::passes($user, trim($data['code']))) {
+            TwoFactor::countWrongCode($user);
             $challenge['tries']++;
             SecurityEvent::record(SecurityEvent::STAFF_APP_SIGN_IN_FAILED, $user, 'Wrong two-factor code');
 

@@ -89,7 +89,10 @@ class AppServiceProvider extends ServiceProvider
         // A page asks again about every 4 minutes, plus reconnects; 20 a minute leaves room and stops a loop
         RateLimiter::for('live-ticket', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->getAuthIdentifier() ? 'live-ticket|user:'.$request->user()->getAuthIdentifier() : $by('live-ticket')($request)));
         // The team app: sign-in by address (each try counts; the per-email count is in the controller) and a generous per-person budget after it
-        RateLimiter::for('staff-sign-in', fn (Request $request) => Limit::perMinute(10)->by('staff-sign-in|'.$request->ip()));
+        RateLimiter::for('staff-sign-in', fn (Request $request) => [
+            Limit::perMinute(10)->by('staff-sign-in|'.$request->ip()),
+            Limit::perDay(100)->by('staff-sign-in|day|'.$request->ip()),
+        ]);
         RateLimiter::for('staff', fn (Request $request) => Limit::perMinute(240)->by('staff|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         // Customers' own accounts: 5 a minute per visitor and per email address, each try counting
         foreach (['customer-register', 'customer-login', 'customer-forgot'] as $name) {
@@ -98,18 +101,30 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by("{$name}|email|".sha1(Str::lower(trim((string) $request->input('email'))))),
             ]);
         }
-        // The React admin's own sign-in pages: the panels' budgets or tighter, per visitor and per email address
-        foreach (['console-sign-in' => 5, 'console-forgot' => 2, 'console-reset' => 2] as $name => $tries) {
-            RateLimiter::for($name, fn (Request $request) => [
-                Limit::perMinute($tries)->by("{$name}|ip|".$request->ip()),
-                Limit::perMinute($tries)->by("{$name}|email|".sha1(Str::lower(trim(is_string($request->input('email')) ? $request->input('email') : '')))),
-            ]);
+        // The React admin's own sign-in pages: a minute's budget per visitor and per email address, and a
+        // day's budget per visitor (per visitor and address together, so nobody can lock another person out)
+        foreach (['console-sign-in' => [5, 30, 100], 'console-forgot' => [2, 5, 20], 'console-reset' => [2, 10, 20]] as $name => [$minute, $dayForAddress, $dayForVisitor]) {
+            RateLimiter::for($name, function (Request $request) use ($name, $minute, $dayForAddress, $dayForVisitor): array {
+                $email = sha1(Str::lower(trim(is_string($request->input('email')) ? $request->input('email') : '')));
+
+                return [
+                    Limit::perMinute($minute)->by("{$name}|ip|".$request->ip()),
+                    Limit::perMinute($minute)->by("{$name}|email|{$email}"),
+                    Limit::perDay($dayForAddress)->by("{$name}|day|{$request->ip()}|{$email}"),
+                    Limit::perDay($dayForVisitor)->by("{$name}|day|ip|".$request->ip()),
+                ];
+            });
         }
-        RateLimiter::for('console-two-factor', fn (Request $request) => Limit::perMinute(5)->by('console-two-factor|'.$request->ip()));
+        // The per-account day limit on wrong codes is TwoFactor's
+        RateLimiter::for('console-two-factor', fn (Request $request) => [
+            Limit::perMinute(5)->by('console-two-factor|'.$request->ip()),
+            Limit::perDay(60)->by('console-two-factor|day|'.$request->ip()),
+        ]);
         // The profile's actions that check a password or a code: one budget of 5 a minute per person and per address
         RateLimiter::for('console-profile', fn (Request $request) => [
             Limit::perMinute(5)->by('console-profile|user|'.$request->user()?->getAuthIdentifier()),
             Limit::perMinute(5)->by('console-profile|ip|'.$request->ip()),
+            Limit::perDay(50)->by('console-profile|day|'.$request->user()?->getAuthIdentifier()),
         ]);
         // The React admin's JSON: a generous per-person budget
         RateLimiter::for('console', fn (Request $request) => Limit::perMinute(240)->by('console|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));

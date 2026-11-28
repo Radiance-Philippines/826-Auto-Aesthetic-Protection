@@ -114,6 +114,10 @@ class ConsoleAuthController extends Controller
             'code' => ['required', 'string', 'max:100'],
         ]);
 
+        if (TwoFactor::dayLimitReached($user)) {
+            return response()->json(['message' => TwoFactor::DAY_LIMIT_MESSAGE], 429);
+        }
+
         // The panels' own per-account budget of 5 a minute, shared with them
         $limiter = MultiFactorChallenge::make();
 
@@ -128,6 +132,8 @@ class ConsoleAuthController extends Controller
             : TwoFactor::passes($user, $data['code']);
 
         if (! $passes) {
+            TwoFactor::countWrongCode($user);
+
             throw ValidationException::withMessages(['code' => 'That code isn’t right. Check it and try again.']);
         }
 

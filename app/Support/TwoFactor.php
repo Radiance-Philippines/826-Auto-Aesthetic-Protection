@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
 use PragmaRX\Google2FAQRCode\Google2FA as Google2FAQRCode;
@@ -21,8 +22,13 @@ use PragmaRX\Google2FAQRCode\Google2FA as Google2FAQRCode;
  */
 class TwoFactor
 {
-    /** Steps of 30 seconds either side that a code still counts, as the panels allow */
-    private const WINDOW = 8;
+    /** Steps of 30 seconds either side that a code still counts, for a phone whose clock is a little off */
+    public const WINDOW = 1;
+
+    /** Wrong second-factor codes one account takes in a day, from any address or device */
+    public const WRONG_CODES_A_DAY = 20;
+
+    public const DAY_LIMIT_MESSAGE = 'Too many wrong codes today. Try again tomorrow, or ask a super admin to reset your two-factor.';
 
     private const RECOVERY_CODES = 8;
 
@@ -40,6 +46,21 @@ class TwoFactor
         return preg_match('/^\d{6}$/', $digits)
             ? self::codeMatches($user->app_authentication_secret, $digits)
             : self::useRecoveryCode($user, trim($code));
+    }
+
+    public static function dayLimitReached(User $user): bool
+    {
+        return RateLimiter::tooManyAttempts(self::dayKey($user), self::WRONG_CODES_A_DAY);
+    }
+
+    public static function countWrongCode(User $user): void
+    {
+        RateLimiter::hit(self::dayKey($user), 60 * 60 * 24);
+    }
+
+    private static function dayKey(User $user): string
+    {
+        return 'two-factor-day|'.$user->getKey();
     }
 
     /**
