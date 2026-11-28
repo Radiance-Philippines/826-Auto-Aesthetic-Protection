@@ -28,7 +28,11 @@ Hi {{ $booking->name }}, we couldn’t match the screenshot you sent.
 </x-mail::panel>
 @endif
 
-Upload another one on your booking page before **{{ $booking->hold_expires_at?->format('g:i A') }}** to keep the day.
+@if ($booking->hold_expires_at)
+Upload another one on your booking page before **{{ $booking->hold_expires_at->format('g:i A') }}** to keep the day.
+@else
+Upload another one on your booking page so we can confirm your visit.
+@endif
 @break
 @case ('expired')
 # Your hold ran out
@@ -68,9 +72,15 @@ Hi {{ $booking->name }}, your booking {{ $booking->reference }} is cancelled.
 Hi {{ $booking->name }}, your booking is now on **{{ $booking->whenLabel() }}**.
 @break
 @case ('reminder')
+@if ($booking->isHome())
+# Your home service is tomorrow
+
+Hi {{ $booking->name }}, a reminder of your home service with **826 {{ $booking->branch?->name }}**: **{{ $booking->whenLabel() }}**.
+@else
 # See you tomorrow
 
 Hi {{ $booking->name }}, a reminder of your drop-off at **826 {{ $booking->branch?->name }}**: **{{ $booking->whenLabel() }}**.
+@endif
 @break
 @case ('home_received')
 # We got your request

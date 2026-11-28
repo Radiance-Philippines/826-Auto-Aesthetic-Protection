@@ -59,6 +59,11 @@ class CreateBooking extends CreateRecord
                 'read_at' => now(),
             ], fn ($value) => $value !== null));
 
+            // "Team comes on" filled in: the day is already agreed
+            if (filled($data['drop_off_on'] ?? null)) {
+                Reservations::scheduleHomeVisit($booking, CarbonImmutable::parse($data['drop_off_on']));
+            }
+
             return $booking;
         }
 

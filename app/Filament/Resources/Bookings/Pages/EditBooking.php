@@ -33,7 +33,8 @@ class EditBooking extends EditRecord
         /** @var Booking $booking */
         $booking = $this->getRecord();
 
-        if (! $booking->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
+        // A finished or cancelled job keeps its price: nothing could price it again
+        if (! $booking->isOpen() || ! $booking->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
             return;
         }
 

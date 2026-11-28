@@ -8,7 +8,6 @@ use App\Models\VehicleSize;
 use App\Support\Notifier;
 use App\Support\Reservations;
 use App\Support\Schedule\Availability;
-use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
@@ -347,22 +346,12 @@ final class BookingActions
             ])
             ->modalSubmitActionLabel('Schedule')
             ->action(function (Booking $record, array $data) {
-                $payments = PaymentSetting::instance();
-                $askFee = ($data['ask_fee'] ?? false) && $record->status === 'requested' && $payments->feeAmount() > 0;
-                $visit = CarbonImmutable::parse($data['drop_off_on'])->startOfDay();
-                $ready = filled($data['ready_on'] ?? null)
-                    ? CarbonImmutable::parse($data['ready_on'])->startOfDay()
-                    : OpenCalendar::for($record->branch, $visit, $visit)->readyOn($visit, (int) $record->total_days);
-
-                $record->update([
-                    'drop_off_on' => $visit,
-                    'ready_on' => $ready ?? $visit,
-                    'status' => $record->status === 'requested' ? ($askFee ? 'awaiting_payment' : 'confirmed') : $record->status,
-                    'amount_due' => $askFee ? $payments->feeAmount() : $record->amount_due,
-                    'hold_expires_at' => null,
-                    'read_at' => $record->read_at ?? now(),
-                ]);
-                Notifier::customer($record, 'home_scheduled');
+                Reservations::scheduleHomeVisit(
+                    $record,
+                    CarbonImmutable::parse($data['drop_off_on']),
+                    filled($data['ready_on'] ?? null) ? CarbonImmutable::parse($data['ready_on']) : null,
+                    askFee: (bool) ($data['ask_fee'] ?? false),
+                );
 
                 Notification::make()->success()->title('Scheduled')->body($record->whenLabel())->send();
             });
