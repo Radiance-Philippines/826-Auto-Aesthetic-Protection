@@ -20,6 +20,15 @@ class GoogleSignIn
     }
 
     /**
+     * Customers can't reserve online until it is set up again; their accounts
+     * and bookings stay.
+     */
+    public static function turnOff(): void
+    {
+        SiteSetting::instance()->update(['google_client_id' => null, 'google_client_secret' => null, 'google_android_client_id' => null, 'google_ios_client_id' => null]);
+    }
+
+    /**
      * The customer app's Google sign-in is on when any client id is set: the
      * ID token's audience may be the Android, iOS or web client.
      */

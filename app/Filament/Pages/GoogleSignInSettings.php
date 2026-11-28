@@ -142,7 +142,7 @@ class GoogleSignInSettings extends Page
                         ->modalDescription('Customers can’t reserve online until it’s set up again. Their accounts and bookings stay.')
                         ->visible(fn () => GoogleSignIn::enabled())
                         ->action(function () {
-                            SiteSetting::instance()->update(['google_client_id' => null, 'google_client_secret' => null, 'google_android_client_id' => null, 'google_ios_client_id' => null]);
+                            GoogleSignIn::turnOff();
                             $this->form->fill($this->values());
                             Notification::make()->success()->title('Google sign-in is off')->send();
                         }),
