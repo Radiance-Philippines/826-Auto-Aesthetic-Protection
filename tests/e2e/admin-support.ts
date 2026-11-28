@@ -122,7 +122,6 @@ export async function actionThenConfirm(page: Page, action: string, confirm = 'C
 export function emailedCodeFor(email: string, since = 0): string | null {
     const blocks = sentMail().slice(since).split(/(?=^\[\d{4}-\d\d-\d\d)/m).filter((block) => block.includes(email));
     const last = blocks.at(-1) ?? '';
-    const body = last.replace(/<[^>]+>/g, ' ');
-
-    return body.match(/(?:^|[^\d])(\d{3}\s?\d{3})(?:[^\d]|$)/m)?.[1].replace(/\s/g, '') ?? null;
+    // By its sentence: the message's ids and boundaries are hex and can hold six digits too
+    return last.match(/code is:\s*(\d{6})/)?.[1] ?? null;
 }

@@ -43,8 +43,8 @@ class ConsoleShellTest extends TestCase
 
     public function test_a_guest_is_sent_to_the_sign_in_page_and_comes_back(): void
     {
-        $this->get('/console')->assertRedirect(url('/admin/login'));
-        $this->get('/console/operations/queue?date=2026-11-14')->assertRedirect(url('/admin/login'));
+        $this->get('/console')->assertRedirect(url('/console/login'));
+        $this->get('/console/operations/queue?date=2026-11-14')->assertRedirect(url('/console/login'));
 
         $this->assertSame(url('/console/operations/queue?date=2026-11-14'), session('url.intended'));
     }
@@ -136,8 +136,8 @@ class ConsoleShellTest extends TestCase
             ->assertJsonPath('launcher', [])
             ->assertJsonPath('impersonating', null)
             ->assertJsonPath('links.classic', url('/operations'))
-            ->assertJsonPath('links.profile', url('/operations/profile'))
-            ->assertJsonPath('links.logout', url('/operations/logout'));
+            ->assertJsonPath('links.profile', url('/console/operations/profile'))
+            ->assertJsonPath('links.logout', url('/console/logout'));
 
         $items = collect($response->json('navigation'))->flatMap(fn (array $group) => $group['items'])->keyBy('key');
 
@@ -203,11 +203,11 @@ class ConsoleShellTest extends TestCase
     {
         SecuritySetting::instance()->update(['require_two_factor' => true]);
         $this->actingAs($this->staffUser('operations', $this->cainta));
-        $setUp = url('/operations/multi-factor-authentication/set-up');
+        $setUp = url('/console/operations/profile');
 
         $this->get('/console/operations/queue')->assertRedirect($setUp);
-        $this->getJson('/console/api/operations/me')->assertForbidden()->assertJsonPath('redirect', $setUp);
-        $this->getJson('/console/api/operations/queue')->assertForbidden()->assertJsonMissingPath('columns');
+        $this->getJson('/console/api/operations/me')->assertOk()->assertJsonPath('setupRequired', true)->assertJsonPath('navigation', []);
+        $this->getJson('/console/api/operations/queue')->assertForbidden()->assertJsonPath('redirect', $setUp)->assertJsonMissingPath('columns');
     }
 
     public function test_viewing_as_someone_shows_the_banner_and_their_access(): void

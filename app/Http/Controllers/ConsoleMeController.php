@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\RequireTwoFactorWhenOn;
 use App\Support\AdminConsole;
 use App\Support\AppLauncher;
 use App\Support\CurrentBranch;
@@ -20,13 +21,16 @@ class ConsoleMeController extends Controller
     {
         $user = $request->user();
         $panel = Filament::getCurrentOrDefaultPanel();
-        $tiles = AppLauncher::tiles($user, $panel->getId());
-        $branches = CurrentBranch::options($user);
+        // Until two-factor sign-in is set up the shell holds nothing of the business
+        $setUp = RequireTwoFactorWhenOn::due($request);
+        $tiles = $setUp ? [] : AppLauncher::tiles($user, $panel->getId());
+        $branches = $setUp ? [] : CurrentBranch::options($user);
 
         return response()->json([
             'user' => ['name' => $user->name, 'email' => $user->email, 'roleLabel' => $user->roleLabel()],
             'panel' => ['id' => $panel->getId(), 'brand' => (string) $panel->getBrandName()],
-            'navigation' => AdminConsole::navigation($panel),
+            'navigation' => $setUp ? [] : AdminConsole::navigation($panel),
+            'setupRequired' => $setUp,
             'launcher' => AppLauncher::worthShowing($tiles) ? array_map(fn (array $tile) => [
                 'key' => $tile['key'],
                 'label' => $tile['label'],
@@ -48,12 +52,12 @@ class ConsoleMeController extends Controller
                 'stopUrl' => route('impersonation.stop'),
             ] : null,
             'links' => [
-                'profile' => $panel->getProfileUrl(),
+                'profile' => Impersonation::active() ? null : route('console.page', ['panel' => $panel->getId(), 'path' => 'profile']),
                 'classic' => url($panel->getId()),
                 'site' => url('/'),
-                'logout' => $panel->getLogoutUrl(),
+                'logout' => route('console.logout'),
             ],
-            'live' => FlowLive::ticketsEnabled() ? route('live.ticket') : null,
+            'live' => ! $setUp && FlowLive::ticketsEnabled() ? route('live.ticket') : null,
         ])->header('Cache-Control', 'no-store');
     }
 }

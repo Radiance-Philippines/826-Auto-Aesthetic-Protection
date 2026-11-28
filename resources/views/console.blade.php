@@ -28,7 +28,7 @@
     </script>
 
     @viteReactRefresh
-    @vite(['resources/css/console.css', 'resources/js/admin/main.tsx'])
+    @vite(['resources/css/console.css', $entry ?? 'resources/js/admin/main.tsx'])
 </head>
 
 <body>

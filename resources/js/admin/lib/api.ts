@@ -40,14 +40,19 @@ function reloadOnce(): void {
     window.location.reload();
 }
 
+type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
 /** A call to /console/api/{panel}{path}; anything but success throws an ApiError with words to show */
-export async function api<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export const api = <T = unknown>(method: Method, path: string, body?: unknown, signal?: AbortSignal): Promise<T> => request<T>(method, `${apiBase}${path}`, body, signal);
+
+/** The same for any address of this app that answers JSON (the sign-in pages use it directly) */
+export async function request<T = unknown>(method: Method, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     let response: Response;
     // Files go as FormData: the browser names that type and its boundary itself
     const form = body instanceof FormData;
 
     try {
-        response = await fetch(`${apiBase}${path}`, {
+        response = await fetch(url, {
             method,
             headers: {
                 Accept: 'application/json',
@@ -79,8 +84,8 @@ export async function api<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELET
         reloadOnce();
     }
 
-    // Two-factor sign-in is due: Filament's set-up page
-    if (response.status === 403 && data?.redirect) {
+    // Two-factor sign-in is due: the profile page sets it up (never reload that page onto itself)
+    if (response.status === 403 && data?.redirect && new URL(data.redirect, window.location.href).pathname !== window.location.pathname) {
         window.location.assign(data.redirect);
     }
 

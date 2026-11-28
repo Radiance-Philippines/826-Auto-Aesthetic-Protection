@@ -10,6 +10,8 @@ export default defineConfig({
                 'resources/js/app.tsx',
                 // The React admin (/console), beside the Filament panels: its own page and stylesheet
                 'resources/js/admin/main.tsx',
+                // Its sign-in, forgot and reset pages: a smaller bundle of their own
+                'resources/js/admin/auth/main.tsx',
                 'resources/css/console.css',
                 // Live updates in the admin (a render hook in AdminPanelProvider)
                 'resources/js/admin-live.ts',

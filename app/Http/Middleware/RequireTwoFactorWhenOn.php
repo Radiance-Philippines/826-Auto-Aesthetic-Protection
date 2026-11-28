@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\SecuritySetting;
+use App\Models\User;
 use App\Support\Impersonation;
 use Closure;
 use Filament\Auth\MultiFactor\Http\Middleware\EnsureMultiFactorAuthenticationIsEnabled;
@@ -23,17 +24,26 @@ class RequireTwoFactorWhenOn extends EnsureMultiFactorAuthenticationIsEnabled
 
     public function handle(Request $request, Closure $next): mixed
     {
-        $setting = SecuritySetting::current();
+        return self::due($request) ? parent::handle($request, $next) : $next($request);
+    }
 
+    /**
+     * Whether this signed-in person still has two-factor sign-in to set up
+     * before the admin opens (the panels here, /console in OpenConsolePanel).
+     */
+    public static function due(Request $request): bool
+    {
         // A super admin viewing as someone is already signed in strongly; the target's 2FA is not theirs to set up
-        if (! $setting->require_two_factor || Impersonation::active()) {
-            return $next($request);
+        if (! SecuritySetting::current()->require_two_factor || Impersonation::active()) {
+            return false;
         }
 
         if (SecuritySetting::passkeysAllowed() && $request->session()->get(self::VIA_PASSKEY) === true) {
-            return $next($request);
+            return false;
         }
 
-        return parent::handle($request, $next);
+        $user = $request->user();
+
+        return $user instanceof User && ! $user->hasTwoFactor();
     }
 }

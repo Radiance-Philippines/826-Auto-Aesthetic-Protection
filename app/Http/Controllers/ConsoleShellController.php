@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\AdminConsole;
+use App\Support\Impersonation;
 use App\Support\Panels;
 use Filament\Facades\Filament;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +35,10 @@ class ConsoleShellController extends Controller
         $slug = explode('/', (string) $path)[0];
         $status = 200;
 
-        if ($slug !== '') {
+        if ($slug === 'profile') {
+            // Everyone's own, so no Filament screen to ask; closed while viewing as someone else
+            abort_if(Impersonation::active(), 403, 'Not available while viewing as someone else.');
+        } elseif ($slug !== '') {
             $class = AdminConsole::screens($panel)[$slug] ?? null;
 
             if ($class !== null) {
@@ -55,8 +59,7 @@ class ConsoleShellController extends Controller
         return response()->view('console', [
             'title' => (string) $panel->getBrandName(),
             'console' => [
-                // The folder the app is served from ("/demo/826"), for the router and every address
-                'base' => rtrim((string) parse_url(url('/'), PHP_URL_PATH), '/'),
+                'base' => AdminConsole::basePath(),
                 'panel' => $panel->getId(),
                 'logo' => is_file(public_path(SiteController::LOGO)) ? asset(SiteController::LOGO) : null,
             ],

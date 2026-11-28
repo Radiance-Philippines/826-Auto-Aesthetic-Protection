@@ -38,15 +38,19 @@ class PasskeyLoginController extends Controller
     {
         abort_unless(SecuritySetting::passkeysAllowed(), 404);
 
-        // Already signed in (the autofill and the button can both answer): nothing more to do
-        if (Filament::auth()->user() instanceof User) {
-            return response()->json(['redirect' => Panels::homeUrl(Filament::auth()->user())]);
-        }
-
         $request->validate([
             'credential' => ['required', 'string', 'json', 'max:20000'],
             'remember' => ['sometimes', 'boolean'],
+            // Asked from the React admin's sign-in page: home is the console
+            'console' => ['sometimes', 'boolean'],
         ]);
+
+        $home = fn (User $user): string => $request->boolean('console') ? route('console.home') : Panels::homeUrl($user);
+
+        // Already signed in (the autofill and the button can both answer): nothing more to do
+        if (Filament::auth()->user() instanceof User) {
+            return response()->json(['redirect' => $home(Filament::auth()->user())]);
+        }
 
         $failed = response()->json(['message' => 'That passkey could not sign you in. Try again, or use your password.'], 422);
 
@@ -72,6 +76,6 @@ class PasskeyLoginController extends Controller
 
         SecurityEvent::record(SecurityEvent::PASSKEY_SIGN_IN, $user, $passkey->name);
 
-        return response()->json(['redirect' => redirect()->intended(Panels::homeUrl($user))->getTargetUrl()]);
+        return response()->json(['redirect' => Panels::intendedUrl($home($user))]);
     }
 }
