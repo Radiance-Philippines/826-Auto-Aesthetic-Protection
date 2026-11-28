@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Filament\Concerns\ShownInItsPanels;
 use App\Models\MailSetting;
+use App\Support\MailCheck;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -18,7 +19,6 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 use UnitEnum;
 
@@ -147,11 +147,7 @@ class EmailSettings extends Page
         $settings = $this->store();
 
         try {
-            MailSetting::applyToConfig();
-            Mail::purge();
-            Mail::raw('This is a test from the '.config('app.name').' admin. If you can read it, sending works.', fn ($message) => $message
-                ->to($settings->address)
-                ->subject(config('app.name').' admin: test email'));
+            MailCheck::send($settings);
         } catch (Throwable $e) {
             Notification::make()->danger()->persistent()
                 ->title('Sending failed')
