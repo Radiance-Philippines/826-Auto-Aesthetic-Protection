@@ -78,6 +78,7 @@ test('unread count, mark as read, open, dismiss and clear', async ({ page }, inf
 
     await page.keyboard.press('Escape');
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);
 });

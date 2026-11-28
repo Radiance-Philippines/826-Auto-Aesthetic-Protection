@@ -19,6 +19,7 @@ test('a save, the failed state, accessible and fits 360px', async ({ page }, inf
 
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

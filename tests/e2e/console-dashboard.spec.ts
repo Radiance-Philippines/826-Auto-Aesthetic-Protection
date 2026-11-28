@@ -60,6 +60,7 @@ test('a failed load, accessible light and dark, fits 360px', async ({ page }, in
     await expect(page.getByRole('heading', { level: 2, name: 'Staff' })).toBeVisible();
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

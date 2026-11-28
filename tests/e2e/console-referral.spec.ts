@@ -21,6 +21,7 @@ test('the discount follows its type, a refusal, and the screen is accessible and
 
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

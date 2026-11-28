@@ -86,6 +86,8 @@ test('users: failed load, accessible light and dark, fits 360px', async ({ page 
     await expect(page.getByRole('dialog')).toBeHidden();
 
     await page.emulateMedia({ colorScheme: 'dark' });
+
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

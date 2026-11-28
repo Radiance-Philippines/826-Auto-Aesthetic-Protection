@@ -45,6 +45,7 @@ test('booking rules are accessible, light and dark, and fit 360px', async ({ pag
     await expectAccessible(page);
     await page.screenshot({ path: `test-results/console-booking-rules-${info.project.name}.png`, fullPage: true });
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

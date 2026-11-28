@@ -29,6 +29,7 @@ test('save, put back, copy, accessible and fits 360px', async ({ page }, info) =
     await expect(apple).toBeVisible();
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

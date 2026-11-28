@@ -36,6 +36,7 @@ test('save, send a test, and the password stays on the server', async ({ page },
 
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

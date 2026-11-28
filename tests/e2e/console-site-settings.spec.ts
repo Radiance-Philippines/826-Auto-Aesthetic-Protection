@@ -43,6 +43,7 @@ test('site settings are accessible, light and dark, and fit 360px', async ({ pag
     await expect(page.getByRole('button', { name: 'Save settings' })).toBeVisible();
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);

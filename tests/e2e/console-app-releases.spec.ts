@@ -53,6 +53,7 @@ test('app releases: empty, accessible light and dark, fits 360px', async ({ page
     await expect(page.getByText('No app releases yet')).toBeVisible();
     await expectAccessible(page);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
     await expectAccessible(page);
     await page.setViewportSize({ width: 360, height: 780 });
     await expectNoHorizontalOverflow(page);
