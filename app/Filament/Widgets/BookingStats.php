@@ -2,9 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Pages\Queue;
-use App\Filament\Resources\Bookings\BookingResource;
-use App\Models\Booking;
+use App\Support\Dashboard\Cards;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -35,30 +33,12 @@ class BookingStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $scoped = fn () => Booking::query()->visibleTo(auth()->user());
+        $icons = ['dropOffs' => Heroicon::OutlinedCalendarDays, 'inShop' => Heroicon::OutlinedWrenchScrewdriver, 'needsYou' => Heroicon::OutlinedInboxArrowDown];
 
-        $dropOffs = $scoped()->countingTowardCap()->where('drop_off_on', today()->toDateString())->count();
-        $inShop = $scoped()->whereIn('status', Booking::IN_SHOP)->count();
-        $ready = $scoped()->where('status', 'ready')->count();
-        $toDo = $scoped()->needsAction()->count();
-        $sizes = $scoped()->needsSizeReview()->count();
-
-        return [
-            Stat::make('Drop-offs today', $dropOffs)
-                ->description('Booked for today')
-                ->descriptionIcon(Heroicon::OutlinedCalendarDays)
-                ->color($dropOffs ? 'primary' : 'gray')
-                ->url(Queue::getUrl()),
-            Stat::make('In the shop', $inShop)
-                ->description($ready ? "{$ready} ready" : 'Arrived or being worked on')
-                ->descriptionIcon(Heroicon::OutlinedWrenchScrewdriver)
-                ->color($inShop ? 'info' : 'gray')
-                ->url(BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
-            Stat::make('Needs you', $toDo)
-                ->description($toDo ? ($sizes ? "{$sizes} to size, plus screenshots and home visits" : 'Screenshots to check, home visits to schedule') : 'All caught up')
-                ->descriptionIcon(Heroicon::OutlinedInboxArrowDown)
-                ->color($toDo ? 'warning' : 'gray')
-                ->url(BookingResource::getUrl('index', ['activeTab' => 'action'])),
-        ];
+        return array_map(fn (array $stat) => Stat::make($stat['label'], $stat['value'])
+            ->description($stat['help'])
+            ->descriptionIcon($icons[$stat['key']])
+            ->color($stat['tone'])
+            ->url($stat['url']), Cards::today(auth()->user()));
     }
 }

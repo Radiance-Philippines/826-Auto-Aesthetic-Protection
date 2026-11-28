@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\UsesInsights;
-use App\Support\Dashboard\Insights;
+use App\Support\Dashboard\Cards;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -24,7 +24,7 @@ class SalesChart extends ChartWidget
 
     protected ?string $maxHeight = '280px';
 
-    protected ?string $emptyStateHeading = 'No finished jobs in this period.';
+    protected ?string $emptyStateHeading = Cards::CHART_EMPTY;
 
     public static function canView(): bool
     {
@@ -33,12 +33,12 @@ class SalesChart extends ChartWidget
 
     public function getHeading(): string
     {
-        return $this->insights()->period->days() > Insights::WEEKLY_AFTER_DAYS ? 'Sales per week' : 'Sales per day';
+        return Cards::chartHeading($this->insights());
     }
 
     public function getDescription(): string
     {
-        return 'Total price of jobs that exited, by the day they exited.';
+        return Cards::CHART_HELP;
     }
 
     protected function getType(): string

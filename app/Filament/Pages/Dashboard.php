@@ -6,6 +6,7 @@ use App\Filament\Concerns\ShownInItsPanels;
 use App\Providers\Filament\PanelPages;
 use App\Support\Dashboard\Insights;
 use App\Support\Dashboard\Period;
+use App\Support\Dashboard\SalesExport;
 use App\Support\Panels;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -17,7 +18,6 @@ use Filament\Panel;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -125,23 +125,6 @@ class Dashboard extends BaseDashboard
      */
     public function exportDailySales(): StreamedResponse
     {
-        $insights = Insights::for(auth()->user(), $this->filters);
-
-        abort_unless($insights->can('bookings.sales'), 403);
-
-        $rows = $insights->daily();
-        $branch = $insights->branchId ? Str::slug($insights->branches()->first()?->name ?? '') : null;
-        $name = '826-daily-sales-'.$insights->period->from->toDateString().'-to-'.$insights->period->to->toDateString().($branch ? "-{$branch}" : '').'.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Date', 'Units done', 'Sales', 'Collected', 'Discounts'], escape: '');
-
-            foreach ($rows as $row) {
-                fputcsv($out, [$row['date'], $row['units'], $row['sales'], $row['collected'], $row['discounts']], escape: '');
-            }
-
-            fclose($out);
-        }, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return SalesExport::download(Insights::for(auth()->user(), $this->filters));
     }
 }

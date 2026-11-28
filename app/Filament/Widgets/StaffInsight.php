@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Support\Access;
+use App\Support\Dashboard\Cards;
 use App\Support\Dashboard\Insights;
 
 /**
@@ -23,13 +24,6 @@ class StaffInsight extends InsightWidget
 
     protected function blocks(Insights $insights): array
     {
-        return [[
-            'title' => 'Work by person',
-            'help' => 'Jobs and sales are finished jobs for the customers a person is the sales rep of. Referrals are those jobs where the customer used another customer’s referral code. Moves are the status changes recorded under their name.',
-            'columns' => ['Person', 'Role', 'Customers\' jobs', 'Sales', 'Referrals', 'Moves'],
-            'rows' => collect($insights->staff())->map(fn (array $row) => [$row['name'], $row['role'], (string) $row['jobs'], $this->peso($row['sales']), (string) $row['referrals'], (string) $row['moves']])->all(),
-            'empty' => 'No staff activity in this period.',
-            'wide' => true,
-        ]];
+        return Cards::staff($insights);
     }
 }
