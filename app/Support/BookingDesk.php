@@ -5,11 +5,9 @@ namespace App\Support;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Guest;
-use App\Models\PaymentSetting;
 use App\Models\Service;
 use App\Models\User;
 use App\Support\Schedule\Estimate;
-use App\Support\Schedule\OpenCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
@@ -254,6 +252,11 @@ final class BookingDesk
             'read_at' => now(),
         ], fn ($value) => $value !== null));
 
+        // "Team comes on" filled in: the day is already agreed
+        if (filled($data['drop_off_on'] ?? null)) {
+            Reservations::scheduleHomeVisit($booking, CarbonImmutable::parse($data['drop_off_on']));
+        }
+
         return $booking;
     }
 
@@ -268,7 +271,8 @@ final class BookingDesk
      */
     public static function afterEdit(Booking $booking): void
     {
-        if (! $booking->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
+        // A finished or cancelled job keeps its price: nothing could price it again
+        if (! $booking->isOpen() || ! $booking->wasChanged(['vehicle_year', 'vehicle_model', 'vehicle_type', 'plate_number'])) {
             return;
         }
 
@@ -312,19 +316,6 @@ final class BookingDesk
      */
     public static function scheduleHome(Booking $booking, CarbonImmutable $visit, ?CarbonImmutable $ready, bool $askFee): void
     {
-        $payments = PaymentSetting::instance();
-        $askFee = $askFee && $booking->status === 'requested' && $payments->feeAmount() > 0;
-        $visit = $visit->startOfDay();
-        $ready = $ready?->startOfDay() ?? OpenCalendar::for($booking->branch, $visit, $visit)->readyOn($visit, (int) $booking->total_days);
-
-        $booking->update([
-            'drop_off_on' => $visit,
-            'ready_on' => $ready ?? $visit,
-            'status' => $booking->status === 'requested' ? ($askFee ? 'awaiting_payment' : 'confirmed') : $booking->status,
-            'amount_due' => $askFee ? $payments->feeAmount() : $booking->amount_due,
-            'hold_expires_at' => null,
-            'read_at' => $booking->read_at ?? now(),
-        ]);
-        Notifier::customer($booking, 'home_scheduled');
+        Reservations::scheduleHomeVisit($booking, $visit, $ready, $askFee);
     }
 }

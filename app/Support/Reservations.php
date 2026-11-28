@@ -7,6 +7,7 @@ use App\Models\BookingSetting;
 use App\Models\Branch;
 use App\Models\Guest;
 use App\Models\PaymentSetting;
+use App\Models\RewardRedemption;
 use App\Models\Service;
 use App\Models\ServiceRate;
 use App\Models\Vehicle;
@@ -247,6 +248,30 @@ final class Reservations
     }
 
     /**
+     * Puts a home visit on its day: the customer is told, and a new day gets
+     * its own reminder. $askFee holds a new request until the fee is paid.
+     */
+    public static function scheduleHomeVisit(Booking $booking, CarbonImmutable $visit, ?CarbonImmutable $ready = null, bool $askFee = false): Booking
+    {
+        $payments = PaymentSetting::instance();
+        $askFee = $askFee && $booking->status === 'requested' && $payments->feeAmount() > 0;
+        $visit = $visit->startOfDay();
+
+        $booking->update([
+            'drop_off_on' => $visit,
+            'ready_on' => $ready?->startOfDay() ?? OpenCalendar::for($booking->branch, $visit, $visit)->readyOn($visit, (int) $booking->total_days) ?? $visit,
+            'status' => $booking->status === 'requested' ? ($askFee ? 'awaiting_payment' : 'confirmed') : $booking->status,
+            'amount_due' => $askFee ? $payments->feeAmount() : $booking->amount_due,
+            'hold_expires_at' => null,
+            'reminded_at' => $booking->drop_off_on?->isSameDay($visit) ? $booking->reminded_at : null,
+            'read_at' => $booking->read_at ?? now(),
+        ]);
+        Notifier::customer($booking, 'home_scheduled');
+
+        return $booking;
+    }
+
+    /**
      * Moves an onsite reservation to another drop-off date, keeping its
      * services, payment and estimate. A manager or super admin can move it
      * over the daily cap on purpose with $force.
@@ -401,6 +426,19 @@ final class Reservations
             }
 
             $items = $booking->items()->get();
+
+            // A manual transaction's prices are the ones the team typed: a size never replaces them
+            if ($booking->source === 'manual' && $items->every(fn ($item) => $item->price !== null)) {
+                $booking->update([
+                    'vehicle_size_id' => $size->id,
+                    'vehicle_size_name' => $size->name,
+                    'size_reviewed_at' => now(),
+                    'priced_at' => $booking->priced_at ?? now(),
+                ]);
+
+                return [];
+            }
+
             $prices = ServiceRate::query()
                 ->where('vehicle_size_id', $size->id)
                 ->whereIn('service_id', $items->pluck('service_id')->filter())
@@ -419,14 +457,17 @@ final class Reservations
             }
 
             $subtotal = $missing === [] ? (int) $items->sum(fn ($item) => $item->price) : null;
-            $discount = Referrals::discountFor($booking, $subtotal);
+            // The referral discount, plus any points already redeemed on this booking
+            $off = (int) Referrals::discountFor($booking, $subtotal)
+                + (int) RewardRedemption::query()->where('booking_id', $booking->id)->sum('peso_value');
+            $off = min($off, (int) $subtotal);
 
             $booking->update([
                 'vehicle_size_id' => $size->id,
                 'vehicle_size_name' => $size->name,
                 'size_reviewed_at' => now(),
-                'total_price' => $subtotal === null ? null : $subtotal - (int) $discount,
-                'discount_amount' => $discount,
+                'total_price' => $subtotal === null ? null : $subtotal - $off,
+                'discount_amount' => $off ?: null,
                 'priced_at' => $missing === [] ? now() : null,
             ]);
 

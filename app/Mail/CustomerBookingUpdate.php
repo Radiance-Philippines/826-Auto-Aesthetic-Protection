@@ -34,7 +34,7 @@ class CustomerBookingUpdate extends Mailable
             'priced' => "We reviewed your car: your price for {$when}",
             'cancelled' => "Your {$when} booking is cancelled",
             'rescheduled' => "Your booking is now on {$when}",
-            'reminder' => "See you tomorrow at 826 {$branch}",
+            'reminder' => $this->booking->isHome() ? "Your home service with 826 {$branch} is tomorrow" : "See you tomorrow at 826 {$branch}",
             'home_received' => 'We got your home service request',
             'home_scheduled' => "Your home service is set for {$when}",
             default => 'About your home service request',
