@@ -74,6 +74,9 @@ return [
 
     'site_pin' => env('SITE_PIN'),
 
+    // On: the old admin addresses (/admin, /owner, ...) open the React admin
+    'console_only' => (bool) env('ADMIN_CONSOLE_ONLY', false),
+
     /*
     | The demo's shared try-it login for the admin, filled in on its sign-in
     | page. That account can open everything but saves nothing. Create it

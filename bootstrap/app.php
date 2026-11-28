@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateGuestToken;
 use App\Http\Middleware\AuthenticateUserToken;
+use App\Http\Middleware\ConsoleOnly;
 use App\Http\Middleware\SkipForgeryCheckForBearer;
 use App\Http\Middleware\StartSessionUnlessBearer;
 use App\Http\Middleware\ValidateImpersonation;
@@ -28,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
             at: '*',
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
         );
+
+        // Old admin addresses to the React admin, when ADMIN_CONSOLE_ONLY is on
+        $middleware->append(ConsoleOnly::class);
 
         // Meta's webhook proves itself with a signature, not a CSRF token
         $middleware->preventRequestForgery(except: ['webhooks/meta']);
