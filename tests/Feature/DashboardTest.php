@@ -380,7 +380,10 @@ class DashboardTest extends TestCase
         Livewire::test(NeedsAttention::class, ['pageFilters' => null])
             ->assertSee('Units to size')
             ->assertSee('Screenshots to check')
-            ->assertSee('Late units');
+            ->assertSee('Late units')
+            // The bookings list reads ?tab=
+            ->assertSee(['bookings?tab=size', 'bookings?tab=action', 'bookings?tab=home', 'bookings?tab=in_shop'], false)
+            ->assertDontSee('activeTab=', false);
     }
 
     public function test_each_role_only_gets_the_attention_boxes_it_acts_on(): void

@@ -49,12 +49,12 @@ class NeedsAttention extends StatsOverviewWidget
             ->url($url);
 
         return array_values(array_filter([
-            $stat('Units to size', $count['size'], 'Open bookings whose unit has no size or price yet.', Heroicon::OutlinedScale, BookingResource::getUrl('index', ['activeTab' => 'size'])),
-            $stat('Screenshots to check', $count['screenshots'], 'Payment screenshots waiting to be confirmed.', Heroicon::OutlinedPhoto, BookingResource::getUrl('index', ['activeTab' => 'action'])),
-            $stat('Home-service requests', $count['home'], 'Requests nobody has scheduled yet.', Heroicon::OutlinedHome, BookingResource::getUrl('index', ['activeTab' => 'home'])),
+            $stat('Units to size', $count['size'], 'Open bookings whose unit has no size or price yet.', Heroicon::OutlinedScale, BookingResource::getUrl('index', ['tab' => 'size'])),
+            $stat('Screenshots to check', $count['screenshots'], 'Payment screenshots waiting to be confirmed.', Heroicon::OutlinedPhoto, BookingResource::getUrl('index', ['tab' => 'action'])),
+            $stat('Home-service requests', $count['home'], 'Requests nobody has scheduled yet.', Heroicon::OutlinedHome, BookingResource::getUrl('index', ['tab' => 'home'])),
             $stat('Reviews to approve', $count['reviews'], 'Customer reviews waiting for a decision.', Heroicon::OutlinedStar, ReviewResource::getUrl('index')),
             $stat('Unread chats', $count['chats'], 'Messenger conversations with new messages.', Heroicon::OutlinedChatBubbleLeftRight, Inbox::getUrl()),
-            $stat('Late units', $count['late'], 'In the shop, past their ready date.', Heroicon::OutlinedClock, BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
+            $stat('Late units', $count['late'], 'In the shop, past their ready date.', Heroicon::OutlinedClock, BookingResource::getUrl('index', ['tab' => 'in_shop'])),
         ]));
     }
 }

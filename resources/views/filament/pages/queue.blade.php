@@ -55,10 +55,10 @@
         @if ($sizeReviews || $toSchedule)
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-warning-700 dark:text-warning-300">
                 @if ($sizeReviews)
-                    <a href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('index', ['activeTab' => 'size']) }}" class="underline">{{ $sizeReviews }} {{ $sizeReviews === 1 ? 'unit needs' : 'units need' }} a size review</a>
+                    <a href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('index', ['tab' => 'size']) }}" class="underline">{{ $sizeReviews }} {{ $sizeReviews === 1 ? 'unit needs' : 'units need' }} a size review</a>
                 @endif
                 @if ($toSchedule)
-                    <a href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('index', ['activeTab' => 'home']) }}" class="underline">{{ $toSchedule }} home {{ $toSchedule === 1 ? 'request' : 'requests' }} to schedule</a>
+                    <a href="{{ \App\Filament\Resources\Bookings\BookingResource::getUrl('index', ['tab' => 'home']) }}" class="underline">{{ $toSchedule }} home {{ $toSchedule === 1 ? 'request' : 'requests' }} to schedule</a>
                 @endif
             </p>
         @endif

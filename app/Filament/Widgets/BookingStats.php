@@ -53,12 +53,12 @@ class BookingStats extends StatsOverviewWidget
                 ->description($ready ? "{$ready} ready" : 'Arrived or being worked on')
                 ->descriptionIcon(Heroicon::OutlinedWrenchScrewdriver)
                 ->color($inShop ? 'info' : 'gray')
-                ->url(BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
+                ->url(BookingResource::getUrl('index', ['tab' => 'in_shop'])),
             Stat::make('Needs you', $toDo)
                 ->description($toDo ? ($sizes ? "{$sizes} to size, plus screenshots and home visits" : 'Screenshots to check, home visits to schedule') : 'All caught up')
                 ->descriptionIcon(Heroicon::OutlinedInboxArrowDown)
                 ->color($toDo ? 'warning' : 'gray')
-                ->url(BookingResource::getUrl('index', ['activeTab' => 'action'])),
+                ->url(BookingResource::getUrl('index', ['tab' => 'action'])),
         ];
     }
 }

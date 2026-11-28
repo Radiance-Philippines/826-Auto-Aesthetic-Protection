@@ -42,7 +42,7 @@ class OperationsInsight extends InsightWidget
                     'label' => $label,
                     'value' => (string) $count,
                     'help' => '',
-                    'url' => BookingResource::getUrl('index', ['activeTab' => $label === 'Booked' ? 'upcoming' : 'in_shop']),
+                    'url' => BookingResource::getUrl('index', ['tab' => $label === 'Booked' ? 'upcoming' : 'in_shop']),
                 ])->values()->all(),
                 'wide' => true,
             ],

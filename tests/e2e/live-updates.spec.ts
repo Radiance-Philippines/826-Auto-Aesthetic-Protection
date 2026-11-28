@@ -87,7 +87,7 @@ test.describe('live updates (Radiance Flow)', () => {
 
         try {
             await adminLogin(watcher, TEAM.sales);
-            await adminOpen(watcher, '/admin/bookings?activeTab=all');
+            await adminOpen(watcher, '/admin/bookings?tab=all');
             await watcher.getByPlaceholder('Search').first().fill(name);
             await expect(watcher.locator('table tbody tr').filter({ hasText: name })).toContainText('Booked');
             await mark(watcher);
