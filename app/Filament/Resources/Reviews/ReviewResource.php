@@ -10,6 +10,7 @@ use App\Filament\Resources\Reviews\Pages\ViewReview;
 use App\Models\Review;
 use App\Support\ImagePipeline;
 use App\Support\Panels;
+use App\Support\ReviewModeration;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -83,11 +84,6 @@ class ReviewResource extends Resource
         return 'Reviews waiting for approval';
     }
 
-    public static function stars(int $rating): string
-    {
-        return str_repeat('★', $rating).str_repeat('☆', 5 - $rating);
-    }
-
     public static function statusColor(string $status): string
     {
         return match ($status) {
@@ -108,7 +104,7 @@ class ReviewResource extends Resource
             ->requiresConfirmation()
             ->modalHeading('Show this review on the site?')
             ->modalDescription('It appears on the Home and Our work pages right away.')
-            ->action(fn (Review $record) => $record->update(['status' => 'approved', 'admin_note' => null]));
+            ->action(fn (Review $record) => ReviewModeration::approve($record));
     }
 
     public static function reject(): Action
@@ -128,7 +124,7 @@ class ReviewResource extends Resource
                     ->maxLength(250),
             ])
             ->modalSubmitActionLabel('Reject')
-            ->action(fn (Review $record, array $data) => $record->update(['status' => 'rejected', 'admin_note' => $data['admin_note'] ?? null]));
+            ->action(fn (Review $record, array $data) => ReviewModeration::reject($record, $data['admin_note'] ?? null));
     }
 
     public static function feature(): Action
@@ -139,7 +135,7 @@ class ReviewResource extends Resource
             ->icon(fn (Review $record) => $record->is_featured ? Heroicon::Star : Heroicon::OutlinedStar)
             ->color('gray')
             ->visible(fn (Review $record) => $record->status === 'approved')
-            ->action(fn (Review $record) => $record->update(['is_featured' => ! $record->is_featured]));
+            ->action(fn (Review $record) => ReviewModeration::toggleFeatured($record));
     }
 
     public static function form(Schema $schema): Schema
@@ -180,7 +176,7 @@ class ReviewResource extends Resource
                 Section::make('Review')
                     ->columnSpan(2)
                     ->components([
-                        TextEntry::make('rating')->formatStateUsing(fn (int $state) => static::stars($state)." {$state} out of 5"),
+                        TextEntry::make('rating')->formatStateUsing(fn (int $state) => ReviewModeration::stars($state)." {$state} out of 5"),
                         TextEntry::make('body')->label('What they wrote')->prose(),
                         ImageEntry::make('photo')
                             ->state(fn (Review $record) => $record->photo ? ImagePipeline::thumbPathFor($record->photo) : null)
@@ -224,7 +220,7 @@ class ReviewResource extends Resource
                     ->state(fn (Review $record) => $record->booking?->items->first()?->service_name)
                     ->placeholder('—'),
                 TextColumn::make('rating')
-                    ->formatStateUsing(fn (int $state) => static::stars($state))
+                    ->formatStateUsing(fn (int $state) => ReviewModeration::stars($state))
                     ->color('warning')
                     ->sortable(),
                 TextColumn::make('body')->label('Review')->limit(90)->wrap()->extraHeaderAttributes(['style' => 'min-width: 18rem']),
