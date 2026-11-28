@@ -16,6 +16,8 @@ export type NavItem = {
 export type Me = {
     user: { name: string; email: string; roleLabel: string };
     panel: { id: string; brand: string };
+    /** Two-factor sign-in is required and not set up: only the profile page works */
+    setupRequired: boolean;
     navigation: { label: string | null; items: NavItem[] }[];
     launcher: { key: string; label: string; glyph: string; state: 'current' | 'available' | 'soon'; href: string | null }[];
     branches: { options: { id: number; name: string }[]; chosen: number | null; locked: boolean; action: string };

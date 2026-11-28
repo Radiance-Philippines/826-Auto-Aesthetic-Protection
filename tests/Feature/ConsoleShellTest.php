@@ -136,7 +136,7 @@ class ConsoleShellTest extends TestCase
             ->assertJsonPath('launcher', [])
             ->assertJsonPath('impersonating', null)
             ->assertJsonPath('links.classic', url('/operations'))
-            ->assertJsonPath('links.profile', url('/operations/profile'))
+            ->assertJsonPath('links.profile', url('/console/operations/profile'))
             ->assertJsonPath('links.logout', url('/console/logout'));
 
         $items = collect($response->json('navigation'))->flatMap(fn (array $group) => $group['items'])->keyBy('key');
@@ -203,11 +203,11 @@ class ConsoleShellTest extends TestCase
     {
         SecuritySetting::instance()->update(['require_two_factor' => true]);
         $this->actingAs($this->staffUser('operations', $this->cainta));
-        $setUp = url('/operations/multi-factor-authentication/set-up');
+        $setUp = url('/console/operations/profile');
 
         $this->get('/console/operations/queue')->assertRedirect($setUp);
-        $this->getJson('/console/api/operations/me')->assertForbidden()->assertJsonPath('redirect', $setUp);
-        $this->getJson('/console/api/operations/queue')->assertForbidden()->assertJsonMissingPath('columns');
+        $this->getJson('/console/api/operations/me')->assertOk()->assertJsonPath('setupRequired', true)->assertJsonPath('navigation', []);
+        $this->getJson('/console/api/operations/queue')->assertForbidden()->assertJsonPath('redirect', $setUp)->assertJsonMissingPath('columns');
     }
 
     public function test_viewing_as_someone_shows_the_banner_and_their_access(): void

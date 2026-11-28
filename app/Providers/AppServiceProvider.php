@@ -106,6 +106,11 @@ class AppServiceProvider extends ServiceProvider
             ]);
         }
         RateLimiter::for('console-two-factor', fn (Request $request) => Limit::perMinute(5)->by('console-two-factor|'.$request->ip()));
+        // The profile's actions that check a password or a code: one budget of 5 a minute per person and per address
+        RateLimiter::for('console-profile', fn (Request $request) => [
+            Limit::perMinute(5)->by('console-profile|user|'.$request->user()?->getAuthIdentifier()),
+            Limit::perMinute(5)->by('console-profile|ip|'.$request->ip()),
+        ]);
         // The React admin's JSON: a generous per-person budget
         RateLimiter::for('console', fn (Request $request) => Limit::perMinute(240)->by('console|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));

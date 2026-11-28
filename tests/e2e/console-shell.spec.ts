@@ -63,7 +63,7 @@ test('the appearance choice is kept, and the current admin follows it', async ({
     await expect(html).not.toHaveClass(/dark/);
 
     await page.getByRole('button', { name: /^Account:/ }).click();
-    await expect(page.getByRole('menuitem', { name: 'Profile' })).toHaveAttribute('href', /\/owner\/profile$/);
+    await expect(page.getByRole('menuitem', { name: 'Profile' })).toHaveAttribute('href', /\/console\/owner\/profile$/);
     // On a phone the menu is a sheet that slides up: wait until the choice is all there
     const dark = page.getByRole('menuitemradio', { name: 'Dark' });
     await expect(dark).toBeInViewport({ ratio: 1 });

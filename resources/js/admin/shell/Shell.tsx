@@ -97,7 +97,7 @@ export default function Shell() {
                                 <BranchSelector branches={me.branches} />
                             </div>
                             <div className="ms-auto flex items-center gap-1 sm:ms-0">
-                                <NotificationBell />
+                                {!me.setupRequired && <NotificationBell />}
                                 <Launcher tiles={me.launcher} />
                                 <UserMenu me={me} />
                             </div>

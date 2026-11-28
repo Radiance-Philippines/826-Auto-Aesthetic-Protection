@@ -6,6 +6,7 @@ use App\Filament\Concerns\BlockedWhileImpersonating;
 use App\Models\SecurityEvent;
 use App\Models\SecuritySetting;
 use App\Models\User;
+use App\Support\Passkeys;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Forms\Components\TextInput;
@@ -17,11 +18,7 @@ use Filament\Support\Components\Attributes\Exposed;
 use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
-use Spatie\LaravelPasskeys\Actions\GeneratePasskeyRegisterOptionsAction;
-use Spatie\LaravelPasskeys\Actions\StorePasskeyAction;
-use Spatie\LaravelPasskeys\Exceptions\InvalidPasskey;
 use Spatie\LaravelPasskeys\Models\Passkey;
-use Spatie\LaravelPasskeys\Support\Config;
 
 /**
  * The profile (name, email, password, two-factor), plus the passkeys that
@@ -78,13 +75,7 @@ class EditProfile extends BaseEditProfile
     #[Exposed]
     public function passkeyState(): array
     {
-        $user = $this->currentUser();
-
-        return [
-            'rpId' => Config::getRelyingPartyId(),
-            'userId' => rtrim(strtr(base64_encode($user->getPassKeyId()), '+/', '-_'), '='),
-            'ids' => $this->passkeys()->map(fn (Passkey $passkey) => rtrim(strtr(base64_encode($passkey->data->publicKeyCredentialId), '+/', '-_'), '='))->all(),
-        ];
+        return Passkeys::state($this->currentUser());
     }
 
     /**
@@ -95,16 +86,11 @@ class EditProfile extends BaseEditProfile
     {
         abort_unless(SecuritySetting::passkeysAllowed(), 403);
 
-        $options = Config::getAction('generate_passkey_register_options', GeneratePasskeyRegisterOptionsAction::class)
-            ->execute($this->currentUser());
-
-        session()->put('passkey-registration-options', $options);
-
-        return $options;
+        return Passkeys::registrationOptions($this->currentUser());
     }
 
     /**
-     * Checks what the device made (challenge, origin, user verification) and keeps it.
+     * Checks what the device made and keeps it (App\Support\Passkeys).
      *
      * @return array{ok: bool, message?: string}
      */
@@ -113,25 +99,13 @@ class EditProfile extends BaseEditProfile
     {
         abort_unless(SecuritySetting::passkeysAllowed(), 403);
 
-        $options = session()->pull('passkey-registration-options');
+        $result = Passkeys::store($this->currentUser(), $credential, $name);
 
-        if (blank($options)) {
-            return ['ok' => false, 'message' => 'That took too long. Try adding the passkey again.'];
+        if (! $result['ok']) {
+            return $result;
         }
 
-        $user = $this->currentUser();
-        $name = trim(mb_substr(strip_tags($name), 0, 60)) ?: 'Passkey '.($user->passkeys()->count() + 1);
-
-        try {
-            Config::getAction('store_passkey', StorePasskeyAction::class)
-                ->execute($user, $credential, $options, request()->getHost(), ['name' => $name]);
-        } catch (InvalidPasskey) {
-            return ['ok' => false, 'message' => 'That passkey could not be verified. Try again.'];
-        }
-
-        SecurityEvent::record(SecurityEvent::PASSKEY_ADDED, $user, $name);
-
-        Notification::make()->success()->title("Passkey added: {$name}")->send();
+        Notification::make()->success()->title("Passkey added: {$result['name']}")->send();
 
         return ['ok' => true];
     }
@@ -173,8 +147,7 @@ class EditProfile extends BaseEditProfile
                     return;
                 }
 
-                $passkey->delete();
-                SecurityEvent::record(SecurityEvent::PASSKEY_REMOVED, $this->currentUser(), $passkey->name);
+                Passkeys::remove($this->currentUser(), $passkey);
 
                 Notification::make()->success()->title('Passkey removed')->send();
                 $this->js('window.dispatchEvent(new CustomEvent("passkeys-changed"))');

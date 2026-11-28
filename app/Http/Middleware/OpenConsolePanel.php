@@ -12,11 +12,13 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Opens a /console panel the way Filament opens its own: this person must
  * have it, it becomes the current panel (so links, policies and badges read
- * as they do there) and Settings → Security's two-factor rule applies.
+ * as they do there) and Settings → Security's two-factor rule applies. Until
+ * two-factor is set up, only the shell, the profile page and setting it up open.
  */
 class OpenConsolePanel
 {
-    public function __construct(private readonly RequireTwoFactorWhenOn $twoFactor) {}
+    /** The JSON that stays open while two-factor sign-in is still to set up */
+    private const SETUP_ROUTES = ['console.api.me', 'console.api.profile.show', 'console.api.profile.setup.*'];
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -38,17 +40,14 @@ class OpenConsolePanel
         // Controllers take their own parameters; they read the panel from Filament
         $request->route()->forgetParameter('panel');
 
-        $passed = false;
-        $response = $this->twoFactor->handle($request, function (Request $request) use ($next, &$passed) {
-            $passed = true;
+        $open = $request->routeIs(...self::SETUP_ROUTES) || ($request->routeIs('console.page') && $request->route('path') === 'profile');
 
-            return $next($request);
-        });
+        if (! $open && RequireTwoFactorWhenOn::due($request)) {
+            $setUp = route('console.page', ['panel' => $panel, 'path' => 'profile']);
 
-        if (! $passed && $json) {
-            return response()->json(['message' => 'Set up two-factor sign-in first.', 'redirect' => $response->headers->get('Location')], 403);
+            return $json ? response()->json(['message' => 'Set up two-factor sign-in first.', 'redirect' => $setUp], 403) : redirect($setUp);
         }
 
-        return $response;
+        return $next($request);
     }
 }
