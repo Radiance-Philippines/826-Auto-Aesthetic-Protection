@@ -25,6 +25,13 @@ class AppRelease extends Model
 
     public const STAFF = 'staff';
 
+    /** What an upload may be and how big, for the admin forms (300 MB, as config/livewire.php) */
+    public const APK_TYPES = ['application/vnd.android.package-archive', 'application/octet-stream', 'application/zip'];
+
+    public const APK_MAX_KB = 300 * 1024;
+
+    public const VERSION_PATTERN = '/^\d+\.\d+\.\d+$/';
+
     /**
      * The legacy team app (0.1.x, no X-Team-App header); the per-panel team apps are in config/team_apps.php.
      *

@@ -65,7 +65,7 @@ class AppReleaseResource extends Resource
                 TextInput::make('version')
                     ->required()
                     ->maxLength(20)
-                    ->regex('/^\d+\.\d+\.\d+$/')
+                    ->regex(AppRelease::VERSION_PATTERN)
                     ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('app', $get('app') ?? AppRelease::CUSTOMER))
                     ->helperText('Like 0.1.0: the same as the version in the app.'),
                 TextInput::make('version_code')
@@ -82,8 +82,8 @@ class AppReleaseResource extends Resource
                     ->disk(AppRelease::DISK)
                     ->directory('apks')
                     ->visibility('private')
-                    ->maxSize(300 * 1024)
-                    ->acceptedFileTypes(['application/vnd.android.package-archive', 'application/octet-stream', 'application/zip'])
+                    ->maxSize(AppRelease::APK_MAX_KB)
+                    ->acceptedFileTypes(AppRelease::APK_TYPES)
                     ->helperText('The signed release APK. Kept private; people download it from the Download page.'),
                 Textarea::make('notes')
                     ->rows(4)
