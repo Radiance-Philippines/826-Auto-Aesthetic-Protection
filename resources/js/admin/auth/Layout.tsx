@@ -34,13 +34,11 @@ export default function Layout({ children }: { children: ReactNode }) {
     );
 }
 
-/** The page's title and the line under it. `focus` moves the keyboard here when a step replaces another. */
-export function Heading({ title, children, focus }: { title: string; children?: ReactNode; focus?: boolean }) {
+/** The page's title and the line under it */
+export function Heading({ title, children }: { title: string; children?: ReactNode }) {
     return (
         <div className="mb-6">
-            <h1 ref={focus ? (node) => node?.focus() : undefined} tabIndex={focus ? -1 : undefined} className="page-title text-2xl outline-none">
-                {title}
-            </h1>
+            <h1 className="page-title text-2xl">{title}</h1>
             {children && <p className="mt-1.5 text-muted-foreground">{children}</p>}
         </div>
     );

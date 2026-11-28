@@ -24,6 +24,8 @@ const freshBudgets = () => rmSync('storage/framework/cache/data', { recursive: t
 const section = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 const dialog = (page: Page) => page.getByRole('dialog');
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
+/** A popup on its way out is inert, which axe reports as a scrolling box nobody can reach */
+const popupGone = (page: Page) => expect(page.locator('[data-slot="dialog-viewport"]')).toBeHidden();
 
 async function signIn(page: Page, address: string, origin = '') {
     freshBudgets();
@@ -113,6 +115,7 @@ test('an authenticator is set up with its QR code, signs in, and is turned off w
     const codes = page.getByRole('region', { name: 'Your recovery codes' });
     await expect(codes.getByRole('listitem')).toHaveCount(8);
     const recovery = (await codes.getByRole('listitem').first().textContent())!;
+    await popupGone(page);
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
     await codes.getByRole('button', { name: 'I saved them' }).click();
@@ -158,7 +161,7 @@ test('a passkey is added, renamed, signs in and is removed', async ({ page, base
     await dialog(page).getByLabel('Name').fill('Renamed device');
     await dialog(page).getByRole('button', { name: 'Save name' }).click();
     await expect(passkeys.getByRole('list', { name: 'Your passkeys' })).toContainText('Renamed device');
-    await expect(page.locator('[data-slot="dialog-viewport"]')).toBeHidden();
+    await popupGone(page);
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
 

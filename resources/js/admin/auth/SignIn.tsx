@@ -21,7 +21,7 @@ type Page = Extract<AuthPage, { screen: 'sign-in' }>;
 export default function SignIn({ page }: { page: Page }) {
     const [step, setStep] = useState<TwoFactorStep | null>(page.twoFactor);
     const [notice, setNotice] = useState<string | null>(null);
-    // Back from the code step: the keyboard goes to the heading, not nowhere
+    // Back from the code step: the keyboard goes to the first field, not nowhere
     const [returned, setReturned] = useState(false);
 
     const restart = (message: string | null) => {
@@ -30,10 +30,10 @@ export default function SignIn({ page }: { page: Page }) {
         setReturned(true);
     };
 
-    return step ? <CodeStep step={step} onRestart={restart} /> : <PasswordStep page={page} notice={notice} focusHeading={returned} onCodeNeeded={setStep} />;
+    return step ? <CodeStep step={step} onRestart={restart} /> : <PasswordStep page={page} notice={notice} returned={returned} onCodeNeeded={setStep} />;
 }
 
-function PasswordStep({ page, notice, focusHeading, onCodeNeeded }: { page: Page; notice: string | null; focusHeading: boolean; onCodeNeeded: (step: TwoFactorStep) => void }) {
+function PasswordStep({ page, notice, returned, onCodeNeeded }: { page: Page; notice: string | null; returned: boolean; onCodeNeeded: (step: TwoFactorStep) => void }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [remember, setRemember] = useState(false);
@@ -113,7 +113,7 @@ function PasswordStep({ page, notice, focusHeading, onCodeNeeded }: { page: Page
 
     return (
         <>
-            <Heading title="Sign in" focus={focusHeading}>
+            <Heading title="Sign in">
                 Use your team account.
             </Heading>
             {page.status && !notice && <Notice tone="success">{page.status}</Notice>}
@@ -131,7 +131,7 @@ function PasswordStep({ page, notice, focusHeading, onCodeNeeded }: { page: Page
                         setErrors({});
                     }}
                     autoComplete={page.passkeys ? 'username webauthn' : 'username'}
-                    autoFocus={!focusHeading && window.matchMedia('(pointer: fine)').matches}
+                    autoFocus={returned || window.matchMedia('(pointer: fine)').matches}
                     spellCheck={false}
                     enterKeyHint="next"
                     required
@@ -253,7 +253,7 @@ function CodeStep({ step, onRestart }: { step: TwoFactorStep; onRestart: (messag
 
     return (
         <>
-            <Heading title="Two-factor sign-in" focus>
+            <Heading title="Two-factor sign-in">
                 {way === 'app' && 'Enter the code your authenticator app shows now.'}
                 {way === 'recovery' && 'Enter one of the recovery codes you saved. Each works once.'}
                 {way === 'email' && 'Enter the code we emailed you. It works for a few minutes.'}

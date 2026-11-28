@@ -80,8 +80,12 @@ test('an authenticator code is asked for, survives a reload, and signs in', asyn
     await page.reload();
     await expect(heading(page)).toHaveText('Two-factor sign-in');
 
-    await page.getByRole('textbox', { name: 'Code' }).fill(totp() === '000000' ? '111111' : '000000');
-    await page.getByRole('button', { name: 'Verify and sign in' }).click();
+    // Typed key by key: the keyboard starts in the code box and stays there
+    await expect(page.getByRole('textbox', { name: 'Code' })).toBeFocused();
+    const wrong = totp() === '000000' ? '111111' : '000000';
+    await page.keyboard.type(wrong);
+    await expect(page.getByRole('textbox', { name: 'Code' })).toHaveValue(wrong);
+    await page.keyboard.press('Enter');
     await expect(page.getByText('That code isn’t right. Check it and try again.')).toBeVisible();
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
@@ -89,6 +93,13 @@ test('an authenticator code is asked for, survives a reload, and signs in', asyn
     await page.getByRole('button', { name: 'Use a recovery code' }).click();
     await expect(page.getByRole('textbox', { name: 'Recovery code' })).toBeFocused();
     await page.getByRole('button', { name: 'Use the authenticator app' }).click();
+    await page.getByRole('button', { name: 'Back to sign in' }).click();
+    await expect(page.getByLabel('Email')).toBeFocused();
+    await page.keyboard.type(TEAM.twoFactor);
+    await expect(page.getByLabel('Email')).toHaveValue(TEAM.twoFactor);
+    freshBudgets();
+    await password(page).fill(PASSWORD);
+    await signInButton(page).click();
 
     freshBudgets();
     await page.getByRole('textbox', { name: 'Code' }).fill(totp());
