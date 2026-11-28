@@ -53,4 +53,23 @@ class AppBookingToQueueTest extends TestCase
         $this->assertSame('confirmed', $booked['key']);
         $this->assertSame([Booking::sole()->reference], array_column($booked['cards'], 'reference'));
     }
+
+    public function test_it_is_in_the_new_admin_queue_on_its_drop_off_day(): void
+    {
+        config(['app.demo' => true]);
+        $token = $this->postJson('/api/app/sign-in/demo')->assertOk()->json('token');
+        $this->postJson('/api/bookings', $this->reservation(['date' => '2026-11-17']), ['Authorization' => "Bearer {$token}"])->assertCreated();
+
+        $this->flushHeaders();
+        $this->app['auth']->forgetGuards();
+        $booking = Booking::sole();
+        $this->actingAs($this->staffUser('operations', $booking->branch));
+        $queue = "/console/api/operations/queue?branch={$booking->branch_id}";
+
+        $this->getJson("{$queue}&date=2026-11-17")->assertOk()
+            ->assertJsonPath('columns.0.key', 'confirmed')
+            ->assertJsonPath('columns.0.cards.*.id', [$booking->id]);
+        // Today's queue does not list a unit that comes tomorrow
+        $this->getJson("{$queue}&date=2026-11-16")->assertOk()->assertJsonPath('columns.0.cards', []);
+    }
 }

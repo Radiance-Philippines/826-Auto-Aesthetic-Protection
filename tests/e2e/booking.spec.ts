@@ -310,6 +310,12 @@ test.describe('booking reservation', () => {
             await expect(card).toHaveCount(1);
             await expect(card).toContainText('Exterior detailing');
             await expect(card).toContainText(PERSON.name);
+
+            // The same unit on the new admin's queue
+            await queue.goto(`/console/operations/queue?date=${day}`);
+            const unit = queue.locator('article[data-card]').filter({ hasText: plate.replace(' ', '') });
+            await expect(unit).toHaveCount(1);
+            await expect(unit).toContainText(PERSON.name);
         } finally {
             await team.close();
         }
