@@ -209,6 +209,48 @@
     }
 }
 
+/* The sign-in pages (resources/js/admin/auth). Not in a layer: they size over web.css's own parts.
+   The brand panel: a soft teal light from one corner, the shine on the mark */
+.auth-brand {
+    background-image:
+        radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, var(--primary) 18%, transparent), transparent 70%),
+        radial-gradient(70% 60% at 100% 100%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 70%);
+}
+
+/* Set like the line under the logo; narrow enough to stay on one line at 360px */
+.auth-name {
+    font-stretch: 112%;
+    letter-spacing: 0.2em;
+}
+
+/* Six slots across the form, tall enough for a finger */
+.auth-otp {
+    width: 100%;
+
+    [data-slot='otp-input-slot'] {
+        flex: 1;
+        width: auto;
+        height: 3rem;
+        font-size: 1.25rem;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+[data-slot='otp-input'] {
+    width: 100%;
+}
+
+.auth-form {
+    transition:
+        opacity 0.3s ease-out,
+        translate 0.3s ease-out;
+
+    @starting-style {
+        opacity: 0;
+        translate: 0 0.5rem;
+    }
+}
+
 /* Popups: a short fade and lift, from where they open */
 @layer components {
     :is([data-slot='menu-content'], [data-slot='select-content'], [data-slot='combobox-content'], [data-slot='date-picker-content'], [data-slot='popover-content'], [data-slot='dialog-content'], [data-slot='alert-dialog-content']) {

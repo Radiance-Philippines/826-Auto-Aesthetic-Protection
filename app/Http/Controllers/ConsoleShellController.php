@@ -55,8 +55,7 @@ class ConsoleShellController extends Controller
         return response()->view('console', [
             'title' => (string) $panel->getBrandName(),
             'console' => [
-                // The folder the app is served from ("/demo/826"), for the router and every address
-                'base' => rtrim((string) parse_url(url('/'), PHP_URL_PATH), '/'),
+                'base' => AdminConsole::basePath(),
                 'panel' => $panel->getId(),
                 'logo' => is_file(public_path(SiteController::LOGO)) ? asset(SiteController::LOGO) : null,
             ],

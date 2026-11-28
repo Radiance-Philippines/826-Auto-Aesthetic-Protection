@@ -91,7 +91,7 @@ test('sign out ends the session for the console too', async ({ page }) => {
     await expect(page).toHaveURL(/\/login$/);
 
     await page.goto('/console/operations/queue');
-    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(page).toHaveURL(/\/console\/login$/);
 });
 
 test('viewing as someone else shows the banner with its way back', async ({ page }) => {

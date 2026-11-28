@@ -77,6 +77,22 @@ final class Panels
     }
 
     /**
+     * The page the person was after, when it is on this app; else $home. Never another site.
+     */
+    public static function intendedUrl(string $home): string
+    {
+        $intended = session()->pull('url.intended');
+
+        foreach ([url('/'), request()->root()] as $root) {
+            if (is_string($intended) && str_starts_with($intended, rtrim($root, '/').'/')) {
+                return $intended;
+            }
+        }
+
+        return $home;
+    }
+
+    /**
      * Whether this page or resource is in the panel's own set (what its
      * sidebar shows, and the only pages that open there).
      *

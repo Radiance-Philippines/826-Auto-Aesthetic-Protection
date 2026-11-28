@@ -26,13 +26,13 @@ test.beforeAll(({}, info) => {
     });
 });
 
-test('a guest signs in on the current sign-in page and lands back on the console', async ({ page }) => {
+test('a guest signs in on the console sign-in page and lands back on the queue', async ({ page }) => {
     await page.goto('/console/operations/queue');
-    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(page).toHaveURL(/\/console\/login$/);
 
     // Fill the form where the redirect left us, so the intended address is kept
-    await page.getByLabel('Email address').fill(TEAM.operations);
-    await page.locator('#form\\.password').fill('password');
+    await page.getByLabel('Email').fill(TEAM.operations);
+    await page.locator('input[name="password"]').fill('password');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     await expect(page).toHaveURL(/\/console\/operations\/queue$/);

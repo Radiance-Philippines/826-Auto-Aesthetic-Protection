@@ -98,6 +98,14 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by("{$name}|email|".sha1(Str::lower(trim((string) $request->input('email'))))),
             ]);
         }
+        // The React admin's own sign-in pages: the panels' budgets or tighter, per visitor and per email address
+        foreach (['console-sign-in' => 5, 'console-forgot' => 2, 'console-reset' => 2] as $name => $tries) {
+            RateLimiter::for($name, fn (Request $request) => [
+                Limit::perMinute($tries)->by("{$name}|ip|".$request->ip()),
+                Limit::perMinute($tries)->by("{$name}|email|".sha1(Str::lower(trim(is_string($request->input('email')) ? $request->input('email') : '')))),
+            ]);
+        }
+        RateLimiter::for('console-two-factor', fn (Request $request) => Limit::perMinute(5)->by('console-two-factor|'.$request->ip()));
         // The React admin's JSON: a generous per-person budget
         RateLimiter::for('console', fn (Request $request) => Limit::perMinute(240)->by('console|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('google', fn (Request $request) => Limit::perMinute(20)->by('google|'.$request->ip()));

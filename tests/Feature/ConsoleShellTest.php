@@ -43,8 +43,8 @@ class ConsoleShellTest extends TestCase
 
     public function test_a_guest_is_sent_to_the_sign_in_page_and_comes_back(): void
     {
-        $this->get('/console')->assertRedirect(url('/admin/login'));
-        $this->get('/console/operations/queue?date=2026-11-14')->assertRedirect(url('/admin/login'));
+        $this->get('/console')->assertRedirect(url('/console/login'));
+        $this->get('/console/operations/queue?date=2026-11-14')->assertRedirect(url('/console/login'));
 
         $this->assertSame(url('/console/operations/queue?date=2026-11-14'), session('url.intended'));
     }
@@ -137,7 +137,7 @@ class ConsoleShellTest extends TestCase
             ->assertJsonPath('impersonating', null)
             ->assertJsonPath('links.classic', url('/operations'))
             ->assertJsonPath('links.profile', url('/operations/profile'))
-            ->assertJsonPath('links.logout', url('/operations/logout'));
+            ->assertJsonPath('links.logout', url('/console/logout'));
 
         $items = collect($response->json('navigation'))->flatMap(fn (array $group) => $group['items'])->keyBy('key');
 

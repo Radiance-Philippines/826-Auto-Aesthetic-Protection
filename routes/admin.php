@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Controllers\ConsoleAuthController;
 use App\Http\Controllers\ConsoleMeController;
 use App\Http\Controllers\ConsoleShellController;
 use App\Http\Middleware\AuthenticateConsole;
+use App\Http\Middleware\AuthenticateConsoleSession;
 use App\Http\Middleware\OpenConsolePanel;
 use App\Http\Middleware\ValidateImpersonation;
 use App\Providers\Filament\PanelPages;
-use Filament\Http\Middleware\AuthenticateSession;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 | routes/web.php, so every route has the web group: session, cookies and CSRF
 | on every write.
 |
+|   /console/login ...         its own sign-in, forgot and reset pages (ConsoleAuthController)
 |   /console/{panel}/...       the React shell (resources/js/admin)
 |   /console/api/{panel}/...   its JSON: `me` here, then one file per screen in routes/admin/
 |
@@ -32,7 +34,21 @@ use Illuminate\Support\Facades\Route;
 | - Cached routes: never put two closures on one line.
 */
 Route::prefix('console')->name('console.')->group(function () {
-    $signedIn = [ValidateImpersonation::class, AuthenticateConsole::class, AuthenticateSession::class];
+    $signedIn = [ValidateImpersonation::class, AuthenticateConsole::class, AuthenticateConsoleSession::class];
+
+    // Signed out: every write has the web group's CSRF check and its own budget (AppServiceProvider)
+    Route::controller(ConsoleAuthController::class)->group(function () use ($signedIn) {
+        Route::get('login', 'showSignIn')->name('login');
+        Route::post('login', 'signIn')->middleware('throttle:console-sign-in')->name('login.store');
+        Route::post('login/two-factor', 'twoFactor')->middleware('throttle:console-two-factor')->name('two-factor');
+        Route::post('login/two-factor/email', 'sendEmailCode')->middleware('throttle:console-two-factor')->name('two-factor.email');
+        Route::delete('login/two-factor', 'cancelTwoFactor')->name('two-factor.cancel');
+        Route::get('forgot-password', 'showForgotPassword')->name('password.forgot');
+        Route::post('forgot-password', 'sendResetLink')->middleware('throttle:console-forgot')->name('password.email');
+        Route::get('reset-password', 'showResetPassword')->name('password.reset');
+        Route::post('reset-password', 'resetPassword')->middleware('throttle:console-reset')->name('password.update');
+        Route::post('logout', 'signOut')->middleware($signedIn)->name('logout');
+    });
 
     Route::get('/', [ConsoleShellController::class, 'home'])->middleware($signedIn)->name('home');
 

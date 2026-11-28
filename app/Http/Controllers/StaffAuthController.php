@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Models\UserToken;
 use App\Support\Staff\StaffViews;
 use App\Support\Staff\TeamApps;
-use Filament\Auth\MultiFactor\App\AppAuthentication;
+use App\Support\TwoFactor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,8 +21,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * The staff app's sign-in (the admin's email and password, then the
  * authenticator code when the account has one or the owner requires it),
- * its bearer tokens and the signed-in person. Codes are checked with
- * Filament's own AppAuthentication provider, recovery codes included.
+ * its bearer tokens and the signed-in person. Codes are checked by
+ * App\Support\TwoFactor, recovery codes included.
  * See routes/api.php.
  */
 class StaffAuthController extends StaffController
@@ -112,7 +112,7 @@ class StaffAuthController extends StaffController
             throw ValidationException::withMessages(['code' => 'That sign-in took too long. Enter your email and password again.']);
         }
 
-        if (! $this->codeIsValid($user, trim($data['code']))) {
+        if (! TwoFactor::passes($user, trim($data['code']))) {
             $challenge['tries']++;
             SecurityEvent::record(SecurityEvent::STAFF_APP_SIGN_IN_FAILED, $user, 'Wrong two-factor code');
 
@@ -160,18 +160,6 @@ class StaffAuthController extends StaffController
     public function latest(Request $request): JsonResponse
     {
         return app(AppController::class)->latest(TeamApps::fromRequest($request) ?? AppRelease::STAFF);
-    }
-
-    private function codeIsValid(User $user, string $code): bool
-    {
-        $provider = AppAuthentication::make();
-        $digits = preg_replace('/\s+/', '', $code);
-
-        if (preg_match('/^\d{6}$/', $digits)) {
-            return $provider->verifyCode($digits, $user->getAppAuthenticationSecret(), shouldPreventCodeReuse: true);
-        }
-
-        return filled($user->app_authentication_recovery_codes) && $provider->verifyRecoveryCode($code, $user);
     }
 
     private function challengeKey(string $challenge): string

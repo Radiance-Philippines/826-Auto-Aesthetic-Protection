@@ -20,6 +20,14 @@ use Filament\Resources\Resource;
 final class AdminConsole
 {
     /**
+     * The folder the app is served from ("/demo/826"), for the router and every address.
+     */
+    public static function basePath(): string
+    {
+        return rtrim((string) parse_url(url('/'), PHP_URL_PATH), '/');
+    }
+
+    /**
      * The pages and resources one panel shows, by slug.
      *
      * @return array<string, class-string>

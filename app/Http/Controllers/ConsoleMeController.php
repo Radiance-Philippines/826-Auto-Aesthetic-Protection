@@ -51,7 +51,7 @@ class ConsoleMeController extends Controller
                 'profile' => $panel->getProfileUrl(),
                 'classic' => url($panel->getId()),
                 'site' => url('/'),
-                'logout' => $panel->getLogoutUrl(),
+                'logout' => route('console.logout'),
             ],
             'live' => FlowLive::ticketsEnabled() ? route('live.ticket') : null,
         ])->header('Cache-Control', 'no-store');
