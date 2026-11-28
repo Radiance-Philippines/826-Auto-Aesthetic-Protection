@@ -134,11 +134,11 @@ class ConsoleReviewTest extends TestCase
             ->assertJsonPath('pending', 1)
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('canDeleteAny', false);
-        $this->getJson(self::REVIEWS.'?activeTab=approved')->assertJsonPath('data.*.displayName', ['Ana L.']);
-        $this->getJson(self::REVIEWS.'?activeTab=all&sort=rating')->assertJsonPath('data.*.rating', [2, 4]);
-        $this->getJson(self::REVIEWS.'?activeTab=all&sort=rating&desc=1')->assertJsonPath('data.*.rating', [4, 2]);
-        $this->getJson(self::REVIEWS.'?activeTab=all&search=ana')->assertJsonPath('data.*.displayName', ['Ana L.']);
-        $this->getJson(self::REVIEWS.'?activeTab=all&search=%25')->assertJsonPath('meta.total', 0);
+        $this->getJson(self::REVIEWS.'?tab=approved')->assertJsonPath('data.*.displayName', ['Ana L.']);
+        $this->getJson(self::REVIEWS.'?tab=all&sort=rating')->assertJsonPath('data.*.rating', [2, 4]);
+        $this->getJson(self::REVIEWS.'?tab=all&sort=rating&desc=1')->assertJsonPath('data.*.rating', [4, 2]);
+        $this->getJson(self::REVIEWS.'?tab=all&search=ana')->assertJsonPath('data.*.displayName', ['Ana L.']);
+        $this->getJson(self::REVIEWS.'?tab=all&search=%25')->assertJsonPath('meta.total', 0);
 
         $this->post(route('panel.branch'), ['branch' => $this->cainta->id]);
         $this->getJson(self::REVIEWS)->assertJsonPath('meta.total', 1);

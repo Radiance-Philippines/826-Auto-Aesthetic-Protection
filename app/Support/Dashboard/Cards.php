@@ -59,8 +59,8 @@ final class Cards
 
         return [
             self::stat('dropOffs', 'Drop-offs today', $dropOffs, 'Booked for today', $dropOffs ? 'primary' : 'gray', Queue::getUrl()),
-            self::stat('inShop', 'In the shop', $inShop, $ready ? "{$ready} ready" : 'Arrived or being worked on', $inShop ? 'info' : 'gray', BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
-            self::stat('needsYou', 'Needs you', $toDo, $toDo ? ($sizes ? "{$sizes} to size, plus screenshots and home visits" : 'Screenshots to check, home visits to schedule') : 'All caught up', $toDo ? 'warning' : 'gray', BookingResource::getUrl('index', ['activeTab' => 'action'])),
+            self::stat('inShop', 'In the shop', $inShop, $ready ? "{$ready} ready" : 'Arrived or being worked on', $inShop ? 'info' : 'gray', BookingResource::getUrl('index', ['tab' => 'in_shop'])),
+            self::stat('needsYou', 'Needs you', $toDo, $toDo ? ($sizes ? "{$sizes} to size, plus screenshots and home visits" : 'Screenshots to check, home visits to schedule') : 'All caught up', $toDo ? 'warning' : 'gray', BookingResource::getUrl('index', ['tab' => 'action'])),
         ];
     }
 
@@ -75,12 +75,12 @@ final class Cards
         $stat = fn (string $key, string $label, ?int $value, string $help, string $url) => $value === null ? null : self::stat($key, $label, $value, $help, $value > 0 ? 'warning' : 'gray', $url);
 
         return array_values(array_filter([
-            $stat('size', 'Units to size', $count['size'], 'Open bookings whose unit has no size or price yet.', BookingResource::getUrl('index', ['activeTab' => 'size'])),
-            $stat('screenshots', 'Screenshots to check', $count['screenshots'], 'Payment screenshots waiting to be confirmed.', BookingResource::getUrl('index', ['activeTab' => 'action'])),
-            $stat('home', 'Home-service requests', $count['home'], 'Requests nobody has scheduled yet.', BookingResource::getUrl('index', ['activeTab' => 'home'])),
+            $stat('size', 'Units to size', $count['size'], 'Open bookings whose unit has no size or price yet.', BookingResource::getUrl('index', ['tab' => 'size'])),
+            $stat('screenshots', 'Screenshots to check', $count['screenshots'], 'Payment screenshots waiting to be confirmed.', BookingResource::getUrl('index', ['tab' => 'action'])),
+            $stat('home', 'Home-service requests', $count['home'], 'Requests nobody has scheduled yet.', BookingResource::getUrl('index', ['tab' => 'home'])),
             $stat('reviews', 'Reviews to approve', $count['reviews'], 'Customer reviews waiting for a decision.', ReviewResource::getUrl('index')),
             $stat('chats', 'Unread chats', $count['chats'], 'Messenger conversations with new messages.', Inbox::getUrl()),
-            $stat('late', 'Late units', $count['late'], 'In the shop, past their ready date.', BookingResource::getUrl('index', ['activeTab' => 'in_shop'])),
+            $stat('late', 'Late units', $count['late'], 'In the shop, past their ready date.', BookingResource::getUrl('index', ['tab' => 'in_shop'])),
         ]));
     }
 
@@ -207,7 +207,7 @@ final class Cards
                     'label' => $label,
                     'value' => (string) $count,
                     'help' => '',
-                    'url' => BookingResource::getUrl('index', ['activeTab' => $label === 'Booked' ? 'upcoming' : 'in_shop']),
+                    'url' => BookingResource::getUrl('index', ['tab' => $label === 'Booked' ? 'upcoming' : 'in_shop']),
                 ])->values()->all(),
                 'wide' => true,
             ],

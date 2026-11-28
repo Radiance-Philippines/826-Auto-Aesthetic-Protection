@@ -25,7 +25,7 @@ const TABS = [
 
 export function ReviewList() {
     const { params, query, go, state, onStateChange } = useListParams();
-    const tab = TABS.some((each) => each.value === params.get('activeTab')) ? params.get('activeTab')! : 'pending';
+    const tab = TABS.some((each) => each.value === params.get('tab')) ? params.get('tab')! : 'pending';
     const { data, error, loading, reload } = useResource<Page>(`/reviews?${query}`);
     const [selected, setSelected] = useState<number[]>([]);
     const navigate = useNavigate();
@@ -94,7 +94,7 @@ export function ReviewList() {
                 value={tab}
                 onChange={(value) => {
                     setSelected([]);
-                    go({ activeTab: value === 'pending' ? null : value });
+                    go({ tab: value === 'pending' ? null : value });
                 }}
             >
                 {error && <ErrorState message={error} onRetry={reload} />}

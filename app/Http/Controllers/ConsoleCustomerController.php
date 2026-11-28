@@ -43,8 +43,8 @@ class ConsoleCustomerController extends StaffController
         $query = Guest::query()
             ->visibleTo($user)
             ->with(['branch', 'salesRep'])
-            ->withCount(['vehicles', 'bookings'])
-            ->withMax(['bookings as last_visit_on' => fn (Builder $bookings) => $bookings->whereIn('status', ['arrived', 'in_progress', 'quality_check', 'ready', 'exited'])], 'drop_off_on');
+            ->withCount(['vehicles', 'bookings' => fn (Builder $bookings) => $bookings->visibleTo($user)])
+            ->withMax(['bookings as last_visit_on' => fn (Builder $bookings) => $bookings->visibleTo($user)->whereIn('status', ['arrived', 'in_progress', 'quality_check', 'ready', 'exited'])], 'drop_off_on');
 
         $branch = (int) $request->query('branch');
         $rep = (int) $request->query('salesRep');
@@ -96,6 +96,7 @@ class ConsoleCustomerController extends StaffController
         return response()->json([
             'branches' => $this->options(BookingDesk::branchOptions($this->user())),
             'salesReps' => $this->options(CustomerDesk::salesRepOptions()),
+            'branchRequired' => $this->user()->scopedBranchIds() !== null,
             'can' => ['create' => Gate::allows('create', Guest::class)],
         ])->header('Cache-Control', 'no-store');
     }
@@ -300,12 +301,14 @@ class ConsoleCustomerController extends StaffController
             'name' => ['required', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:40', 'regex:'.ConsoleBookingController::PHONE],
             'email' => ['nullable', 'email', 'max:190'],
-            'branchId' => ['nullable', Rule::in($branches)],
+            // Without it, branch staff cannot see the customer they just added
+            'branchId' => [Rule::requiredIf($guest === null && $this->user()->scopedBranchIds() !== null), 'nullable', Rule::in($branches)],
             'salesRepId' => ['nullable', Rule::in(array_keys(CustomerDesk::salesRepOptions()))],
             'notes' => ['nullable', 'string', 'max:3000'],
         ], [
             'name.required' => 'Add the customer’s name.',
             'phone.regex' => 'Use numbers only, like 0917 123 4567.',
+            'branchId.required' => 'Pick the home branch.',
             'branchId.in' => 'Pick one of your branches.',
             'salesRepId.in' => 'Pick someone from the list.',
             'notes.max' => 'Keep the note under 3,000 characters.',

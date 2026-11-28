@@ -26,13 +26,13 @@ class ConsoleReviewController extends Controller
     private const TABS = ['pending', 'approved', 'rejected', 'all'];
 
     /**
-     * ?activeTab=&search=&sort=rating&desc=1&page=
+     * ?tab=&search=&sort=rating&desc=1&page=
      */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Review::class);
 
-        $tab = in_array($request->query('activeTab'), self::TABS, true) ? $request->query('activeTab') : 'pending';
+        $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'pending';
         $search = trim((string) $request->string('search'));
         $query = $this->scoped($request)
             ->with(['booking.items', 'branch'])

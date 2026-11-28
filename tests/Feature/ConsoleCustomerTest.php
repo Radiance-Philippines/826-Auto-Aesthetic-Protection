@@ -198,6 +198,17 @@ class ConsoleCustomerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'phone', 'email', 'branchId', 'salesRepId', 'notes']);
     }
 
+    public function test_only_branch_staff_must_pick_a_home_branch_for_a_new_customer(): void
+    {
+        $this->sales();
+        $this->getJson(self::CUSTOMERS.'/form')->assertJsonPath('branchRequired', true);
+        $this->postJson(self::CUSTOMERS, ['name' => 'Juan'])->assertUnprocessable()->assertJsonValidationErrors(['branchId']);
+
+        $this->actingAs(User::factory()->owner()->create());
+        $this->getJson(self::CUSTOMERS.'/form')->assertJsonPath('branchRequired', false);
+        $this->postJson(self::CUSTOMERS, ['name' => 'Juan'])->assertCreated();
+    }
+
     public function test_a_home_branch_that_is_not_theirs_is_kept_but_cannot_be_picked(): void
     {
         $this->booking(['guest_id' => $this->elsewhere->id, 'vehicle_id' => null]);

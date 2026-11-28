@@ -68,7 +68,7 @@ test('sales approves, features, corrects and rejects; only the owner deletes', a
     await expect(row(two)).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Approved' }).click();
-    await expect(page).toHaveURL(/activeTab=approved/);
+    await expect(page).toHaveURL(/tab=approved/);
     await row(one).getByRole('button', { name: `More actions for ${one}` }).click();
     await page.getByRole('menuitem', { name: 'Feature', exact: true }).click();
     await expect(row(one)).toContainText('Featured');
@@ -103,7 +103,7 @@ test('sales approves, features, corrects and rejects; only the owner deletes', a
     const context = await browser.newContext();
     const owner = await context.newPage();
     await adminLogin(owner, TEAM.owner);
-    await owner.goto('/console/owner/reviews?activeTab=all');
+    await owner.goto('/console/owner/reviews?tab=all');
     for (const name of [one, two]) {
         await owner.getByRole('checkbox', { name: `Select ${name}` }).press('Space');
     }

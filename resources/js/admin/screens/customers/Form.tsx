@@ -13,7 +13,7 @@ import { TextAreaField } from '../../ui/TextArea';
 import { toast } from '../../ui/toast';
 import { Alert, Section, useSubmit } from '../bookings/parts';
 
-type Options = { branches: Option[]; salesReps: Option[]; can: { create: boolean } };
+type Options = { branches: Option[]; salesReps: Option[]; branchRequired: boolean; can: { create: boolean } };
 
 type Values = { name: string; phone: string | null; email: string | null; branchId: number | null; salesRepId: number | null; notes: string | null };
 
@@ -21,11 +21,11 @@ type Editing = { id: number; name: string; values: Values; branch: Option | null
 
 const text = (value: string | number | null | undefined) => (value === null || value === undefined ? '' : String(value));
 
-function CustomerForm({ options, start, save, label, back, done, another }: { options: Options; start: Values; save: (values: Values, another: boolean) => Promise<void>; label: string; back: string; done: string; another?: boolean }) {
+function CustomerForm({ options, start, save, label, back, done, another, requireBranch }: { options: Options; start: Values; save: (values: Values, another: boolean) => Promise<void>; label: string; back: string; done: string; another?: boolean; requireBranch?: boolean }) {
     const [name, setName] = useState(start.name);
     const [phone, setPhone] = useState(text(start.phone));
     const [email, setEmail] = useState(text(start.email));
-    const [branch, setBranch] = useState(text(start.branchId) || 'none');
+    const [branch, setBranch] = useState(text(start.branchId) || (requireBranch ? '' : 'none'));
     const [rep, setRep] = useState(text(start.salesRepId));
     const [notes, setNotes] = useState(text(start.notes));
     const { errors, failed, busy, submit } = useSubmit();
@@ -34,7 +34,7 @@ function CustomerForm({ options, start, save, label, back, done, another }: { op
         event.preventDefault();
         const again = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'another';
         void submit(async () => {
-            await save({ name, phone, email, branchId: branch === 'none' ? null : Number(branch), salesRepId: rep ? Number(rep) : null, notes }, again);
+            await save({ name, phone, email, branchId: Number(branch) || null, salesRepId: rep ? Number(rep) : null, notes }, again);
             toast.success(done);
         });
     };
@@ -50,7 +50,7 @@ function CustomerForm({ options, start, save, label, back, done, another }: { op
                         <TextField label="Name" hint="Their full name." error={errors.name} value={name} onValueChange={setName} required maxLength={120} autoComplete="off" />
                         <TextField label="Mobile" hint="Like 0917 123 4567." type="tel" error={errors.phone} value={phone} onValueChange={setPhone} maxLength={40} autoComplete="off" />
                         <TextField label="Email" hint="Optional. Booking emails go here." type="email" error={errors.email} value={email} onValueChange={setEmail} maxLength={190} autoComplete="off" />
-                        <SelectField label="Home branch" hint="Where they usually go." error={errors.branchId} options={[{ value: 'none', label: 'No home branch' }, ...options.branches]} value={branch} onChange={setBranch} />
+                        <SelectField label="Home branch" hint="The branch that looks after this customer." error={errors.branchId} options={requireBranch ? options.branches : [{ value: 'none', label: 'No home branch' }, ...options.branches]} value={branch || null} onChange={setBranch} />
                         <ComboboxField label="Sales rep" hint="Optional. Type to find a name; empty the box for no one." error={errors.salesRepId} options={options.salesReps} value={rep || null} onChange={setRep} />
                     </div>
                 </Section>
@@ -95,6 +95,7 @@ export function CustomerCreate() {
                 <CustomerForm
                     key={round}
                     another
+                    requireBranch={data.branchRequired}
                     options={data}
                     // One branch: it is chosen already
                     start={{ name: '', phone: '', email: '', branchId: data.branches.length === 1 ? Number(data.branches[0].value) : null, salesRepId: null, notes: '' }}
